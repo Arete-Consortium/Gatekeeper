@@ -16,6 +16,7 @@ def get_security_category(security: float) -> str:
     else:
         return "nullsec"
 
+
 def main():
     # Load regions
     regions = {}
@@ -31,7 +32,7 @@ def main():
         for row in reader:
             constellations[int(row["constellationID"])] = {
                 "name": row["constellationName"],
-                "region_id": int(row["regionID"])
+                "region_id": int(row["regionID"]),
             }
 
     # Load solar systems
@@ -67,8 +68,8 @@ def main():
                 "category": get_security_category(security),
                 "position": {
                     "x": float(row["x"]) / 1e16,  # Normalize coordinates
-                    "y": float(row["z"]) / 1e16   # Use Z as Y for 2D map
-                }
+                    "y": float(row["z"]) / 1e16,  # Use Z as Y for 2D map
+                },
             }
 
     # Load stargate connections
@@ -97,11 +98,7 @@ def main():
                     to_name = name
 
             if from_name and to_name:
-                gates.append({
-                    "from": from_name,
-                    "to": to_name,
-                    "distance": 1
-                })
+                gates.append({"from": from_name, "to": to_name, "distance": 1})
 
     # Build output
     universe = {
@@ -110,10 +107,10 @@ def main():
             "source": "eve_sde_fuzzwork",
             "last_updated": datetime.now().strftime("%Y-%m-%d"),
             "system_count": len(systems),
-            "gate_count": len(gates)
+            "gate_count": len(gates),
         },
         "systems": systems,
-        "gates": gates
+        "gates": gates,
     }
 
     # Write output
@@ -125,6 +122,7 @@ def main():
     print(f"  - {len(systems)} solar systems")
     print(f"  - {len(gates)} stargate connections")
     print(f"  - Saved to {output_path}")
+
 
 if __name__ == "__main__":
     main()

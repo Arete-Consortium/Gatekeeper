@@ -4,7 +4,6 @@ These endpoints require ESI OAuth2 authentication and interact
 with the authenticated character's data via ESI.
 """
 
-
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -113,7 +112,7 @@ async def get_character_location(
         universe = load_universe()
         # Find system by ID
         for sys in universe.systems.values():
-            if sys.system_id == solar_system_id:
+            if sys.id == solar_system_id:
                 solar_system_name = sys.name
                 security = sys.security
                 region_name = sys.region_name
@@ -259,7 +258,7 @@ async def set_waypoint(
     try:
         universe = load_universe()
         for sys in universe.systems.values():
-            if sys.system_id == waypoint.destination_id:
+            if sys.id == waypoint.destination_id:
                 destination_name = sys.name
                 break
     except Exception:

@@ -217,7 +217,7 @@ class RedisTokenStore(TokenStore):
         key = f"{self._prefix}{character_id}"
         deleted = await self._redis.delete(key)
         await self._redis.srem(f"{self._prefix}characters", character_id)
-        return deleted > 0
+        return bool(deleted > 0)
 
     async def list_characters(self) -> list[dict[str, Any]]:
         char_ids = await self._redis.smembers(f"{self._prefix}characters")
