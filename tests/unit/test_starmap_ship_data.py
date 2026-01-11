@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 # Direct import to avoid circular dependency through planner
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 

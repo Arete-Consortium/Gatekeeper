@@ -4,14 +4,13 @@ These endpoints require ESI OAuth2 authentication and interact
 with the authenticated character's data via ESI.
 """
 
-from typing import Any
 
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ...services.data_loader import load_universe
-from .dependencies import CurrentCharacter, LocationScope, WaypointScope
+from .dependencies import LocationScope, WaypointScope
 
 router = APIRouter(prefix="/character", tags=["character"])
 

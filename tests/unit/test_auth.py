@@ -1,15 +1,14 @@
 """Unit tests for ESI OAuth2 authentication."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from backend.app.api.v1.auth import (
+    _oauth_states,
     cleanup_expired_states,
     generate_state,
     validate_state,
-    _oauth_states,
 )
 from backend.app.services.token_store import MemoryTokenStore
 

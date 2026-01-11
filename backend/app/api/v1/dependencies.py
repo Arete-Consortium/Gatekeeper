@@ -9,10 +9,9 @@ Provides dependency injection for:
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Header, Query
+from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from ...core.config import settings
 from ...services.token_store import TokenStore, get_token_store
 
 

@@ -8,7 +8,7 @@ Provides persistent storage for EVE SSO tokens with support for:
 
 import json
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 

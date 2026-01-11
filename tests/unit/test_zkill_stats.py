@@ -1,7 +1,8 @@
 """Tests for zKillboard statistics service."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.app.models.risk import ZKillStats
 from backend.app.services.zkill_stats import (

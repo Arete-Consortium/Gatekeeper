@@ -1,6 +1,5 @@
 """Integration tests for jump drive API endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 
