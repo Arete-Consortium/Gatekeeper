@@ -1,0 +1,24 @@
+# Gitleaks Configuration
+# Copy to: .gitleaks.toml (repo root)
+#
+# Customize rules or add allowlist for false positives
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.env\.example$''',
+    '''\.env\.template$''',
+    '''package-lock\.json$''',
+    '''yarn\.lock$''',
+    '''Cargo\.lock$''',
+]
+
+# Example: Allow specific test files
+# [[rules]]
+# id = "test-credentials"
+# description = "Test credentials in test files"
+# allowlist = { paths = ['''_test\.go$''', '''test_.*\.py$'''] }
