@@ -11,6 +11,7 @@ from .fatigue import router as fatigue_router
 from .intel import router as intel_router
 from .jump import router as jump_router
 from .routing import router as routing_router
+from .sharing import router as sharing_router
 from .stats import router as stats_router
 from .status import router as status_router
 from .systems import router as systems_router
@@ -28,6 +29,7 @@ router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 router.include_router(character_router)
 router.include_router(systems_router, prefix="/systems", tags=["systems"])
 router.include_router(routing_router, prefix="/route", tags=["routing"])
+router.include_router(sharing_router)
 router.include_router(jump_router, prefix="/jump", tags=["jump"])
 router.include_router(fatigue_router)
 router.include_router(bridges_router, prefix="/bridges", tags=["bridges"])
