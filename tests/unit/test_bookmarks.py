@@ -449,6 +449,108 @@ class TestUpdateBookmark:
 
         assert sample_bookmark.avoid_systems == json.dumps(["Dodixie"])
 
+    @pytest.mark.asyncio
+    async def test_update_bookmark_to_system(
+        self, mock_character, mock_universe, mock_risk_config, sample_bookmark
+    ):
+        """Test updating bookmark to_system."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_bookmark
+        mock_db.execute.return_value = mock_result
+
+        request = BookmarkUpdate(to_system="Rens")
+
+        with (
+            patch("backend.app.api.v1.bookmarks.load_universe", return_value=mock_universe),
+            patch("backend.app.api.v1.bookmarks.load_risk_config", return_value=mock_risk_config),
+        ):
+            await update_bookmark(1, request, mock_character, mock_db)
+
+        assert sample_bookmark.to_system == "Rens"
+
+    @pytest.mark.asyncio
+    async def test_update_bookmark_invalid_to_system(
+        self, mock_character, mock_universe, mock_risk_config, sample_bookmark
+    ):
+        """Test updating bookmark with invalid to_system."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_bookmark
+        mock_db.execute.return_value = mock_result
+
+        request = BookmarkUpdate(to_system="FakeSystem")
+
+        with (
+            patch("backend.app.api.v1.bookmarks.load_universe", return_value=mock_universe),
+            patch("backend.app.api.v1.bookmarks.load_risk_config", return_value=mock_risk_config),
+            pytest.raises(Exception) as exc_info,
+        ):
+            await update_bookmark(1, request, mock_character, mock_db)
+
+        assert "Unknown system: FakeSystem" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_update_bookmark_invalid_avoid_system(
+        self, mock_character, mock_universe, mock_risk_config, sample_bookmark
+    ):
+        """Test updating bookmark with invalid avoid system."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_bookmark
+        mock_db.execute.return_value = mock_result
+
+        request = BookmarkUpdate(avoid_systems=["FakeSystem"])
+
+        with (
+            patch("backend.app.api.v1.bookmarks.load_universe", return_value=mock_universe),
+            patch("backend.app.api.v1.bookmarks.load_risk_config", return_value=mock_risk_config),
+            pytest.raises(Exception) as exc_info,
+        ):
+            await update_bookmark(1, request, mock_character, mock_db)
+
+        assert "Unknown avoid system: FakeSystem" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_update_bookmark_use_bridges(
+        self, mock_character, mock_universe, mock_risk_config, sample_bookmark
+    ):
+        """Test updating bookmark use_bridges."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_bookmark
+        mock_db.execute.return_value = mock_result
+
+        request = BookmarkUpdate(use_bridges=True)
+
+        with (
+            patch("backend.app.api.v1.bookmarks.load_universe", return_value=mock_universe),
+            patch("backend.app.api.v1.bookmarks.load_risk_config", return_value=mock_risk_config),
+        ):
+            await update_bookmark(1, request, mock_character, mock_db)
+
+        assert sample_bookmark.use_bridges is True
+
+    @pytest.mark.asyncio
+    async def test_update_bookmark_notes(
+        self, mock_character, mock_universe, mock_risk_config, sample_bookmark
+    ):
+        """Test updating bookmark notes."""
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = sample_bookmark
+        mock_db.execute.return_value = mock_result
+
+        request = BookmarkUpdate(notes="Updated notes")
+
+        with (
+            patch("backend.app.api.v1.bookmarks.load_universe", return_value=mock_universe),
+            patch("backend.app.api.v1.bookmarks.load_risk_config", return_value=mock_risk_config),
+        ):
+            await update_bookmark(1, request, mock_character, mock_db)
+
+        assert sample_bookmark.notes == "Updated notes"
+
 
 class TestDeleteBookmark:
     """Tests for delete_bookmark endpoint."""
