@@ -12,8 +12,11 @@ A production-ready toolkit combining real-time map visualization, risk-aware rou
 ## Features
 
 - **Risk-Aware Routing**: Dijkstra pathfinding with safety profiles (shortest/safer/paranoid)
+- **Ship-Type Risk Profiles**: Adjusted risk for haulers, frigates, capitals, cloaky ships, and more
 - **Real-Time Kill Feed**: WebSocket streaming from zKillboard with custom filters
+- **Webhook Alerts**: Discord and Slack notifications for kills in watched systems
 - **Capital Jump Planning**: Jump range visualization and multi-leg route planning
+- **Route Bookmarks**: Save and manage frequently used routes
 - **ESI Integration**: Full EVE Swagger Interface integration with caching
 - **Production Ready**: Docker, rate limiting, structured logging, Prometheus metrics
 
@@ -59,8 +62,11 @@ EVE_Gatekeeper/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── v1/              # Versioned API endpoints
-│   │   │   │   ├── systems.py   # System information
-│   │   │   │   ├── routing.py   # Route calculation
+│   │   │   │   ├── systems.py   # System info + ship profiles
+│   │   │   │   ├── routing.py   # Route calculation + history
+│   │   │   │   ├── stats.py     # zkill statistics
+│   │   │   │   ├── bookmarks.py # Route bookmarks
+│   │   │   │   ├── webhooks.py  # Discord/Slack webhooks
 │   │   │   │   ├── websocket.py # Real-time kill feed
 │   │   │   │   └── status.py    # API status
 │   │   │   └── metrics.py       # Prometheus metrics
@@ -68,10 +74,13 @@ EVE_Gatekeeper/
 │   │   │   └── config.py        # Configuration management
 │   │   ├── db/                  # Database layer
 │   │   ├── middleware/          # Rate limiting, security
-│   │   ├── models/              # Pydantic models
+│   │   ├── models/
+│   │   │   ├── risk.py          # Risk + ship profiles
+│   │   │   └── bookmark.py      # Route bookmarks
 │   │   ├── services/
 │   │   │   ├── cache.py         # Redis/memory cache
 │   │   │   ├── risk_engine.py   # Risk calculation
+│   │   │   ├── webhooks.py      # Webhook delivery
 │   │   │   ├── routing.py       # Pathfinding
 │   │   │   ├── zkill_listener.py # zKillboard feed
 │   │   │   └── connection_manager.py
@@ -80,7 +89,7 @@ EVE_Gatekeeper/
 ├── apps/
 │   ├── desktop/                 # Electron desktop app
 │   └── mobile/                  # React Native mobile app
-├── tests/                       # pytest test suite
+├── tests/                       # pytest test suite (700+ tests)
 ├── .github/workflows/           # CI/CD pipelines
 ├── docker-compose.yml           # Production deployment
 └── docker-compose.dev.yml       # Development environment
@@ -94,12 +103,43 @@ EVE_Gatekeeper/
 |----------|--------|-------------|
 | `/api/v1/systems/` | GET | List all systems |
 | `/api/v1/systems/{name}` | GET | Get system details |
-| `/api/v1/systems/{name}/risk` | GET | Get risk report |
+| `/api/v1/systems/{name}/risk` | GET | Get risk report (optional: `?ship_profile=hauler`) |
 | `/api/v1/systems/{name}/neighbors` | GET | Get connected systems |
+| `/api/v1/systems/profiles/ships` | GET | List available ship profiles |
 | `/api/v1/route/` | GET | Calculate route (params: from, to, profile) |
+| `/api/v1/route/history` | GET | Get recent route calculations |
 | `/api/v1/route/config` | GET | Get map configuration |
 | `/api/v1/status/` | GET | Detailed API status |
 | `/api/v1/ws/killfeed` | WS | Real-time kill feed |
+
+### Stats API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/stats/system/{name}` | GET | Get zkill stats for a system |
+| `/api/v1/stats/bulk` | POST | Get stats for multiple systems |
+| `/api/v1/stats/hot` | GET | Get hottest systems by recent activity |
+
+### Bookmarks API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/bookmarks/` | GET | List saved route bookmarks |
+| `/api/v1/bookmarks/` | POST | Create a new bookmark |
+| `/api/v1/bookmarks/{id}` | GET | Get bookmark details |
+| `/api/v1/bookmarks/{id}` | PATCH | Update a bookmark |
+| `/api/v1/bookmarks/{id}` | DELETE | Delete a bookmark |
+
+### Webhooks API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/webhooks/` | GET | List webhook subscriptions |
+| `/api/v1/webhooks/` | POST | Create webhook subscription |
+| `/api/v1/webhooks/{id}` | GET | Get subscription details |
+| `/api/v1/webhooks/{id}` | PATCH | Update subscription |
+| `/api/v1/webhooks/{id}` | DELETE | Delete subscription |
+| `/api/v1/webhooks/test` | POST | Test a webhook URL |
 
 ### Jump Drive API
 
@@ -142,6 +182,23 @@ EVE_Gatekeeper/
 | `safer` | Balanced risk/distance | General travel |
 | `paranoid` | Maximum safety | Expensive cargo |
 
+## Ship Profiles
+
+Ship profiles adjust risk calculations based on ship type vulnerabilities:
+
+| Profile | Description | Risk Adjustment |
+|---------|-------------|-----------------|
+| `default` | Standard assessment | No adjustment |
+| `hauler` | Industrials, freighters | Higher highsec risk (ganks) |
+| `frigate` | Fast frigates, interceptors | Lower risk (can escape) |
+| `cruiser` | Cruisers, battlecruisers | Moderate adjustment |
+| `battleship` | Battleships | Higher risk (slow, valuable) |
+| `mining` | Mining barges, exhumers | Highest highsec risk |
+| `capital` | Capitals (carriers, dreads) | No highsec (can't enter) |
+| `cloaky` | Covert ops, blockade runners | Lowest risk (can cloak) |
+
+Use with risk endpoint: `GET /api/v1/systems/Jita/risk?ship_profile=hauler`
+
 ## WebSocket Kill Feed
 
 Connect to `/api/v1/ws/killfeed` for real-time kills:
@@ -166,6 +223,33 @@ ws.onmessage = (event) => {
   }
 };
 ```
+
+## Webhook Alerts
+
+Set up Discord or Slack notifications for kills in specific systems:
+
+```bash
+# Create a webhook subscription
+curl -X POST http://localhost:8000/api/v1/webhooks/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook_url": "https://discord.com/api/webhooks/...",
+    "webhook_type": "discord",
+    "systems": ["Jita", "Uedama", "Niarja"],
+    "min_value": 100000000,
+    "include_pods": false
+  }'
+
+# Test a webhook
+curl -X POST http://localhost:8000/api/v1/webhooks/test \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook_url": "https://discord.com/api/webhooks/...",
+    "webhook_type": "discord"
+  }'
+```
+
+Supported webhook types: `discord`, `slack`
 
 ## Environment Variables
 
