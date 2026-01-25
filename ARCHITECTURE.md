@@ -435,27 +435,41 @@ class System:
 | Layout iterations | 50-100 | 200 |
 | Concurrent API requests | Unlimited | Add rate limiting |
 
-### Future Optimizations
+### Implemented Optimizations
 
-1. **Database Integration**
-   - Replace JSON files with PostgreSQL/MongoDB
-   - Enable dynamic updates without restart
-   - Support larger universe datasets
+1. **Database Integration** ✅
+   - PostgreSQL support with SQLite fallback
+   - Configured via `POSTGRES_URL` environment variable
+   - Docker Compose includes PostgreSQL service
 
-2. **Redis Caching**
-   - Share cache between server instances
-   - TTL-based cache invalidation
-   - Pub/sub for real-time updates
+2. **Redis Caching** ✅
+   - `RedisCacheService` with async Redis support
+   - Auto-detects via `REDIS_URL`, falls back to memory cache
+   - TTL-based invalidation per endpoint type
 
-3. **Async ESI Client**
-   - Use `httpx.AsyncClient` for concurrent requests
-   - Parallel system fetching
-   - 10x faster region data loading
+3. **Async ESI Client** ✅
+   - `httpx.AsyncClient` with semaphore-based concurrency control
+   - Automatic retry with exponential backoff (tenacity)
+   - ESI error limit header tracking
 
-4. **WebSocket Support**
-   - Real-time map updates
+4. **WebSocket Support** ✅
+   - Real-time kill feed via `/api/v1/ws/killfeed`
+   - System/region subscription filters
+   - Connection manager for broadcast
+
+5. **Rate Limiting** ✅
+   - `slowapi` middleware (100 req/min per IP by default)
+   - API key support for higher limits
+   - Proper 429 responses with Retry-After headers
+
+### Future Enhancements
+
+1. **Real-time map updates via WebSocket**
    - Live risk score changes
-   - Collaborative routing
+   - Collaborative routing sessions
+
+2. **Pub/sub for cache invalidation**
+   - Redis pub/sub for multi-instance deployments
 
 ## Security Considerations
 
@@ -467,9 +481,10 @@ class System:
    - String sanitization for system names
 
 2. **Rate Limiting**
-   - Not implemented (future enhancement)
-   - Recommended: 100 requests/minute per IP
-   - Use `slowapi` or `fastapi-limiter`
+   - Implemented via `slowapi` middleware
+   - Default: 100 requests/minute per IP
+   - API key support for differentiated limits
+   - Configurable via `RATE_LIMIT_ENABLED` and `RATE_LIMIT_PER_MINUTE`
 
 3. **CORS Configuration**
    - Current: Allow all origins (development)
