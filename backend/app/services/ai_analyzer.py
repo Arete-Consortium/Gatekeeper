@@ -350,4 +350,5 @@ def get_danger_thresholds() -> DangerThresholdsResponse:
         medium=cfg.danger_thresholds.get("medium", 5),
         high=cfg.danger_thresholds.get("high", 10),
         extreme=cfg.danger_thresholds.get("extreme", 20),
+        description="Thresholds based on total kills + pods in 24h window",
     )
