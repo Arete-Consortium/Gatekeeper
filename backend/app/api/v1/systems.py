@@ -1,13 +1,32 @@
 """Systems API v1 endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
-from ...models.risk import RiskReport
+from ...models.risk import RiskReport, ShipProfile, SHIP_PROFILES
 from ...models.system import SystemSummary
 from ...services.data_loader import get_neighbors, load_universe
 from ...services.risk_engine import compute_risk_async
 
 router = APIRouter()
+
+
+class ShipProfileResponse(BaseModel):
+    """Response for ship profile."""
+
+    name: str
+    description: str
+    highsec_multiplier: float
+    lowsec_multiplier: float
+    nullsec_multiplier: float
+    kills_multiplier: float
+    pods_multiplier: float
+
+
+class ShipProfileListResponse(BaseModel):
+    """Response for listing ship profiles."""
+
+    profiles: list[ShipProfileResponse]
 
 
 @router.get(
@@ -62,18 +81,34 @@ def get_system(system_name: str) -> SystemSummary:
     summary="Get system risk report",
     description="Returns a risk assessment for the specified system based on recent activity.",
 )
-async def get_system_risk(system_name: str, live: bool = True) -> RiskReport:
+async def get_system_risk(
+    system_name: str,
+    live: bool = Query(True, description="Fetch fresh kill data from zKillboard"),
+    ship_profile: str | None = Query(
+        None,
+        description="Ship profile for adjusted risk (hauler, frigate, cruiser, battleship, mining, capital, cloaky)",
+    ),
+) -> RiskReport:
     """
     Get risk assessment for a system.
 
     Args:
         system_name: Name of the system
         live: If true, fetch fresh kill data from zKillboard (default: true)
+        ship_profile: Optional ship profile for adjusted risk calculation
     """
     universe = load_universe()
     if system_name not in universe.systems:
         raise HTTPException(status_code=404, detail=f"System '{system_name}' not found")
-    return await compute_risk_async(system_name, fetch_live=live)
+
+    if ship_profile and ship_profile not in SHIP_PROFILES:
+        available = ", ".join(SHIP_PROFILES.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown ship profile: '{ship_profile}'. Available: {available}",
+        )
+
+    return await compute_risk_async(system_name, fetch_live=live, ship_profile_name=ship_profile)
 
 
 @router.get(
@@ -96,3 +131,26 @@ def get_system_neighbors(system_name: str) -> list[str]:
         else:
             names.add(gate.from_system)
     return sorted(names)
+
+
+@router.get(
+    "/profiles/ships",
+    response_model=ShipProfileListResponse,
+    summary="List ship profiles",
+    description="Returns available ship profiles for risk assessment.",
+)
+def list_ship_profiles() -> ShipProfileListResponse:
+    """List all available ship profiles."""
+    profiles = [
+        ShipProfileResponse(
+            name=p.name,
+            description=p.description,
+            highsec_multiplier=p.highsec_multiplier,
+            lowsec_multiplier=p.lowsec_multiplier,
+            nullsec_multiplier=p.nullsec_multiplier,
+            kills_multiplier=p.kills_multiplier,
+            pods_multiplier=p.pods_multiplier,
+        )
+        for p in SHIP_PROFILES.values()
+    ]
+    return ShipProfileListResponse(profiles=profiles)

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.app.models.risk import ZKillStats
+from backend.app.models.risk import SHIP_PROFILES, ShipProfile, ZKillStats, get_ship_profile
 from backend.app.services.risk_engine import (
     compute_risk,
     compute_risk_async,
@@ -189,3 +189,141 @@ class TestComputeRouteRisksAsync:
 
             assert results["Jita"].zkill_stats is not None
             assert results["Jita"].zkill_stats.recent_kills == 100
+
+
+class TestShipProfiles:
+    """Tests for ship profile functionality."""
+
+    def test_get_default_profile(self):
+        """Test getting the default ship profile."""
+        profile = get_ship_profile("default")
+
+        assert profile.name == "default"
+        assert profile.highsec_multiplier == 1.0
+        assert profile.lowsec_multiplier == 1.0
+        assert profile.nullsec_multiplier == 1.0
+
+    def test_get_hauler_profile(self):
+        """Test getting the hauler profile."""
+        profile = get_ship_profile("hauler")
+
+        assert profile.name == "hauler"
+        assert profile.highsec_multiplier > 1.0  # Haulers more at risk in highsec
+        assert profile.kills_multiplier > 1.0
+
+    def test_get_frigate_profile(self):
+        """Test getting the frigate profile."""
+        profile = get_ship_profile("frigate")
+
+        assert profile.name == "frigate"
+        assert profile.highsec_multiplier < 1.0  # Frigates can escape
+        assert profile.lowsec_multiplier < 1.0
+        assert profile.nullsec_multiplier < 1.0
+
+    def test_get_cloaky_profile(self):
+        """Test getting the cloaky profile."""
+        profile = get_ship_profile("cloaky")
+
+        assert profile.name == "cloaky"
+        assert profile.highsec_multiplier < 0.5  # Very low risk when cloaked
+        assert profile.nullsec_multiplier < 1.0
+
+    def test_get_capital_profile(self):
+        """Test getting the capital profile."""
+        profile = get_ship_profile("capital")
+
+        assert profile.name == "capital"
+        assert profile.highsec_multiplier == 0.0  # Can't enter highsec
+
+    def test_get_unknown_profile_returns_default(self):
+        """Test that unknown profile returns default."""
+        profile = get_ship_profile("unknown_ship_type")
+
+        assert profile.name == "default"
+
+    def test_all_profiles_exist(self):
+        """Test that all expected profiles exist."""
+        expected_profiles = ["default", "hauler", "frigate", "cruiser", "battleship", "mining", "capital", "cloaky"]
+
+        for profile_name in expected_profiles:
+            assert profile_name in SHIP_PROFILES
+
+    def test_ship_profile_model(self):
+        """Test ShipProfile model creation."""
+        profile = ShipProfile(
+            name="test",
+            description="Test profile",
+            highsec_multiplier=1.5,
+            lowsec_multiplier=2.0,
+        )
+
+        assert profile.name == "test"
+        assert profile.highsec_multiplier == 1.5
+        assert profile.lowsec_multiplier == 2.0
+        assert profile.nullsec_multiplier == 1.0  # Default
+
+
+class TestComputeRiskWithShipProfile:
+    """Tests for risk computation with ship profiles."""
+
+    def test_compute_risk_with_hauler_profile(self):
+        """Test that hauler profile increases risk in highsec."""
+        stats = ZKillStats(recent_kills=10, recent_pods=5)
+
+        report_default = compute_risk("Jita", stats=stats)
+        report_hauler = compute_risk("Jita", stats=stats, ship_profile_name="hauler")
+
+        # Hauler should have higher risk in highsec
+        assert report_hauler.score > report_default.score
+        assert report_hauler.ship_profile == "hauler"
+
+    def test_compute_risk_with_frigate_profile(self):
+        """Test that frigate profile decreases risk."""
+        stats = ZKillStats(recent_kills=10, recent_pods=5)
+
+        report_default = compute_risk("Jita", stats=stats)
+        report_frigate = compute_risk("Jita", stats=stats, ship_profile_name="frigate")
+
+        # Frigate should have lower risk
+        assert report_frigate.score < report_default.score
+        assert report_frigate.ship_profile == "frigate"
+
+    def test_compute_risk_with_cloaky_profile(self):
+        """Test that cloaky profile significantly decreases risk."""
+        stats = ZKillStats(recent_kills=50, recent_pods=10)
+
+        report_default = compute_risk("Tama", stats=stats)
+        report_cloaky = compute_risk("Tama", stats=stats, ship_profile_name="cloaky")
+
+        # Cloaky should have much lower risk
+        assert report_cloaky.score < report_default.score
+        assert report_cloaky.ship_profile == "cloaky"
+
+    def test_compute_risk_profile_in_report(self):
+        """Test that ship profile name is included in report."""
+        report = compute_risk("Jita", ship_profile_name="battleship")
+
+        assert report.ship_profile == "battleship"
+
+    def test_compute_risk_no_profile_in_report(self):
+        """Test that report has no ship_profile when not specified."""
+        report = compute_risk("Jita")
+
+        assert report.ship_profile is None
+
+    @pytest.mark.asyncio
+    async def test_compute_risk_async_with_profile(self):
+        """Test async risk computation with ship profile."""
+        report = await compute_risk_async("Jita", fetch_live=False, ship_profile_name="mining")
+
+        assert report.ship_profile == "mining"
+
+    @pytest.mark.asyncio
+    async def test_compute_route_risks_with_profile(self):
+        """Test bulk risk computation with ship profile."""
+        results = await compute_route_risks_async(
+            ["Jita", "Perimeter"], fetch_live=False, ship_profile_name="hauler"
+        )
+
+        assert results["Jita"].ship_profile == "hauler"
+        assert results["Perimeter"].ship_profile == "hauler"
