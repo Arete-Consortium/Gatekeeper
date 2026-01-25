@@ -61,6 +61,41 @@ class TestRouteEndpoint:
         response = test_client.get("/api/v1/route/?from=Jita&to=Perimeter&profile=invalid")
         assert response.status_code == 400
 
+    def test_calculate_route_with_avoid_single(self, test_client):
+        """Test route with single system to avoid."""
+        response = test_client.get("/api/v1/route/?from=Jita&to=Urlen&profile=shortest&avoid=Perimeter")
+        assert response.status_code == 200
+
+        data = response.json()
+        # Perimeter should not be in path
+        path_names = [hop["system_name"] for hop in data["path"]]
+        assert "Perimeter" not in path_names
+
+    def test_calculate_route_with_avoid_comma_separated(self, test_client):
+        """Test route with comma-separated avoid list."""
+        response = test_client.get("/api/v1/route/?from=Jita&to=Urlen&profile=shortest&avoid=Perimeter,Niyabainen")
+        assert response.status_code == 200
+        data = response.json()
+        path_names = [hop["system_name"] for hop in data["path"]]
+        assert "Perimeter" not in path_names
+
+    def test_calculate_route_with_bridges_disabled(self, test_client):
+        """Test route with bridges disabled (default)."""
+        response = test_client.get("/api/v1/route/?from=Jita&to=Perimeter&profile=shortest&bridges=false")
+        assert response.status_code == 200
+
+    def test_calculate_route_with_bridges_enabled(self, test_client):
+        """Test route with bridges enabled."""
+        response = test_client.get("/api/v1/route/?from=Jita&to=Perimeter&profile=shortest&bridges=true")
+        assert response.status_code == 200
+
+    def test_route_same_system(self, test_client):
+        """Test route from system to itself."""
+        response = test_client.get("/api/v1/route/?from=Jita&to=Jita&profile=shortest")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_jumps"] == 0
+
 
 class TestMapConfigEndpoint:
     """Tests for /api/v1/route/config endpoint."""

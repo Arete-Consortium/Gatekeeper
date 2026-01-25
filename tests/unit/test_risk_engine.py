@@ -1,9 +1,16 @@
 """Unit tests for risk engine."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from backend.app.models.risk import ZKillStats
-from backend.app.services.risk_engine import compute_risk, risk_to_color
+from backend.app.services.risk_engine import (
+    compute_risk,
+    compute_risk_async,
+    compute_route_risks_async,
+    risk_to_color,
+)
 
 
 class TestComputeRisk:
@@ -90,3 +97,95 @@ class TestRiskToColor:
         """Test color for out-of-range score returns default."""
         color = risk_to_color(150)
         assert color == "#FFFFFF"  # Default white
+
+
+class TestComputeRiskAsync:
+    """Tests for async risk computation."""
+
+    @pytest.mark.asyncio
+    async def test_compute_risk_async_no_fetch(self):
+        """Test async risk computation without fetching live data."""
+        report = await compute_risk_async("Jita", fetch_live=False)
+
+        assert report.system_name == "Jita"
+        assert report.category == "highsec"
+        assert 0 <= report.score <= 100
+
+    @pytest.mark.asyncio
+    async def test_compute_risk_async_unknown_system(self):
+        """Test async risk computation for unknown system."""
+        with pytest.raises(ValueError, match="Unknown system"):
+            await compute_risk_async("FakeSystem", fetch_live=False)
+
+    @pytest.mark.asyncio
+    async def test_compute_risk_async_with_mock_fetch(self):
+        """Test async risk computation with mocked live data."""
+        mock_stats = ZKillStats(recent_kills=100, recent_pods=50)
+
+        with patch(
+            "backend.app.services.zkill_stats.fetch_system_kills",
+            new_callable=AsyncMock,
+            return_value=mock_stats,
+        ):
+            report = await compute_risk_async("Jita", fetch_live=True)
+
+            assert report.system_name == "Jita"
+            # With kills, zkill_stats should be populated
+            assert report.zkill_stats is not None
+            assert report.zkill_stats.recent_kills == 100
+
+
+class TestComputeRouteRisksAsync:
+    """Tests for bulk route risk computation."""
+
+    @pytest.mark.asyncio
+    async def test_compute_route_risks_no_fetch(self):
+        """Test bulk risk computation without fetching live data."""
+        systems = ["Jita", "Perimeter", "Urlen"]
+
+        results = await compute_route_risks_async(systems, fetch_live=False)
+
+        assert len(results) == 3
+        assert "Jita" in results
+        assert "Perimeter" in results
+        assert "Urlen" in results
+        assert all(0 <= r.score <= 100 for r in results.values())
+
+    @pytest.mark.asyncio
+    async def test_compute_route_risks_with_unknown_system(self):
+        """Test bulk computation ignores unknown systems."""
+        systems = ["Jita", "FakeSystem", "Perimeter"]
+
+        results = await compute_route_risks_async(systems, fetch_live=False)
+
+        # Only known systems should be in results
+        assert "Jita" in results
+        assert "Perimeter" in results
+        assert "FakeSystem" not in results
+
+    @pytest.mark.asyncio
+    async def test_compute_route_risks_empty_list(self):
+        """Test bulk computation with empty list."""
+        results = await compute_route_risks_async([], fetch_live=False)
+
+        assert results == {}
+
+    @pytest.mark.asyncio
+    async def test_compute_route_risks_with_mock_fetch(self):
+        """Test bulk computation with mocked live data."""
+        mock_stats = {
+            30000142: ZKillStats(recent_kills=100, recent_pods=10),  # Jita
+            30000144: ZKillStats(recent_kills=5, recent_pods=1),  # Perimeter
+        }
+
+        with patch(
+            "backend.app.services.zkill_stats.fetch_bulk_system_stats",
+            new_callable=AsyncMock,
+            return_value=mock_stats,
+        ):
+            results = await compute_route_risks_async(
+                ["Jita", "Perimeter"], fetch_live=True
+            )
+
+            assert results["Jita"].zkill_stats is not None
+            assert results["Jita"].zkill_stats.recent_kills == 100
