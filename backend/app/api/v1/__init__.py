@@ -7,6 +7,7 @@ from .auth import router as auth_router
 from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
+from .intel import router as intel_router
 from .jump import router as jump_router
 from .routing import router as routing_router
 from .stats import router as stats_router
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/api/v1")
 router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(bookmarks_router, prefix="/bookmarks", tags=["bookmarks"])
+router.include_router(intel_router)
 router.include_router(stats_router, prefix="/stats", tags=["stats"])
 router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 router.include_router(character_router)
