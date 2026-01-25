@@ -7,6 +7,7 @@ from .auth import router as auth_router
 from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
+from .fatigue import router as fatigue_router
 from .intel import router as intel_router
 from .jump import router as jump_router
 from .routing import router as routing_router
@@ -28,6 +29,7 @@ router.include_router(character_router)
 router.include_router(systems_router, prefix="/systems", tags=["systems"])
 router.include_router(routing_router, prefix="/route", tags=["routing"])
 router.include_router(jump_router, prefix="/jump", tags=["jump"])
+router.include_router(fatigue_router)
 router.include_router(bridges_router, prefix="/bridges", tags=["bridges"])
 router.include_router(status_router, prefix="/status", tags=["status"])
 router.include_router(websocket_router, tags=["websocket"])
