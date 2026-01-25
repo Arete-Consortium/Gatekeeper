@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .ai import router as ai_router
 from .auth import router as auth_router
+from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
 from .jump import router as jump_router
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1")
 
 router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(auth_router, tags=["auth"])
+router.include_router(bookmarks_router, prefix="/bookmarks", tags=["bookmarks"])
 router.include_router(character_router)
 router.include_router(systems_router, prefix="/systems", tags=["systems"])
 router.include_router(routing_router, prefix="/route", tags=["routing"])

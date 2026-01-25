@@ -140,3 +140,36 @@ class CacheEntry(Base):
 
     def __repr__(self) -> str:
         return f"<CacheEntry(key={self.key})>"
+
+
+class RouteBookmark(Base):
+    """Saved route bookmarks for quick access."""
+
+    __tablename__ = "route_bookmarks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    character_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    from_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    to_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    profile: Mapped[str] = mapped_column(String(50), default="shortest")
+    avoid_systems: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
+    use_bridges: Mapped[bool] = mapped_column(default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    __table_args__ = (
+        Index("ix_route_bookmarks_character", "character_id"),
+        Index("ix_route_bookmarks_from_to", "from_system", "to_system"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<RouteBookmark(id={self.id}, name={self.name})>"
