@@ -2,6 +2,14 @@
 
 import pytest
 
+from backend.app.api.v1.routing import (
+    RouteHistoryEntry,
+    RouteHistoryResponse,
+    _add_to_history,
+    clear_route_history,
+    get_history,
+    get_route_history,
+)
 from backend.app.services.routing import _build_graph, _dijkstra, compute_route
 
 
@@ -119,3 +127,120 @@ class TestComputeRoute:
         for hop in response.path:
             assert hop.cumulative_cost >= prev_cost
             prev_cost = hop.cumulative_cost
+
+
+class TestRouteHistory:
+    """Tests for route history feature."""
+
+    def setup_method(self):
+        """Clear history before each test."""
+        clear_route_history()
+
+    def test_add_to_history(self):
+        """Test adding a route to history."""
+        route = compute_route("Jita", "Perimeter", "shortest")
+        _add_to_history(route)
+
+        history = get_route_history()
+        assert len(history) == 1
+        assert history[0].from_system == "Jita"
+        assert history[0].to_system == "Perimeter"
+
+    def test_history_maintains_order(self):
+        """Test that newer routes are first."""
+        route1 = compute_route("Jita", "Perimeter", "shortest")
+        route2 = compute_route("Jita", "Urlen", "shortest")
+
+        _add_to_history(route1)
+        _add_to_history(route2)
+
+        history = get_route_history()
+        assert len(history) == 2
+        # Most recent first
+        assert history[0].to_system == "Urlen"
+        assert history[1].to_system == "Perimeter"
+
+    def test_history_entry_fields(self):
+        """Test that history entry has all fields."""
+        route = compute_route("Jita", "Urlen", "safer")
+        _add_to_history(route)
+
+        entry = get_route_history()[0]
+        assert entry.from_system == "Jita"
+        assert entry.to_system == "Urlen"
+        assert entry.profile == "safer"
+        assert entry.total_jumps == route.total_jumps
+        assert entry.calculated_at is not None
+
+    def test_get_history_endpoint(self):
+        """Test get_history endpoint."""
+        route = compute_route("Jita", "Perimeter", "shortest")
+        _add_to_history(route)
+
+        response = get_history(limit=10)
+        assert response.total == 1
+        assert len(response.routes) == 1
+        assert response.routes[0].from_system == "Jita"
+
+    def test_get_history_respects_limit(self):
+        """Test that limit parameter works."""
+        for _ in range(5):
+            route = compute_route("Jita", "Perimeter", "shortest")
+            _add_to_history(route)
+
+        response = get_history(limit=3)
+        assert response.total == 5
+        assert len(response.routes) == 3
+
+    def test_clear_history(self):
+        """Test clearing history."""
+        route = compute_route("Jita", "Perimeter", "shortest")
+        _add_to_history(route)
+
+        assert len(get_route_history()) == 1
+
+        clear_route_history()
+
+        assert len(get_route_history()) == 0
+
+    def test_history_stores_bridges_used(self):
+        """Test that bridges_used is stored."""
+        route = compute_route("Jita", "Perimeter", "shortest")
+        _add_to_history(route)
+
+        entry = get_route_history()[0]
+        assert entry.bridges_used == route.bridges_used
+
+
+class TestRouteHistoryModels:
+    """Tests for route history Pydantic models."""
+
+    def test_history_entry_model(self):
+        """Test RouteHistoryEntry model."""
+        entry = RouteHistoryEntry(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            total_jumps=15,
+            bridges_used=2,
+        )
+
+        assert entry.from_system == "Jita"
+        assert entry.to_system == "Amarr"
+        assert entry.total_jumps == 15
+        assert entry.bridges_used == 2
+        assert entry.calculated_at is not None
+
+    def test_history_response_model(self):
+        """Test RouteHistoryResponse model."""
+        entry = RouteHistoryEntry(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            total_jumps=15,
+        )
+
+        response = RouteHistoryResponse(total=1, routes=[entry])
+
+        assert response.total == 1
+        assert len(response.routes) == 1

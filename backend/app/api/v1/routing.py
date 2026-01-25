@@ -1,8 +1,11 @@
 """Routing API v1 endpoints."""
 
+from collections import deque
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from ...models.route import (
     BulkRouteRequest,
@@ -18,6 +21,50 @@ from ...services.risk_engine import compute_risk, risk_to_color
 from ...services.routing import compute_route
 
 router = APIRouter()
+
+# Route history storage (in-memory, last 100 routes)
+MAX_HISTORY_SIZE = 100
+_route_history: deque["RouteHistoryEntry"] = deque(maxlen=MAX_HISTORY_SIZE)
+
+
+class RouteHistoryEntry(BaseModel):
+    """Entry in route history."""
+
+    from_system: str
+    to_system: str
+    profile: str
+    total_jumps: int
+    bridges_used: int = 0
+    calculated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class RouteHistoryResponse(BaseModel):
+    """Response for route history."""
+
+    total: int
+    routes: list[RouteHistoryEntry]
+
+
+def _add_to_history(route: RouteResponse) -> None:
+    """Add a route to history."""
+    entry = RouteHistoryEntry(
+        from_system=route.from_system,
+        to_system=route.to_system,
+        profile=route.profile,
+        total_jumps=route.total_jumps,
+        bridges_used=route.bridges_used,
+    )
+    _route_history.appendleft(entry)
+
+
+def get_route_history() -> list[RouteHistoryEntry]:
+    """Get current route history (for testing)."""
+    return list(_route_history)
+
+
+def clear_route_history() -> None:
+    """Clear route history (for testing)."""
+    _route_history.clear()
 
 
 @router.get(
@@ -70,9 +117,25 @@ def calculate_route(
             avoid_set.update(name.strip() for name in item.split(",") if name.strip())
 
     try:
-        return compute_route(from_system, to_system, profile, avoid=avoid_set, use_bridges=bridges)
+        route = compute_route(from_system, to_system, profile, avoid=avoid_set, use_bridges=bridges)
+        _add_to_history(route)
+        return route
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
+
+
+@router.get(
+    "/history",
+    response_model=RouteHistoryResponse,
+    summary="Get recent route history",
+    description="Returns the most recently calculated routes (up to 100).",
+)
+def get_history(
+    limit: int = Query(20, ge=1, le=100, description="Maximum routes to return"),
+) -> RouteHistoryResponse:
+    """Get recently calculated routes."""
+    history = list(_route_history)[:limit]
+    return RouteHistoryResponse(total=len(_route_history), routes=history)
 
 
 @router.get(
