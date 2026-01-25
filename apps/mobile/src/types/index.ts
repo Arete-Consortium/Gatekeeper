@@ -137,3 +137,53 @@ export interface AppSettings {
   showSecurityStatus: boolean;
   darkMode: boolean;
 }
+
+// Ship profile for risk adjustment
+export interface ShipProfile {
+  name: string;
+  description: string;
+  highsec_multiplier: number;
+  lowsec_multiplier: number;
+  nullsec_multiplier: number;
+  kills_multiplier: number;
+  pods_multiplier: number;
+}
+
+// Ship profiles list response
+export interface ShipProfileListResponse {
+  profiles: ShipProfile[];
+}
+
+// Route history entry
+export interface RouteHistoryEntry {
+  from_system: string;
+  to_system: string;
+  profile: string;
+  jumps: number;
+  timestamp: string;
+}
+
+// Route history response
+export interface RouteHistoryResponse {
+  history: RouteHistoryEntry[];
+  total: number;
+}
+
+// System stats from zkill
+export interface SystemStats {
+  system_id: number;
+  system_name: string;
+  recent_kills: number;
+  recent_pods: number;
+  hours: number;
+}
+
+// Hot system entry
+export interface HotSystem {
+  system_id: number;
+  system_name: string;
+  security: number;
+  category: string;
+  recent_kills: number;
+  recent_pods: number;
+}

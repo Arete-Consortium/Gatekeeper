@@ -11,6 +11,11 @@ import {
   System,
   Gate,
   HealthResponse,
+  ShipProfile,
+  ShipProfileListResponse,
+  RouteHistoryResponse,
+  SystemStats,
+  HotSystem,
 } from '../types';
 
 class GatekeeperAPIService {
@@ -87,9 +92,27 @@ class GatekeeperAPIService {
   /**
    * Get risk report for a system
    */
-  async getSystemRisk(systemName: string): Promise<RiskReport> {
-    const response = await this.client.get(`/systems/${encodeURIComponent(systemName)}/risk`);
+  async getSystemRisk(
+    systemName: string,
+    shipProfile?: string
+  ): Promise<RiskReport> {
+    const params: Record<string, string> = {};
+    if (shipProfile) {
+      params.ship_profile = shipProfile;
+    }
+    const response = await this.client.get(
+      `/systems/${encodeURIComponent(systemName)}/risk`,
+      { params }
+    );
     return response.data;
+  }
+
+  /**
+   * Get available ship profiles
+   */
+  async getShipProfiles(): Promise<ShipProfile[]> {
+    const response = await this.client.get<ShipProfileListResponse>('/systems/profiles/ships');
+    return response.data.profiles;
   }
 
   /**
@@ -126,6 +149,53 @@ class GatekeeperAPIService {
   async getMapConfig(): Promise<MapConfig> {
     const response = await this.client.get('/map/config');
     return response.data;
+  }
+
+  /**
+   * Get route calculation history
+   */
+  async getRouteHistory(limit: number = 10): Promise<RouteHistoryResponse> {
+    const response = await this.client.get('/route/history', {
+      params: { limit },
+    });
+    return response.data;
+  }
+
+  // ==================== Stats ====================
+
+  /**
+   * Get zkill stats for a system
+   */
+  async getSystemStats(systemName: string, hours: number = 24): Promise<SystemStats> {
+    const response = await this.client.get(
+      `/stats/system/${encodeURIComponent(systemName)}`,
+      { params: { hours } }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get zkill stats for multiple systems
+   */
+  async getBulkStats(
+    systemNames: string[],
+    hours: number = 24
+  ): Promise<Record<string, SystemStats>> {
+    const response = await this.client.post('/stats/bulk', {
+      systems: systemNames,
+      hours,
+    });
+    return response.data.stats;
+  }
+
+  /**
+   * Get hottest systems by recent activity
+   */
+  async getHotSystems(hours: number = 24, limit: number = 10): Promise<HotSystem[]> {
+    const response = await this.client.get('/stats/hot', {
+      params: { hours, limit },
+    });
+    return response.data.systems;
   }
 
   // ==================== Batch Operations ====================

@@ -19,8 +19,10 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { GatekeeperAPI } from '../services/GatekeeperAPI';
 import { RouteResponse } from '../types';
 import { RouteList } from '../components/RouteList';
-import { THEME, ROUTE_PROFILES } from '../config';
+import { THEME, ROUTE_PROFILES, SHIP_PROFILE_DISPLAY } from '../config';
 import { RootStackParamList } from '../navigation/types';
+
+type ShipProfileKey = keyof typeof SHIP_PROFILE_DISPLAY;
 
 type RouteScreenRouteProp = RouteProp<RootStackParamList, 'Route'>;
 
@@ -34,6 +36,8 @@ export const RouteScreen: React.FC = () => {
   const [profile, setProfile] = useState<ProfileKey>(
     (route.params?.profile as ProfileKey) || 'safer'
   );
+  const [shipProfile, setShipProfile] = useState<ShipProfileKey>('default');
+  const [showShipProfiles, setShowShipProfiles] = useState(false);
   const [loading, setLoading] = useState(false);
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +150,52 @@ export const RouteScreen: React.FC = () => {
           <Text style={styles.profileDescription}>
             {ROUTE_PROFILES[profile].description}
           </Text>
+        </View>
+
+        <View style={styles.profileSection}>
+          <TouchableOpacity
+            style={styles.shipProfileHeader}
+            onPress={() => setShowShipProfiles(!showShipProfiles)}
+          >
+            <Text style={styles.sectionTitle}>Ship Profile</Text>
+            <View style={styles.shipProfileBadge}>
+              <Text style={[styles.shipProfileBadgeText, { color: SHIP_PROFILE_DISPLAY[shipProfile].color }]}>
+                {SHIP_PROFILE_DISPLAY[shipProfile].label}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          {showShipProfiles && (
+            <View style={styles.shipProfileGrid}>
+              {(Object.entries(SHIP_PROFILE_DISPLAY) as [ShipProfileKey, typeof SHIP_PROFILE_DISPLAY.default][]).map(
+                ([key, config]) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.shipProfileCard,
+                      shipProfile === key && {
+                        borderColor: config.color,
+                        backgroundColor: `${config.color}20`,
+                      },
+                    ]}
+                    onPress={() => {
+                      setShipProfile(key);
+                      setShowShipProfiles(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.shipProfileName,
+                        { color: shipProfile === key ? config.color : THEME.colors.text },
+                      ]}
+                    >
+                      {config.label}
+                    </Text>
+                    <Text style={styles.shipProfileDesc}>{config.description}</Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.actionSection}>
@@ -304,6 +354,44 @@ const styles = StyleSheet.create({
   },
   resultSection: {
     flex: 1,
+  },
+  shipProfileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: THEME.spacing.sm,
+  },
+  shipProfileBadge: {
+    paddingHorizontal: THEME.spacing.sm,
+    paddingVertical: THEME.spacing.xs,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.sm,
+  },
+  shipProfileBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shipProfileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: THEME.spacing.sm,
+  },
+  shipProfileCard: {
+    width: '48%',
+    padding: THEME.spacing.sm,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  shipProfileName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shipProfileDesc: {
+    fontSize: 10,
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
   },
 });
 

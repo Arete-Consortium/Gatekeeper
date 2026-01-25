@@ -98,6 +98,50 @@ export const ROUTE_PROFILES = {
   },
 };
 
+// Ship profiles with display info (synced from backend)
+export const SHIP_PROFILE_DISPLAY = {
+  default: {
+    label: 'Default',
+    description: 'Standard risk assessment',
+    color: THEME.colors.textSecondary,
+  },
+  hauler: {
+    label: 'Hauler',
+    description: 'Industrial ships - high gank risk',
+    color: THEME.colors.riskOrange,
+  },
+  frigate: {
+    label: 'Frigate',
+    description: 'Fast frigates - can escape danger',
+    color: THEME.colors.riskGreen,
+  },
+  cruiser: {
+    label: 'Cruiser',
+    description: 'Cruisers and battlecruisers',
+    color: THEME.colors.riskYellow,
+  },
+  battleship: {
+    label: 'Battleship',
+    description: 'Slow, high value targets',
+    color: THEME.colors.riskOrange,
+  },
+  mining: {
+    label: 'Mining',
+    description: 'Mining barges - gank magnets',
+    color: THEME.colors.riskRed,
+  },
+  capital: {
+    label: 'Capital',
+    description: 'Capital ships - no highsec',
+    color: THEME.colors.riskRed,
+  },
+  cloaky: {
+    label: 'Cloaky',
+    description: 'Covert ops - very low risk',
+    color: THEME.colors.riskGreen,
+  },
+};
+
 // Validate required config
 export const validateConfig = (): { valid: boolean; errors: string[] } => {
   const errors: string[] = [];
