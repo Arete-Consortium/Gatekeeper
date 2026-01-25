@@ -36,5 +36,10 @@
     "paranoid": {
       "risk_factor": 2.0
     }
+  },
+  "danger_thresholds": {
+    "medium": 5,
+    "high": 10,
+    "extreme": 20
   }
 }

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from .ai import router as ai_router
 from .auth import router as auth_router
 from .bridges import router as bridges_router
 from .character import router as character_router
@@ -13,6 +14,7 @@ from .websocket import router as websocket_router
 
 router = APIRouter(prefix="/api/v1")
 
+router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(character_router)
 router.include_router(systems_router, prefix="/systems", tags=["systems"])

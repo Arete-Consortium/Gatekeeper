@@ -1,4 +1,15 @@
+from enum import Enum
+
 from pydantic import BaseModel
+
+
+class DangerLevel(str, Enum):
+    """Danger classification levels for systems based on kill activity."""
+
+    low = "low"
+    medium = "medium"
+    high = "high"
+    extreme = "extreme"
 
 
 class RiskConfig(BaseModel):
@@ -8,6 +19,7 @@ class RiskConfig(BaseModel):
     risk_colors: dict[str, str]
     map_layers: dict[str, bool]
     routing_profiles: dict[str, dict[str, float]]
+    danger_thresholds: dict[str, int] = {"medium": 5, "high": 10, "extreme": 20}
 
 
 class ZKillStats(BaseModel):
@@ -29,3 +41,4 @@ class RiskReport(BaseModel):
     score: float
     breakdown: RiskBreakdown
     zkill_stats: ZKillStats | None = None
+    danger_level: DangerLevel | None = None
