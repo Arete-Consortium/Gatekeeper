@@ -13,13 +13,20 @@ from backend.app.api.v1.character import (
     CharacterShip,
     WaypointRequest,
     WaypointResponse,
+    RouteFromHereRequest,
+    RouteFromHereResponse,
+    SetRouteWaypointsRequest,
+    SetRouteWaypointsResponse,
     get_character_location,
     get_character_online,
     get_character_ship,
     set_waypoint,
     set_route_destination,
+    get_route_from_current_location,
+    set_route_waypoints,
 )
 from backend.app.api.v1.dependencies import AuthenticatedCharacter
+from backend.app.models.route import RouteResponse, RouteHop
 
 
 @pytest.fixture
@@ -491,3 +498,323 @@ class TestSetRouteDestination:
                 result = await set_route_destination(30000142, mock_character)
 
         assert result.destination_name == "Jita"
+
+
+class TestRouteFromHereModels:
+    """Tests for route from here request/response models."""
+
+    def test_route_from_here_request_defaults(self):
+        """Test RouteFromHereRequest with defaults."""
+        req = RouteFromHereRequest(destination="Amarr")
+        assert req.destination == "Amarr"
+        assert req.profile == "safer"
+        assert req.avoid == []
+        assert req.use_bridges is False
+
+    def test_route_from_here_request_custom(self):
+        """Test RouteFromHereRequest with custom values."""
+        req = RouteFromHereRequest(
+            destination="Amarr",
+            profile="paranoid",
+            avoid=["Rancer", "Uedama"],
+            use_bridges=True,
+        )
+        assert req.profile == "paranoid"
+        assert "Rancer" in req.avoid
+        assert req.use_bridges is True
+
+    def test_set_waypoints_request_model(self):
+        """Test SetRouteWaypointsRequest model."""
+        req = SetRouteWaypointsRequest(systems=["Jita", "Perimeter", "Urlen"])
+        assert len(req.systems) == 3
+        assert req.clear_existing is True
+
+    def test_set_waypoints_request_no_clear(self):
+        """Test SetRouteWaypointsRequest without clearing."""
+        req = SetRouteWaypointsRequest(
+            systems=["Amarr"],
+            clear_existing=False,
+        )
+        assert req.clear_existing is False
+
+    def test_set_waypoints_response_model(self):
+        """Test SetRouteWaypointsResponse model."""
+        resp = SetRouteWaypointsResponse(
+            success=True,
+            waypoints_set=3,
+            systems=["Jita", "Perimeter", "Urlen"],
+        )
+        assert resp.success is True
+        assert resp.waypoints_set == 3
+
+
+class TestGetRouteFromCurrentLocation:
+    """Tests for get_route_from_current_location endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_route_from_here_success(self, mock_character):
+        """Test successful route from current location."""
+        # Mock ESI response for location
+        mock_location_response = MagicMock(spec=Response)
+        mock_location_response.status_code = 200
+        mock_location_response.json.return_value = {"solar_system_id": 30000142}
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_location_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        # Mock universe with systems
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+        mock_jita.security = 0.95
+        mock_jita.region_name = "The Forge"
+
+        mock_amarr = MagicMock()
+        mock_amarr.id = 30002187
+        mock_amarr.name = "Amarr"
+        mock_amarr.security = 1.0
+
+        # Use MagicMock for systems to support both __contains__ and .values()
+        mock_systems = MagicMock()
+        mock_systems.__contains__ = MagicMock(side_effect=lambda key: key in ["Jita", "Amarr"])
+        mock_systems.values.return_value = [mock_jita, mock_amarr]
+
+        mock_universe = MagicMock()
+        mock_universe.systems = mock_systems
+
+        # Mock route computation
+        mock_route = RouteResponse(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="safer",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=20.0,
+            avg_risk=10.0,
+            path=[
+                RouteHop(system_name="Jita", system_id=30000142, cumulative_jumps=0, cumulative_cost=0, risk_score=5.0),
+                RouteHop(system_name="Amarr", system_id=30002187, cumulative_jumps=10, cumulative_cost=10.0, risk_score=3.0),
+            ],
+        )
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                with patch("backend.app.api.v1.character.compute_route", return_value=mock_route):
+                    result = await get_route_from_current_location(
+                        destination="Amarr",
+                        profile="safer",
+                        avoid=None,
+                        bridges=False,
+                        character=mock_character,
+                    )
+
+        assert result.current_system == "Jita"
+        assert result.destination == "Amarr"
+        assert result.route.total_jumps == 10
+
+    @pytest.mark.asyncio
+    async def test_route_from_here_unknown_destination(self, mock_character):
+        """Test route from here with unknown destination."""
+        mock_location_response = MagicMock(spec=Response)
+        mock_location_response.status_code = 200
+        mock_location_response.json.return_value = {"solar_system_id": 30000142}
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_location_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+        mock_jita.security = 0.95
+        mock_jita.region_name = "The Forge"
+
+        # Use MagicMock for systems to support both __contains__ and .values()
+        mock_systems = MagicMock()
+        mock_systems.__contains__ = MagicMock(side_effect=lambda key: key in ["Jita"])
+        mock_systems.values.return_value = [mock_jita]
+
+        mock_universe = MagicMock()
+        mock_universe.systems = mock_systems
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                with pytest.raises(HTTPException) as exc_info:
+                    await get_route_from_current_location(
+                        destination="NonExistent",
+                        profile="safer",
+                        avoid=None,
+                        bridges=False,
+                        character=mock_character,
+                    )
+
+        assert exc_info.value.status_code == 404
+        assert "Unknown destination" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_route_from_here_no_route_found(self, mock_character):
+        """Test route from here when no route exists."""
+        mock_location_response = MagicMock(spec=Response)
+        mock_location_response.status_code = 200
+        mock_location_response.json.return_value = {"solar_system_id": 30000142}
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_location_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+        mock_jita.security = 0.95
+        mock_jita.region_name = "The Forge"
+
+        mock_amarr = MagicMock()
+        mock_amarr.id = 30002187
+        mock_amarr.name = "Amarr"
+
+        # Use MagicMock for systems to support both __contains__ and .values()
+        mock_systems = MagicMock()
+        mock_systems.__contains__ = MagicMock(side_effect=lambda key: key in ["Jita", "Amarr"])
+        mock_systems.values.return_value = [mock_jita, mock_amarr]
+
+        mock_universe = MagicMock()
+        mock_universe.systems = mock_systems
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                with patch("backend.app.api.v1.character.compute_route", return_value=None):
+                    with pytest.raises(HTTPException) as exc_info:
+                        await get_route_from_current_location(
+                            destination="Amarr",
+                            profile="safer",
+                            avoid=None,
+                            bridges=False,
+                            character=mock_character,
+                        )
+
+        assert exc_info.value.status_code == 404
+        assert "No route found" in exc_info.value.detail
+
+
+class TestSetRouteWaypoints:
+    """Tests for set_route_waypoints endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_set_waypoints_success(self, mock_character):
+        """Test successful setting of multiple waypoints."""
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 204
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+
+        mock_perimeter = MagicMock()
+        mock_perimeter.id = 30000144
+        mock_perimeter.name = "Perimeter"
+
+        mock_universe = MagicMock()
+        mock_universe.systems.values.return_value = [mock_jita, mock_perimeter]
+
+        request = SetRouteWaypointsRequest(systems=["Jita", "Perimeter"])
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                result = await set_route_waypoints(request, mock_character)
+
+        assert result.success is True
+        assert result.waypoints_set == 2
+        assert result.systems == ["Jita", "Perimeter"]
+
+        # Should have been called twice
+        assert mock_client.post.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_set_waypoints_clears_first(self, mock_character):
+        """Test that first waypoint clears existing ones."""
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 204
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+
+        mock_perimeter = MagicMock()
+        mock_perimeter.id = 30000144
+        mock_perimeter.name = "Perimeter"
+
+        mock_universe = MagicMock()
+        mock_universe.systems.values.return_value = [mock_jita, mock_perimeter]
+
+        request = SetRouteWaypointsRequest(systems=["Jita", "Perimeter"], clear_existing=True)
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                await set_route_waypoints(request, mock_character)
+
+        # Check first call clears, second doesn't
+        calls = mock_client.post.call_args_list
+        assert calls[0].kwargs["params"]["clear_other_waypoints"] == "true"
+        assert calls[1].kwargs["params"]["clear_other_waypoints"] == "false"
+
+    @pytest.mark.asyncio
+    async def test_set_waypoints_unknown_system(self, mock_character):
+        """Test setting waypoints with unknown system."""
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+
+        mock_universe = MagicMock()
+        mock_universe.systems.values.return_value = [mock_jita]
+
+        request = SetRouteWaypointsRequest(systems=["Jita", "NonExistent"])
+
+        with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+            with pytest.raises(HTTPException) as exc_info:
+                await set_route_waypoints(request, mock_character)
+
+        assert exc_info.value.status_code == 404
+        assert "Unknown system" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_set_waypoints_esi_error(self, mock_character):
+        """Test setting waypoints with ESI error."""
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 403
+        mock_response.text = "Character not online"
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        mock_jita = MagicMock()
+        mock_jita.id = 30000142
+        mock_jita.name = "Jita"
+
+        mock_universe = MagicMock()
+        mock_universe.systems.values.return_value = [mock_jita]
+
+        request = SetRouteWaypointsRequest(systems=["Jita"])
+
+        with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
+            with patch("backend.app.api.v1.character.load_universe", return_value=mock_universe):
+                with pytest.raises(HTTPException) as exc_info:
+                    await set_route_waypoints(request, mock_character)
+
+        assert exc_info.value.status_code == 403
+        assert "ESI error" in exc_info.value.detail
