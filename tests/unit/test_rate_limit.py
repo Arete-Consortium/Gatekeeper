@@ -3,12 +3,13 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import Request
+from fastapi import FastAPI, Request
 
 from backend.app.middleware.rate_limit import (
     get_request_identifier,
     limiter,
     rate_limit_exceeded_handler,
+    setup_rate_limiting,
 )
 
 
@@ -111,3 +112,32 @@ class TestLimiterConfiguration:
         """Test that limiter headers are enabled."""
         # The limiter should have been created with headers_enabled=True
         assert limiter._headers_enabled is True
+
+
+class TestSetupRateLimiting:
+    """Tests for setup_rate_limiting function."""
+
+    def test_setup_when_disabled(self):
+        """Test that setup does nothing when rate limiting is disabled."""
+        app = FastAPI()
+
+        with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_ENABLED = False
+
+            setup_rate_limiting(app)
+
+            # Should not have limiter in state
+            assert not hasattr(app.state, "limiter")
+
+    def test_setup_when_enabled(self):
+        """Test that setup configures app when rate limiting is enabled."""
+        app = FastAPI()
+
+        with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
+            mock_settings.RATE_LIMIT_ENABLED = True
+
+            setup_rate_limiting(app)
+
+            # Should have limiter in state
+            assert hasattr(app.state, "limiter")
+            assert app.state.limiter is limiter
