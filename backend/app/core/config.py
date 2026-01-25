@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     SENTRY_DSN: str | None = None
     METRICS_ENABLED: bool = True
 
+    # Webhooks (Discord/Slack)
+    DISCORD_WEBHOOK_URL: str | None = None
+    SLACK_WEBHOOK_URL: str | None = None
+    WEBHOOK_TIMEOUT: int = 10  # seconds
+
     # Cache TTLs (in seconds)
     CACHE_TTL_ESI: int = 300  # 5 minutes
     CACHE_TTL_ROUTE: int = 600  # 10 minutes

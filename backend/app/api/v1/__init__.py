@@ -12,6 +12,7 @@ from .routing import router as routing_router
 from .stats import router as stats_router
 from .status import router as status_router
 from .systems import router as systems_router
+from .webhooks import router as webhooks_router
 from .websocket import router as websocket_router
 
 router = APIRouter(prefix="/api/v1")
@@ -20,6 +21,7 @@ router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(bookmarks_router, prefix="/bookmarks", tags=["bookmarks"])
 router.include_router(stats_router, prefix="/stats", tags=["stats"])
+router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 router.include_router(character_router)
 router.include_router(systems_router, prefix="/systems", tags=["systems"])
 router.include_router(routing_router, prefix="/route", tags=["routing"])
