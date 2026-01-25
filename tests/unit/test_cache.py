@@ -99,6 +99,88 @@ class TestMemoryCacheService:
         assert stats["hit_ratio"] == pytest.approx(2 / 3)
 
 
+class TestMemoryCacheServiceEdgeCases:
+    """Edge case tests for memory cache."""
+
+    @pytest.fixture
+    def cache(self):
+        """Create a fresh cache instance."""
+        return MemoryCacheService(maxsize=100)
+
+    @pytest.mark.asyncio
+    async def test_different_ttls_stored_separately(self, cache):
+        """Test that keys with different TTLs are stored correctly."""
+        await cache.set("key1", "value1", ttl=60)
+        await cache.set("key2", "value2", ttl=120)
+
+        # Both should be retrievable
+        assert await cache.get("key1") == "value1"
+        assert await cache.get("key2") == "value2"
+
+    @pytest.mark.asyncio
+    async def test_overwrite_same_key(self, cache):
+        """Test overwriting a key with new value."""
+        await cache.set("key", "original", ttl=60)
+        await cache.set("key", "updated", ttl=60)
+
+        result = await cache.get("key")
+        assert result == "updated"
+
+    @pytest.mark.asyncio
+    async def test_get_json_invalid_json(self, cache):
+        """Test get_json with invalid JSON returns None."""
+        await cache.set("bad_json", "not valid json {{{", ttl=60)
+
+        result = await cache.get_json("bad_json")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_set_json_with_custom_object(self, cache):
+        """Test set_json with custom object uses default=str."""
+
+        class CustomObj:
+            def __str__(self):
+                return "custom_str_repr"
+
+        # The cache uses default=str, so custom objects get stringified
+        result = await cache.set_json("key", {"obj": CustomObj()}, ttl=60)
+        assert result is True
+
+        # Value should contain string representation
+        stored = await cache.get_json("key")
+        assert "custom_str_repr" in str(stored)
+
+    @pytest.mark.asyncio
+    async def test_delete_from_multiple_ttl_caches(self, cache):
+        """Test delete removes key from all TTL caches."""
+        # Store same key with different TTLs (simulating overwrites)
+        await cache.set("key", "v1", ttl=60)
+
+        # Delete should work
+        result = await cache.delete("key")
+        assert result is True
+        assert await cache.exists("key") is False
+
+    @pytest.mark.asyncio
+    async def test_stats_initial_values(self, cache):
+        """Test cache stats before any operations."""
+        stats = cache.get_stats()
+        assert stats["type"] == "memory"
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["entries"] == 0
+
+    @pytest.mark.asyncio
+    async def test_stats_entries_count(self, cache):
+        """Test that entries count is accurate."""
+        await cache.set("key1", "value1", ttl=60)
+        await cache.set("key2", "value2", ttl=60)
+        await cache.set("key3", "value3", ttl=120)  # Different TTL
+
+        stats = cache.get_stats()
+        assert stats["entries"] == 3
+
+
 class TestCacheKeyBuilders:
     """Tests for cache key builder functions."""
 
@@ -116,3 +198,13 @@ class TestCacheKeyBuilders:
         """Test ESI cache key generation."""
         key = build_esi_key("/universe/systems/30000142/")
         assert key == "esi:/universe/systems/30000142/"
+
+    def test_build_route_key_with_special_chars(self):
+        """Test route key with special characters."""
+        key = build_route_key("J-GAMP", "HED-GP", "paranoid")
+        assert key == "route:J-GAMP:HED-GP:paranoid"
+
+    def test_build_risk_key_nullsec(self):
+        """Test risk key for nullsec system."""
+        key = build_risk_key("PR-8CA")
+        assert key == "risk:PR-8CA"
