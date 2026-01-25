@@ -1,7 +1,7 @@
 """Unit tests for authentication routes."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,6 +15,7 @@ from backend.app.api.v1.auth import (
     validate_state,
     _oauth_states,
 )
+from backend.app.services.token_store import MemoryTokenStore
 
 
 class TestOAuthStateManagement:
@@ -263,3 +264,31 @@ class TestAuthEndpoints:
             )
 
             assert response.status_code == 404
+
+    def test_login_redirect_redirects(self, test_client):
+        """Test login_redirect returns a redirect response."""
+        with patch("backend.app.api.v1.auth.settings") as mock_settings:
+            mock_settings.ESI_CLIENT_ID = "test_client_id"
+            mock_settings.ESI_CALLBACK_URL = "http://localhost:8000/callback"
+
+            response = test_client.get(
+                "/api/v1/auth/login/redirect",
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 302
+            assert "login.eveonline.com" in response.headers.get("location", "")
+
+    def test_login_redirect_redirects(self, test_client):
+        """Test login_redirect returns a redirect response."""
+        with patch("backend.app.api.v1.auth.settings") as mock_settings:
+            mock_settings.ESI_CLIENT_ID = "test_client_id"
+            mock_settings.ESI_CALLBACK_URL = "http://localhost:8000/callback"
+
+            response = test_client.get(
+                "/api/v1/auth/login/redirect",
+                follow_redirects=False,
+            )
+
+            assert response.status_code == 302
+            assert "login.eveonline.com" in response.headers.get("location", "")
