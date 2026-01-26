@@ -279,16 +279,339 @@ class TestAuthEndpoints:
             assert response.status_code == 302
             assert "login.eveonline.com" in response.headers.get("location", "")
 
-    def test_login_redirect_redirects(self, test_client):
-        """Test login_redirect returns a redirect response."""
-        with patch("backend.app.api.v1.auth.settings") as mock_settings:
+
+class TestCallbackEndpoint:
+    """Tests for OAuth callback endpoint."""
+
+    def setup_method(self):
+        """Clear state storage before each test."""
+        _oauth_states.clear()
+
+    def test_callback_success(self, test_client):
+        """Test successful OAuth callback flow."""
+        # Generate valid state
+        state = generate_state()
+
+        # Mock the HTTP calls to EVE SSO
+        mock_token_response = MagicMock()
+        mock_token_response.status_code = 200
+        mock_token_response.json.return_value = {
+            "access_token": "test_access_token",
+            "refresh_token": "test_refresh_token",
+            "expires_in": 1200,
+        }
+
+        mock_verify_response = MagicMock()
+        mock_verify_response.status_code = 200
+        mock_verify_response.json.return_value = {
+            "CharacterID": 12345,
+            "CharacterName": "Test Pilot",
+            "Scopes": "esi-location.read_location.v1 esi-ui.write_waypoint.v1",
+        }
+
+        with (
+            patch("backend.app.api.v1.auth.settings") as mock_settings,
+            patch("httpx.AsyncClient") as mock_client_class,
+        ):
             mock_settings.ESI_CLIENT_ID = "test_client_id"
-            mock_settings.ESI_CALLBACK_URL = "http://localhost:8000/callback"
+            mock_settings.ESI_SECRET_KEY = "test_secret"
+
+            # Setup async client mock
+            mock_client = AsyncMock()
+            mock_client.post.return_value = mock_token_response
+            mock_client.get.return_value = mock_verify_response
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client_class.return_value = mock_client
 
             response = test_client.get(
-                "/api/v1/auth/login/redirect",
-                follow_redirects=False,
+                "/api/v1/auth/callback",
+                params={"code": "test_auth_code", "state": state},
             )
 
-            assert response.status_code == 302
-            assert "login.eveonline.com" in response.headers.get("location", "")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["character_id"] == 12345
+            assert data["character_name"] == "Test Pilot"
+            assert "esi-location.read_location.v1" in data["scopes"]
+
+    def test_callback_esi_not_configured(self, test_client):
+        """Test callback returns 503 when ESI not configured."""
+        state = generate_state()
+
+        with patch("backend.app.api.v1.auth.settings") as mock_settings:
+            mock_settings.ESI_CLIENT_ID = None
+            mock_settings.ESI_SECRET_KEY = None
+
+            response = test_client.get(
+                "/api/v1/auth/callback",
+                params={"code": "test_code", "state": state},
+            )
+
+            assert response.status_code == 503
+
+    def test_callback_token_exchange_failed(self, test_client):
+        """Test callback handles token exchange failure."""
+        state = generate_state()
+
+        mock_token_response = MagicMock()
+        mock_token_response.status_code = 400
+        mock_token_response.text = "Invalid authorization code"
+
+        with (
+            patch("backend.app.api.v1.auth.settings") as mock_settings,
+            patch("httpx.AsyncClient") as mock_client_class,
+        ):
+            mock_settings.ESI_CLIENT_ID = "test_client_id"
+            mock_settings.ESI_SECRET_KEY = "test_secret"
+
+            mock_client = AsyncMock()
+            mock_client.post.return_value = mock_token_response
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client_class.return_value = mock_client
+
+            response = test_client.get(
+                "/api/v1/auth/callback",
+                params={"code": "invalid_code", "state": state},
+            )
+
+            assert response.status_code == 400
+            assert "Token exchange failed" in response.json()["detail"]
+
+    def test_callback_token_verification_failed(self, test_client):
+        """Test callback handles token verification failure."""
+        state = generate_state()
+
+        mock_token_response = MagicMock()
+        mock_token_response.status_code = 200
+        mock_token_response.json.return_value = {
+            "access_token": "test_token",
+            "refresh_token": "test_refresh",
+            "expires_in": 1200,
+        }
+
+        mock_verify_response = MagicMock()
+        mock_verify_response.status_code = 401
+
+        with (
+            patch("backend.app.api.v1.auth.settings") as mock_settings,
+            patch("httpx.AsyncClient") as mock_client_class,
+        ):
+            mock_settings.ESI_CLIENT_ID = "test_client_id"
+            mock_settings.ESI_SECRET_KEY = "test_secret"
+
+            mock_client = AsyncMock()
+            mock_client.post.return_value = mock_token_response
+            mock_client.get.return_value = mock_verify_response
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client_class.return_value = mock_client
+
+            response = test_client.get(
+                "/api/v1/auth/callback",
+                params={"code": "test_code", "state": state},
+            )
+
+            assert response.status_code == 400
+            assert "verification failed" in response.json()["detail"]
+
+
+class TestRefreshTokenEndpoint:
+    """Tests for token refresh endpoint."""
+
+    def test_refresh_token_success(self, app, test_client):
+        """Test successful token refresh."""
+        import asyncio
+
+        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+
+        token_store = MemoryTokenStore()
+
+        # Store a token first
+        asyncio.get_event_loop().run_until_complete(
+            token_store.store_token(
+                character_id=12345,
+                access_token="old_access_token",
+                refresh_token="test_refresh_token",
+                expires_at=datetime.now(UTC) - timedelta(hours=1),  # Expired
+                character_name="Test Pilot",
+                scopes=["esi-location.read_location.v1"],
+            )
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 1200,
+        }
+
+        # Override the dependency
+        app.dependency_overrides[get_token_store] = lambda: token_store
+
+        try:
+            with (
+                patch("backend.app.api.v1.auth.settings") as mock_settings,
+                patch("httpx.AsyncClient") as mock_client_class,
+            ):
+                mock_settings.ESI_CLIENT_ID = "test_client_id"
+                mock_settings.ESI_SECRET_KEY = "test_secret"
+
+                mock_client = AsyncMock()
+                mock_client.post.return_value = mock_response
+                mock_client.__aenter__.return_value = mock_client
+                mock_client.__aexit__.return_value = None
+                mock_client_class.return_value = mock_client
+
+                response = test_client.post(
+                    "/api/v1/auth/refresh",
+                    params={"character_id": 12345},
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+                assert data["access_token"] == "new_access_token"
+                assert data["character_id"] == 12345
+        finally:
+            app.dependency_overrides.pop(get_token_store, None)
+
+    def test_refresh_token_failed_revoked(self, app, test_client):
+        """Test token refresh when token is revoked."""
+        import asyncio
+
+        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+
+        token_store = MemoryTokenStore()
+
+        asyncio.get_event_loop().run_until_complete(
+            token_store.store_token(
+                character_id=12345,
+                access_token="old_token",
+                refresh_token="revoked_refresh_token",
+                expires_at=datetime.now(UTC) - timedelta(hours=1),
+                character_name="Test Pilot",
+                scopes=[],
+            )
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 400  # Refresh failed
+
+        app.dependency_overrides[get_token_store] = lambda: token_store
+
+        try:
+            with (
+                patch("backend.app.api.v1.auth.settings") as mock_settings,
+                patch("httpx.AsyncClient") as mock_client_class,
+            ):
+                mock_settings.ESI_CLIENT_ID = "test_client_id"
+                mock_settings.ESI_SECRET_KEY = "test_secret"
+
+                mock_client = AsyncMock()
+                mock_client.post.return_value = mock_response
+                mock_client.__aenter__.return_value = mock_client
+                mock_client.__aexit__.return_value = None
+                mock_client_class.return_value = mock_client
+
+                response = test_client.post(
+                    "/api/v1/auth/refresh",
+                    params={"character_id": 12345},
+                )
+
+                assert response.status_code == 401
+                assert "re-authenticate" in response.json()["detail"]
+
+                # Token should be removed
+                stored = asyncio.get_event_loop().run_until_complete(
+                    token_store.get_token(12345)
+                )
+                assert stored is None
+        finally:
+            app.dependency_overrides.pop(get_token_store, None)
+
+
+class TestMeEndpointExpired:
+    """Tests for /me endpoint with expired tokens."""
+
+    def test_me_expired_token(self, app, test_client):
+        """Test /me returns authenticated=False with expired token info."""
+        import asyncio
+
+        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+
+        token_store = MemoryTokenStore()
+
+        expired_time = datetime.now(UTC) - timedelta(hours=1)
+        asyncio.get_event_loop().run_until_complete(
+            token_store.store_token(
+                character_id=12345,
+                access_token="expired_token",
+                refresh_token="refresh_token",
+                expires_at=expired_time,
+                character_name="Expired Pilot",
+                scopes=["esi-location.read_location.v1"],
+            )
+        )
+
+        app.dependency_overrides[get_token_store] = lambda: token_store
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/me",
+                params={"character_id": 12345},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["authenticated"] is False
+            assert data["character"] is not None
+            assert data["character"]["character_name"] == "Expired Pilot"
+            assert data["character"]["authenticated"] is False
+        finally:
+            app.dependency_overrides.pop(get_token_store, None)
+
+
+class TestLogoutSuccess:
+    """Tests for successful logout."""
+
+    def test_logout_success(self, app, test_client):
+        """Test successful logout removes token and returns success."""
+        import asyncio
+
+        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+
+        token_store = MemoryTokenStore()
+
+        asyncio.get_event_loop().run_until_complete(
+            token_store.store_token(
+                character_id=12345,
+                access_token="test_token",
+                refresh_token="test_refresh",
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
+                character_name="Test Pilot",
+                scopes=[],
+            )
+        )
+
+        app.dependency_overrides[get_token_store] = lambda: token_store
+
+        try:
+            response = test_client.post(
+                "/api/v1/auth/logout",
+                params={"character_id": 12345},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "logged_out"
+            assert data["character_id"] == "12345"
+
+            # Token should be removed
+            stored = asyncio.get_event_loop().run_until_complete(
+                token_store.get_token(12345)
+            )
+            assert stored is None
+        finally:
+            app.dependency_overrides.pop(get_token_store, None)
