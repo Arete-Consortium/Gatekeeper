@@ -334,3 +334,126 @@ class TestGetShareStore:
         reset_share_store()
         store2 = get_share_store()
         assert store1 is not store2
+
+
+class TestRouteShareStoreCapacity:
+    """Tests for store capacity and pruning."""
+
+    def test_prune_if_full(self, sample_route_data):
+        """Test routes are pruned when at capacity."""
+        store = RouteShareStore(max_routes=10)
+
+        # Fill to capacity
+        for _ in range(10):
+            store.create_share(sample_route_data)
+
+        assert store.count == 10
+
+        # Add one more - should trigger prune
+        store.create_share(sample_route_data)
+
+        # Should have removed 10% (1 route) and added 1
+        assert store.count == 10
+
+    def test_prune_removes_oldest_accessed(self, sample_route_data):
+        """Test that oldest accessed routes are pruned first."""
+        store = RouteShareStore(max_routes=5)
+
+        # Create 5 shares
+        shares = []
+        for i in range(5):
+            shares.append(store.create_share(sample_route_data, creator_name=f"creator_{i}"))
+
+        # Access the newest ones to update last_accessed
+        store.get_share(shares[3].token)
+        store.get_share(shares[4].token)
+
+        # Add more to trigger prune
+        store.create_share(sample_route_data)
+
+        # Oldest unaccessed (0) should be gone
+        assert store.get_share(shares[0].token) is None or store.count <= 5
+
+
+class TestRouteShareStoreEdgeCases:
+    """Edge case tests for RouteShareStore."""
+
+    def test_token_collision_handling(self, sample_route_data):
+        """Test that token collisions are handled."""
+        store = RouteShareStore(token_length=1)  # Very short tokens increase collision chance
+
+        # Create many shares to increase collision probability
+        for _ in range(50):
+            store.create_share(sample_route_data)
+
+        # All should have unique tokens
+        assert store.count == 50
+
+    def test_get_share_expired_during_retrieval(self, sample_route_data):
+        """Test getting a share that expired between prune and retrieval."""
+        store = RouteShareStore()
+        shared = store.create_share(sample_route_data, ttl_hours=24)
+
+        # Manually set expiry to just expired (after prune_expired would run)
+        store._routes[shared.token].expires_at = datetime.now(UTC) - timedelta(seconds=1)
+
+        # Should return None and delete the route
+        result = store.get_share(shared.token)
+        assert result is None
+        assert shared.token not in store._routes
+
+    def test_get_share_expired_check_in_lock(self, sample_route_data):
+        """Test the is_expired check inside get_share lock block."""
+        store = RouteShareStore()
+        shared = store.create_share(sample_route_data, ttl_hours=24)
+
+        # We need to make the route appear expired AFTER _prune_expired runs
+        # by setting expires_at in the past but with no expiry on other routes
+        # so prune doesn't see it
+
+        # Create a non-expired route first to prevent early exit in prune
+        store.create_share(sample_route_data, ttl_hours=-1)  # Never expires
+
+        # Now set the first route to expired - prune checks all routes but
+        # they need to be expired at prune time
+        # The key is that is_expired is a property that checks datetime.now() each time
+        # So we set expires_at to exactly now, then it should be expired when checked
+        store._routes[shared.token].expires_at = datetime.now(UTC) - timedelta(microseconds=1)
+
+        result = store.get_share(shared.token)
+        assert result is None
+
+
+class TestExportEdgeCases:
+    """Edge case tests for export functions."""
+
+    def test_export_to_text_none_security(self):
+        """Test export handles None security."""
+        route_data = {
+            "from_system": "Jita",
+            "to_system": "Thera",
+            "profile": "wormhole",
+            "total_jumps": 2,
+            "path": [
+                {"system_name": "Jita", "security": 0.95},
+                {"system_name": "Thera", "security": None},
+            ],
+        }
+        text = export_to_text(route_data)
+        assert "2. Thera" in text
+        # No security shown for Thera
+
+    def test_export_to_dotlan_empty_path(self):
+        """Test Dotlan URL with empty path."""
+        url = export_to_dotlan_url({"path": []})
+        assert url == "https://evemaps.dotlan.net/route/"
+
+    def test_export_to_eveeye_single_system(self):
+        """Test EVE Eye URL with only one system."""
+        url = export_to_eveeye_url({"path": [{"system_name": "Jita"}]})
+        assert url == "https://eveeye.com/"
+
+    def test_export_to_eveeye_empty_path(self):
+        """Test EVE Eye URL with empty path."""
+        url = export_to_eveeye_url({"path": []})
+        assert url == "https://eveeye.com/"

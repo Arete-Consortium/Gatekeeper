@@ -3,14 +3,17 @@
 from fastapi import APIRouter
 
 from .ai import router as ai_router
+from .alerts import router as alerts_router
 from .auth import router as auth_router
 from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
 from .fatigue import router as fatigue_router
+from .fitting import router as fitting_router
 from .intel import router as intel_router
 from .jump import router as jump_router
 from .links import router as links_router
+from .map import router as map_router
 from .notes import router as notes_router
 from .routing import router as routing_router
 from .sharing import router as sharing_router
@@ -23,6 +26,7 @@ from .websocket import router as websocket_router
 router = APIRouter(prefix="/api/v1")
 
 router.include_router(ai_router, prefix="/ai", tags=["ai"])
+router.include_router(alerts_router)
 router.include_router(auth_router, tags=["auth"])
 router.include_router(bookmarks_router, prefix="/bookmarks", tags=["bookmarks"])
 router.include_router(intel_router)
@@ -35,6 +39,8 @@ router.include_router(sharing_router)
 router.include_router(jump_router, prefix="/jump", tags=["jump"])
 router.include_router(notes_router)
 router.include_router(fatigue_router)
+router.include_router(map_router)
+router.include_router(fitting_router)
 router.include_router(bridges_router, prefix="/bridges", tags=["bridges"])
 router.include_router(status_router, prefix="/status", tags=["status"])
 router.include_router(websocket_router, tags=["websocket"])

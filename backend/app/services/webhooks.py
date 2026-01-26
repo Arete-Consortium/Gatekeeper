@@ -26,12 +26,17 @@ class KillAlert(BaseModel):
     kill_id: int
     system_name: str
     system_id: int
+    region_id: int | None = None
+    region_name: str | None = None
     ship_type: str | None = None
+    ship_type_id: int | None = None
     victim_name: str | None = None
     victim_corp: str | None = None
+    victim_alliance: str | None = None
     attacker_count: int = 0
     total_value: float | None = None
     is_pod: bool = False
+    is_npc: bool = False
     kill_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     zkill_url: str | None = None
 
@@ -43,10 +48,13 @@ class WebhookSubscription(BaseModel):
     webhook_url: str
     webhook_type: WebhookType
     systems: list[str] = Field(default_factory=list)  # Empty = all systems
+    regions: list[int] = Field(default_factory=list)  # Region IDs to watch
     min_value: float | None = None  # Minimum ISK value
     include_pods: bool = False
+    ship_types: list[str] = Field(default_factory=list)  # Ship types to watch
     enabled: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    name: str | None = None  # Optional friendly name
 
 
 # In-memory subscription storage
@@ -161,9 +169,14 @@ def _should_alert(subscription: WebhookSubscription, alert: KillAlert) -> bool:
     if not subscription.enabled:
         return False
 
-    # System filter
-    if subscription.systems and alert.system_name not in subscription.systems:
-        return False
+    # System/region filtering: if any location filter is set, at least one must match
+    if subscription.systems or subscription.regions:
+        system_ok = alert.system_name in subscription.systems if subscription.systems else False
+        region_ok = (
+            alert.region_id is not None and alert.region_id in subscription.regions
+        ) if subscription.regions else False
+        if not (system_ok or region_ok):
+            return False
 
     # Pod filter
     if alert.is_pod and not subscription.include_pods:
@@ -172,6 +185,14 @@ def _should_alert(subscription: WebhookSubscription, alert: KillAlert) -> bool:
     # Value filter
     if subscription.min_value and (alert.total_value or 0) < subscription.min_value:
         return False
+
+    # Ship type filter
+    if subscription.ship_types and alert.ship_type:
+        ship_match = any(
+            st.lower() in alert.ship_type.lower() for st in subscription.ship_types
+        )
+        if not ship_match:
+            return False
 
     return True
 
