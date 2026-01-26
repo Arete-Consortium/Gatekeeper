@@ -603,3 +603,138 @@ def bulk_remove_bridges(
             errors.append(f"{from_sys} <-> {to_sys}: {message}")
 
     return BulkBridgeResponse(succeeded=succeeded, failed=failed, errors=errors)
+
+
+def discover_bridges_from_structures(
+    structures: list[dict],
+    system_id_to_name: dict[int, str],
+) -> list[tuple[JumpBridge, str | None]]:
+    """
+    Discover jump bridges from ESI structure data.
+
+    Ansiblex jump gates have names in the format:
+    "SystemA - SystemB" or "SystemA » SystemB"
+
+    Args:
+        structures: List of ESI structure data (must include Ansiblex only)
+        system_id_to_name: Mapping of system IDs to names
+
+    Returns:
+        List of (JumpBridge, error_message) tuples
+        Error message is None if bridge was successfully parsed
+    """
+    # Separators used in Ansiblex names (ordered by specificity)
+    # Use " - " with spaces to avoid matching hyphens in system names
+    separators = [" » ", " <-> ", " - "]
+
+    results: list[tuple[JumpBridge, str | None]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+
+    for structure in structures:
+        structure_id = structure.get("structure_id")
+        structure_name = structure.get("name", "")
+        solar_system_id = structure.get("solar_system_id")
+        owner_id = structure.get("owner_id")
+
+        # Try to get system name from ID
+        from_system = system_id_to_name.get(solar_system_id, "")
+
+        # Try to parse destination from structure name using separators
+        to_system = None
+        for sep in separators:
+            if sep in structure_name:
+                parts = structure_name.split(sep, 1)
+                if len(parts) == 2:
+                    sys1 = parts[0].strip()
+                    sys2 = parts[1].strip()
+                    # The structure is in one of these systems
+                    if from_system and from_system in (sys1, sys2):
+                        to_system = sys2 if from_system == sys1 else sys1
+                        break
+                    # If we don't know from_system, just use the parsed names
+                    elif not from_system:
+                        from_system = sys1
+                        to_system = sys2
+                        break
+
+        if not from_system or not to_system:
+            results.append(
+                (
+                    JumpBridge(
+                        from_system=from_system or "Unknown",
+                        to_system=to_system or "Unknown",
+                        structure_id=structure_id,
+                        owner=str(owner_id) if owner_id else None,
+                    ),
+                    f"Could not parse bridge endpoints from '{structure_name}'",
+                )
+            )
+            continue
+
+        # Create canonical key to avoid duplicates
+        key = tuple(sorted([from_system, to_system]))
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+
+        results.append(
+            (
+                JumpBridge(
+                    from_system=from_system,
+                    to_system=to_system,
+                    structure_id=structure_id,
+                    owner=str(owner_id) if owner_id else None,
+                ),
+                None,
+            )
+        )
+
+    return results
+
+
+def get_bridge_route_info(
+    from_system: str,
+    to_system: str,
+) -> dict:
+    """
+    Get information about how bridges affect a route.
+
+    Args:
+        from_system: Origin system
+        to_system: Destination system
+
+    Returns:
+        Dict with route comparison (with/without bridges)
+    """
+    from .routing import compute_route
+
+    universe = load_universe()
+
+    if from_system not in universe.systems:
+        return {"error": f"Unknown system: {from_system}"}
+    if to_system not in universe.systems:
+        return {"error": f"Unknown system: {to_system}"}
+
+    try:
+        route_without = compute_route(from_system, to_system, use_bridges=False)
+        route_with = compute_route(from_system, to_system, use_bridges=True)
+
+        return {
+            "from_system": from_system,
+            "to_system": to_system,
+            "without_bridges": {
+                "jumps": route_without.total_jumps,
+                "max_risk": route_without.max_risk,
+                "avg_risk": route_without.avg_risk,
+            },
+            "with_bridges": {
+                "jumps": route_with.total_jumps,
+                "max_risk": route_with.max_risk,
+                "avg_risk": route_with.avg_risk,
+                "bridges_used": route_with.bridges_used,
+            },
+            "jumps_saved": route_without.total_jumps - route_with.total_jumps,
+            "bridges_available": len(get_active_bridges()),
+        }
+    except ValueError as e:
+        return {"error": str(e)}

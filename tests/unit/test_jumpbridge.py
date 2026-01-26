@@ -13,6 +13,8 @@ from backend.app.services.jumpbridge import (
     bulk_add_bridges,
     bulk_remove_bridges,
     clear_bridge_cache,
+    discover_bridges_from_structures,
+    get_bridge_route_info,
     load_bridge_config,
     parse_bridge_text,
     save_bridge_config,
@@ -1412,3 +1414,172 @@ class TestBulkRemoveBridges:
 
         assert result.succeeded == 0
         assert result.failed == 1
+
+
+class TestDiscoverBridgesFromStructures:
+    """Tests for discover_bridges_from_structures function."""
+
+    def test_parse_dash_format(self):
+        """Should parse 'SystemA - SystemB' format."""
+        structures = [
+            {
+                "structure_id": 1234567890,
+                "name": "1DQ1-A - 8QT-H4",
+                "solar_system_id": 30004759,
+                "owner_id": 99000001,
+            }
+        ]
+        system_map = {30004759: "1DQ1-A"}
+
+        results = discover_bridges_from_structures(structures, system_map)
+
+        assert len(results) == 1
+        bridge, error = results[0]
+        assert error is None
+        assert bridge.from_system == "1DQ1-A"
+        assert bridge.to_system == "8QT-H4"
+        assert bridge.structure_id == 1234567890
+
+    def test_parse_arrow_format(self):
+        """Should parse 'SystemA » SystemB' format."""
+        structures = [
+            {
+                "structure_id": 1234567890,
+                "name": "HED-GP » V-3YG7",
+                "solar_system_id": 30001161,
+                "owner_id": 99000001,
+            }
+        ]
+        system_map = {30001161: "HED-GP"}
+
+        results = discover_bridges_from_structures(structures, system_map)
+
+        assert len(results) == 1
+        bridge, error = results[0]
+        assert error is None
+        assert bridge.from_system == "HED-GP"
+        assert bridge.to_system == "V-3YG7"
+
+    def test_deduplicate_pairs(self):
+        """Should deduplicate bridge pairs (both ends of same bridge)."""
+        structures = [
+            {
+                "structure_id": 1111,
+                "name": "A - B",
+                "solar_system_id": 1,
+                "owner_id": 99000001,
+            },
+            {
+                "structure_id": 2222,
+                "name": "B - A",
+                "solar_system_id": 2,
+                "owner_id": 99000001,
+            },
+        ]
+        system_map = {1: "A", 2: "B"}
+
+        results = discover_bridges_from_structures(structures, system_map)
+
+        # Should only return one bridge (deduplicated)
+        valid = [r for r in results if r[1] is None]
+        assert len(valid) == 1
+
+    def test_unparseable_name(self):
+        """Should return error for unparseable names."""
+        structures = [
+            {
+                "structure_id": 1234,
+                "name": "Random Structure Name",
+                "solar_system_id": 1,
+                "owner_id": 99000001,
+            }
+        ]
+        system_map = {1: "TestSystem"}
+
+        results = discover_bridges_from_structures(structures, system_map)
+
+        assert len(results) == 1
+        bridge, error = results[0]
+        assert error is not None
+        assert "Could not parse" in error
+
+    def test_missing_system_map(self):
+        """Should handle missing system in map."""
+        structures = [
+            {
+                "structure_id": 1234,
+                "name": "A - B",
+                "solar_system_id": 99999,  # Not in map
+                "owner_id": 99000001,
+            }
+        ]
+        system_map = {}
+
+        results = discover_bridges_from_structures(structures, system_map)
+
+        # Should still parse from name
+        assert len(results) == 1
+        bridge, error = results[0]
+        assert error is None
+        assert bridge.from_system == "A"
+        assert bridge.to_system == "B"
+
+
+class TestGetBridgeRouteInfo:
+    """Tests for get_bridge_route_info function."""
+
+    def test_route_comparison(self, mock_universe, tmp_path):
+        """Should return route comparison data."""
+        config_path = tmp_path / "bridges.json"
+        # Create a network with bridges
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+
+        # Mock route responses
+        mock_without = MagicMock()
+        mock_without.total_jumps = 15
+        mock_without.max_risk = 50.0
+        mock_without.avg_risk = 25.0
+
+        mock_with = MagicMock()
+        mock_with.total_jumps = 10
+        mock_with.max_risk = 40.0
+        mock_with.avg_risk = 20.0
+        mock_with.bridges_used = 2
+
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+            patch(
+                "backend.app.services.routing.compute_route",
+                side_effect=[mock_without, mock_with],
+            ),
+        ):
+            result = get_bridge_route_info("1DQ1-A", "HED-GP")
+
+        assert result["from_system"] == "1DQ1-A"
+        assert result["to_system"] == "HED-GP"
+        assert result["without_bridges"]["jumps"] == 15
+        assert result["with_bridges"]["jumps"] == 10
+        assert result["with_bridges"]["bridges_used"] == 2
+        assert result["jumps_saved"] == 5
+
+    def test_unknown_system(self, mock_universe, tmp_path):
+        """Should return error for unknown system."""
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            result = get_bridge_route_info("FakeSystem", "1DQ1-A")
+
+        assert "error" in result
+        assert "Unknown system" in result["error"]

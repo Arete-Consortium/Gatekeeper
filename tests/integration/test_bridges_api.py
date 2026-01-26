@@ -270,6 +270,50 @@ class TestGetNetworkEndpoint:
         assert "to_system" in bridge
 
 
+class TestRouteCompareEndpoint:
+    """Tests for GET /api/v1/bridges/route-compare."""
+
+    def test_route_compare(self, test_client: TestClient):
+        """Should compare routes with and without bridges."""
+        response = test_client.get("/api/v1/bridges/route-compare?from_system=Jita&to_system=Amarr")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "from_system" in data
+        assert "to_system" in data
+        # Either has route info or error
+        assert "without_bridges" in data or "error" in data
+
+    def test_route_compare_with_bridges(self, test_client: TestClient):
+        """Should show jumps saved when bridges reduce route."""
+        # Create a bridge network first
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={"network_name": "TestNetwork", "bridge_text": "HED-GP <-> V-3YG7"},
+        )
+
+        response = test_client.get(
+            "/api/v1/bridges/route-compare?from_system=HED-GP&to_system=V-3YG7"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        if "error" not in data:
+            assert "jumps_saved" in data
+            assert "bridges_available" in data
+
+    def test_route_compare_unknown_system(self, test_client: TestClient):
+        """Should return error for unknown system."""
+        response = test_client.get(
+            "/api/v1/bridges/route-compare?from_system=FakeSystem&to_system=Jita"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "error" in data
+        assert "Unknown" in data["error"] or "FakeSystem" in data["error"]
+
+
 class TestBridgeStatsEndpoint:
     """Tests for GET /api/v1/bridges/stats."""
 

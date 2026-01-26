@@ -20,6 +20,7 @@ from ...services.jumpbridge import (
     bulk_remove_bridges,
     clear_bridge_cache,
     delete_network,
+    get_bridge_route_info,
     get_bridge_stats,
     import_bridges,
     load_bridge_config,
@@ -90,6 +91,27 @@ def import_bridge_network(
 def get_stats() -> JumpBridgeStats:
     """Get statistics about jump bridge networks."""
     return get_bridge_stats()
+
+
+@router.get(
+    "/route-compare",
+    summary="Compare routes with and without bridges",
+    description="Show how bridges affect routing between two systems.",
+)
+def compare_bridge_routes(
+    from_system: str = Query(..., description="Origin system name"),
+    to_system: str = Query(..., description="Destination system name"),
+) -> dict:
+    """
+    Compare routing with and without jump bridges.
+
+    Shows:
+    - Route length without bridges
+    - Route length with bridges
+    - Number of jumps saved
+    - Number of bridges used
+    """
+    return get_bridge_route_info(from_system, to_system)
 
 
 @router.get(

@@ -402,3 +402,134 @@ async def search_universe(
 
     data, _ = await client.get("/search/", params=params)
     return cast(dict[str, list[int]], data)
+
+
+# ============================================================================
+# Structure Endpoints
+# ============================================================================
+
+# Ansiblex Jump Gate type ID
+ANSIBLEX_TYPE_ID = 35841
+
+
+async def get_structure_info(
+    client: ESIClient,
+    structure_id: int,
+    cache: ESICache | None = None,
+) -> dict[str, Any]:
+    """Get public information about a structure.
+
+    ESI: GET /universe/structures/{structure_id}/
+    Scope: esi-universe.read_structures.v1 (for private structures)
+
+    Note: Public structures (e.g., Ansiblex) may be accessible without auth.
+
+    Args:
+        structure_id: The structure ID to look up
+
+    Returns:
+        Structure info including name, type_id, solar_system_id
+    """
+    cache_key = f"structure_{structure_id}"
+
+    if cache:
+        cached = await cache.get(cache_key)
+        if cached and not cached[1]:
+            return cast(dict[str, Any], cached[0])
+
+    try:
+        data, headers = await client.get(
+            f"/universe/structures/{structure_id}/",
+            authenticated=True,  # Usually requires auth
+        )
+
+        if cache:
+            await cache.set(
+                cache_key,
+                "universe_structures",
+                data,
+                ttl=3600,  # 1 hour cache
+                etag=headers.get("etag"),
+            )
+
+        return cast(dict[str, Any], data)
+    except Exception:
+        # Structure not accessible (forbidden or not found)
+        return {}
+
+
+async def get_corporation_structures(
+    client: ESIClient,
+    corporation_id: int,
+    cache: ESICache | None = None,
+) -> list[dict[str, Any]]:
+    """Get corporation's structures.
+
+    ESI: GET /corporations/{corporation_id}/structures/
+    Scope: esi-corporations.read_structures.v1
+
+    Note: Requires character to be a director of the corporation.
+
+    Returns:
+        List of corporation structures including Ansiblex jump gates
+    """
+    cache_key = f"corp_structures_{corporation_id}"
+
+    if cache:
+        cached = await cache.get(cache_key)
+        if cached and not cached[1]:
+            return cast(list[dict[str, Any]], cached[0])
+
+    try:
+        data = await client.get_paginated(
+            f"/corporations/{corporation_id}/structures/",
+            authenticated=True,
+        )
+
+        if cache:
+            await cache.set(cache_key, "corp_structures", data, ttl=300)
+
+        return cast(list[dict[str, Any]], data)
+    except Exception:
+        return []
+
+
+async def get_alliance_structures(
+    client: ESIClient,
+    alliance_id: int,
+    corporation_ids: list[int],
+    cache: ESICache | None = None,
+) -> list[dict[str, Any]]:
+    """Get all structures from alliance corporations.
+
+    This aggregates structures from multiple corporations in an alliance.
+    Requires director access to each corporation.
+
+    Args:
+        alliance_id: The alliance ID (for cache key)
+        corporation_ids: List of corporation IDs to query
+
+    Returns:
+        Combined list of structures from all corporations
+    """
+    all_structures: list[dict[str, Any]] = []
+
+    for corp_id in corporation_ids:
+        structures = await get_corporation_structures(client, corp_id, cache)
+        all_structures.extend(structures)
+
+    return all_structures
+
+
+def filter_ansiblex_structures(
+    structures: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Filter structures to only include Ansiblex jump gates.
+
+    Args:
+        structures: List of structure data from ESI
+
+    Returns:
+        Only structures with type_id == 35841 (Ansiblex)
+    """
+    return [s for s in structures if s.get("type_id") == ANSIBLEX_TYPE_ID]
