@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 9 tools: route, parse_fitting, analyze_fitting, ship_info, system_threat, region_info, jump_range, create_alert, list_alerts
   - Console script entry point: `gatekeeper-mcp`
 - Mobile app screens for Fitting Analyzer and Kill Alerts
+- Desktop app README with build and development instructions
+- Mobile app test infrastructure with Jest and React Native Testing Library
+- Desktop app test infrastructure with Jest
+- Backend tests for map_visualization service (26 tests)
+- Backend tests for fitting service edge cases (35 tests)
+
+### Changed
+- Improved test coverage for map_visualization.py (32% -> ~80%)
+- Improved test coverage for fitting.py (77% -> ~95%)
 
 ## [1.2.0] - 2025-01-25
 
