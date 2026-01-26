@@ -89,7 +89,7 @@ EVE_Gatekeeper/
 ├── apps/
 │   ├── desktop/                 # Electron desktop app
 │   └── mobile/                  # React Native mobile app
-├── tests/                       # pytest test suite (700+ tests)
+├── tests/                       # pytest test suite (1500+ tests)
 ├── .github/workflows/           # CI/CD pipelines
 ├── docker-compose.yml           # Production deployment
 └── docker-compose.dev.yml       # Development environment
@@ -251,6 +251,49 @@ curl -X POST http://localhost:8000/api/v1/webhooks/test \
 
 Supported webhook types: `discord`, `slack`
 
+## MCP Server (Claude Code Integration)
+
+EVE Gatekeeper includes a Model Context Protocol (MCP) server for integration with Claude Code and other MCP-compatible tools.
+
+### Installation
+
+```bash
+# Install the package
+pip install -e .
+
+# Run the MCP server
+gatekeeper-mcp
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `gatekeeper_route` | Calculate route between systems |
+| `gatekeeper_parse_fitting` | Parse EFT format fitting |
+| `gatekeeper_analyze_fitting` | Analyze fitting for travel recommendations |
+| `gatekeeper_ship_info` | Get ship type information |
+| `gatekeeper_system_threat` | Check system threat level |
+| `gatekeeper_region_info` | Get region information |
+| `gatekeeper_jump_range` | Get systems within jump range |
+| `gatekeeper_create_alert` | Create kill alert subscription |
+| `gatekeeper_list_alerts` | List alert subscriptions |
+
+### Claude Code Configuration
+
+Add to your Claude Code MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "eve-gatekeeper": {
+      "command": "gatekeeper-mcp",
+      "args": []
+    }
+  }
+}
+```
+
 ## Environment Variables
 
 See [.env.example](.env.example) for all configuration options:
@@ -314,6 +357,10 @@ gunicorn backend.app.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8
 - **Health Check**: `GET /health` - Returns component status
 - **Metrics**: `GET /metrics` - Prometheus format
 - **Logs**: Structured JSON logging (configurable)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
