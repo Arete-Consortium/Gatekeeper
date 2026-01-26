@@ -492,6 +492,88 @@ class TestCountSecurity:
         assert result["nullsec"] == 1
 
 
+class TestDijkstraEdgeCases:
+    """Edge cases for Dijkstra algorithm."""
+
+    def test_revisiting_node_via_longer_path(self):
+        """Should not revisit nodes via longer paths."""
+        # Graph where node 2 can be reached two ways
+        graph = {
+            1: [(2, 1.0), (3, 0.5)],
+            2: [(1, 1.0), (4, 1.0)],
+            3: [(1, 0.5), (2, 0.5)],  # 3->2 is faster than 1->2
+            4: [(2, 1.0)],
+        }
+
+        path = dijkstra(graph, 1, 4)
+
+        # Should find path through 3 then 2 (1->3->2->4 = 2.0) vs (1->2->4 = 2.0)
+        # Both are equal, but we should reach 4
+        assert path[-1] == 4
+        assert 2 in path
+
+
+class TestAStarEdgeCases:
+    """Edge cases for A* algorithm."""
+
+    def test_revisiting_node_via_better_path(self):
+        """Should update g_score when better path found."""
+        graph = {
+            1: [(2, 10.0), (3, 1.0)],
+            2: [(1, 10.0), (4, 1.0)],
+            3: [(1, 1.0), (2, 1.0)],  # 3->2 much shorter than 1->2
+            4: [(2, 1.0)],
+        }
+        system_info = {
+            1: (0.0, 0.0, "highsec"),
+            2: (100.0, 0.0, "highsec"),
+            3: (50.0, 50.0, "highsec"),
+            4: (150.0, 0.0, "highsec"),
+        }
+
+        path = a_star(graph, system_info, 1, 4)
+
+        # Should find shorter path 1->3->2->4 = 3, not 1->2->4 = 11
+        assert path == [1, 3, 2, 4]
+
+    def test_no_path_when_destination_unreachable(self):
+        """Should return empty path for unreachable destination."""
+        graph = {
+            1: [(2, 1.0)],
+            2: [(1, 1.0)],
+            3: [],  # Disconnected
+        }
+        system_info = {
+            1: (0.0, 0.0, "highsec"),
+            2: (10.0, 0.0, "highsec"),
+            3: (100.0, 0.0, "highsec"),
+        }
+
+        path = a_star(graph, system_info, 1, 3)
+
+        assert path == []
+
+
+class TestGetWeightFnEdgeCases:
+    """Edge cases for get_weight_fn."""
+
+    def test_default_fallback(self):
+        """Should return identity function for unknown RouteType."""
+        from unittest.mock import MagicMock
+
+        # Create a mock RouteType that isn't SHORTEST, SECURE, or INSECURE
+        fake_route_type = MagicMock()
+        fake_route_type.__eq__ = lambda s, o: False  # Never equal
+
+        system_info = {1: (0, 0, "highsec")}
+
+        fn = get_weight_fn(fake_route_type, system_info)
+
+        # Should return the original weight unchanged
+        assert fn(1, 2, 5.0) == 5.0
+        assert fn(1, 2, 100.0) == 100.0
+
+
 class TestPathfindingIntegration:
     """Integration tests for pathfinding components."""
 
