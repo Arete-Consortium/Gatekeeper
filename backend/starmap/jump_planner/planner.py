@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 
 import aiosqlite
 
-from backend.graph.universe_graph import UniverseGraph
-from backend.sde.models import SolarSystem
-from backend.sde.schema import get_db_path
+from backend.starmap.graph.universe_graph import UniverseGraph
+from backend.starmap.sde.models import SolarSystem
+from backend.starmap.sde.schema import get_db_path
 
 from .ship_data import (
     CAPITAL_SHIPS,

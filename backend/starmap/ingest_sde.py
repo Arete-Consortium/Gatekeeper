@@ -27,7 +27,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.sde.schema import create_tables, get_db_path, reset_database
+from backend.starmap.sde.schema import create_tables, get_db_path, reset_database
 
 # ESI Configuration
 ESI_BASE_URL = "https://esi.evetech.net/latest"

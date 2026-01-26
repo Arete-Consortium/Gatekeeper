@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import aiosqlite
 
-from backend.esi import (
+from backend.starmap.esi import (
     ESICache,
     ESIClient,
     get_incursions,
@@ -33,7 +33,7 @@ from backend.esi import (
     get_system_jumps,
     get_system_kills,
 )
-from backend.sde.schema import get_db_path
+from backend.starmap.sde.schema import get_db_path
 
 # Refresh intervals (seconds)
 INTERVALS = {

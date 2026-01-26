@@ -6,8 +6,8 @@ from typing import Any
 
 import aiosqlite
 
-from backend.sde.models import SolarSystem
-from backend.sde.schema import get_db_path
+from backend.starmap.sde.models import SolarSystem
+from backend.starmap.sde.schema import get_db_path
 
 
 @dataclass

@@ -14,7 +14,7 @@ from enum import Enum
 
 import aiosqlite
 
-from backend.sde.schema import get_db_path
+from backend.starmap.sde.schema import get_db_path
 
 
 class RouteType(Enum):
