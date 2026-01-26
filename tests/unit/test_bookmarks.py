@@ -162,6 +162,7 @@ class TestCreateBookmark:
         )
 
         mock_db = AsyncMock()
+        mock_db.add = MagicMock()  # add() is synchronous in SQLAlchemy
 
         async def fake_refresh(obj):
             obj.id = 1
