@@ -5,13 +5,16 @@ Provides endpoints for submitting and retrieving intel channel data.
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ...services.intel_parser import (
     IntelReport,
+    IntelStats,
     SystemIntel,
+    get_intel_stats,
     get_intel_store,
+    get_nearby_intel,
     parse_intel_text,
     submit_intel,
 )
@@ -41,6 +44,11 @@ class IntelReportResponse(BaseModel):
     reporter: str | None
     raw_text: str
     is_clear: bool
+    threat_type: str = Field(
+        default="hostile", description="Type of threat: hostile, gate_camp, bubble, fleet"
+    )
+    ship_types: list[str] = Field(default_factory=list, description="Ship types detected in report")
+    direction: str | None = Field(None, description="Direction of travel if detected")
 
     @classmethod
     def from_report(cls, report: IntelReport) -> "IntelReportResponse":
@@ -53,6 +61,9 @@ class IntelReportResponse(BaseModel):
             reporter=report.reporter,
             raw_text=report.raw_text,
             is_clear=report.is_clear,
+            threat_type=report.threat_type.value,
+            ship_types=report.ship_types,
+            direction=report.direction,
         )
 
 
@@ -106,6 +117,42 @@ class HostileSystemsResponse(BaseModel):
 
     count: int
     systems: list[str]
+
+
+class IntelStatsResponse(BaseModel):
+    """Response model for intel statistics."""
+
+    total_systems: int = Field(..., description="Number of systems with intel")
+    total_hostiles: int = Field(..., description="Total hostile count across all systems")
+    total_reports: int = Field(..., description="Total number of intel reports")
+    gate_camps: int = Field(..., description="Number of gate camp reports")
+    bubbles: int = Field(..., description="Number of bubble reports")
+    fleets: int = Field(..., description="Number of fleet reports")
+    oldest_report_seconds: float = Field(..., description="Age of oldest report in seconds")
+    newest_report_seconds: float = Field(..., description="Age of newest report in seconds")
+
+    @classmethod
+    def from_stats(cls, stats: IntelStats) -> "IntelStatsResponse":
+        """Create from IntelStats."""
+        return cls(
+            total_systems=stats.total_systems,
+            total_hostiles=stats.total_hostiles,
+            total_reports=stats.total_reports,
+            gate_camps=stats.gate_camps,
+            bubbles=stats.bubbles,
+            fleets=stats.fleets,
+            oldest_report_seconds=stats.oldest_report_seconds,
+            newest_report_seconds=stats.newest_report_seconds,
+        )
+
+
+class NearbyIntelResponse(BaseModel):
+    """Response model for nearby systems intel."""
+
+    center_system: str
+    max_jumps: int
+    systems_with_intel: int
+    systems: dict[str, SystemIntelResponse]
 
 
 # =============================================================================
@@ -258,3 +305,46 @@ async def clear_all_intel() -> dict[str, str]:
     store.clear_all()
 
     return {"status": "cleared", "message": "All intel cleared"}
+
+
+@router.get(
+    "/stats",
+    response_model=IntelStatsResponse,
+    summary="Get intel statistics",
+    description="Get summary statistics about current intel state.",
+)
+async def get_stats() -> IntelStatsResponse:
+    """
+    Get summary statistics about current intel.
+
+    Includes counts by threat type (gate camps, bubbles, fleets).
+    """
+    stats = get_intel_stats()
+    return IntelStatsResponse.from_stats(stats)
+
+
+@router.get(
+    "/nearby/{system_name}",
+    response_model=NearbyIntelResponse,
+    summary="Get nearby systems intel",
+    description="Get intel for systems within a certain number of jumps.",
+)
+async def get_nearby_systems_intel(
+    system_name: str,
+    max_jumps: int = Query(3, ge=1, le=10, description="Maximum jumps to search"),
+) -> NearbyIntelResponse:
+    """
+    Get intel for systems within a certain number of jumps.
+
+    Useful for situational awareness of nearby threats.
+    """
+    nearby = get_nearby_intel(system_name, max_jumps)
+
+    systems = {name: SystemIntelResponse.from_intel(intel) for name, intel in nearby.items()}
+
+    return NearbyIntelResponse(
+        center_system=system_name,
+        max_jumps=max_jumps,
+        systems_with_intel=len(systems),
+        systems=systems,
+    )

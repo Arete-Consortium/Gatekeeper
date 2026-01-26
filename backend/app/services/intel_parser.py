@@ -7,6 +7,9 @@ Common formats supported:
 - "System clear" or "System clr" - system cleared
 - "System HostileName" - hostile by name
 - "System HostileName Another" - multiple hostiles by name
+- "System camp" - gate camp reported
+- "System Sabre bubble" - ship type with action
+- "System -> Destination" - direction of travel
 """
 
 import re
@@ -14,9 +17,20 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from threading import RLock
 
 from .data_loader import load_universe
+
+
+class ThreatType(str, Enum):
+    """Type of threat reported."""
+
+    hostile = "hostile"
+    gate_camp = "gate_camp"
+    bubble = "bubble"
+    fleet = "fleet"
+    unknown = "unknown"
 
 
 @dataclass
@@ -30,6 +44,9 @@ class IntelReport:
     reporter: str | None = None
     raw_text: str = ""
     is_clear: bool = False
+    threat_type: ThreatType = ThreatType.hostile
+    ship_types: list[str] = field(default_factory=list)
+    direction: str | None = None  # e.g., "toward Amarr", "from Jita"
 
 
 @dataclass
@@ -200,6 +217,191 @@ CLEAR_PATTERNS = [
 
 COUNT_PATTERN = re.compile(r"\+(\d+)")  # +1, +2, etc.
 
+# Gate camp patterns
+CAMP_PATTERNS = [
+    re.compile(r"\bcamp\b", re.IGNORECASE),
+    re.compile(r"\bcamping\b", re.IGNORECASE),
+    re.compile(r"\bcamped\b", re.IGNORECASE),
+    re.compile(r"\bgate\s*camp\b", re.IGNORECASE),
+]
+
+# Bubble patterns
+BUBBLE_PATTERNS = [
+    re.compile(r"\bbubble\b", re.IGNORECASE),
+    re.compile(r"\bbubbled\b", re.IGNORECASE),
+    re.compile(r"\bdictor\b", re.IGNORECASE),
+    re.compile(r"\bhic\b", re.IGNORECASE),
+]
+
+# Fleet patterns
+FLEET_PATTERNS = [
+    re.compile(r"\bfleet\b", re.IGNORECASE),
+    re.compile(r"\bgang\b", re.IGNORECASE),
+    re.compile(r"\bgroup\b", re.IGNORECASE),
+    re.compile(r"\broam\b", re.IGNORECASE),
+]
+
+# Direction patterns
+DIRECTION_PATTERN = re.compile(
+    r"(?:->|-->|to|toward|towards|from|inbound|outbound)\s+(\w+)",
+    re.IGNORECASE,
+)
+
+# Common ship types (case-insensitive matching)
+SHIP_TYPES = {
+    # Frigates
+    "sabre",
+    "flycatcher",
+    "stiletto",
+    "malediction",
+    "ares",
+    "crow",
+    "raptor",
+    "crusader",
+    "claw",
+    "taranis",
+    "atron",
+    "executioner",
+    "slasher",
+    "condor",
+    "rifter",
+    "punisher",
+    "merlin",
+    "incursus",
+    "kestrel",
+    "breacher",
+    "tristan",
+    "hookbill",
+    "firetail",
+    "comet",
+    "slicer",
+    "dramiel",
+    "daredevil",
+    "worm",
+    "garmur",
+    "astero",
+    # Destroyers
+    "thrasher",
+    "catalyst",
+    "coercer",
+    "cormorant",
+    "talwar",
+    "corax",
+    "algos",
+    "dragoon",
+    "sunesis",
+    # Cruisers
+    "caracal",
+    "stabber",
+    "moa",
+    "thorax",
+    "vexor",
+    "omen",
+    "rupture",
+    "bellicose",
+    "arbitrator",
+    "blackbird",
+    "celestis",
+    "scythe",
+    "augoror",
+    "osprey",
+    "exequror",
+    # Heavy Assault Cruisers
+    "cerberus",
+    "sacrilege",
+    "vagabond",
+    "ishtar",
+    "deimos",
+    "muninn",
+    "zealot",
+    "eagle",
+    # Battlecruisers
+    "drake",
+    "hurricane",
+    "harbinger",
+    "brutix",
+    "myrmidon",
+    "prophecy",
+    "ferox",
+    "cyclone",
+    "gnosis",
+    # Command Ships
+    "claymore",
+    "sleipnir",
+    "vulture",
+    "astarte",
+    "absolution",
+    "damnation",
+    "eos",
+    "nighthawk",
+    # Battleships
+    "megathron",
+    "hyperion",
+    "dominix",
+    "armageddon",
+    "apocalypse",
+    "abaddon",
+    "raven",
+    "scorpion",
+    "rokh",
+    "tempest",
+    "typhoon",
+    "maelstrom",
+    "machariel",
+    "nightmare",
+    "bhaal",
+    "vindi",
+    "vindicator",
+    "rattlesnake",
+    "praxis",
+    # Recons
+    "falcon",
+    "rook",
+    "rapier",
+    "huginn",
+    "arazu",
+    "lachesis",
+    "pilgrim",
+    "curse",
+    # Interdictors
+    "heretic",
+    "eris",
+    # Heavy Interdictors
+    "onyx",
+    "phobos",
+    "devoter",
+    "broadsword",
+    # Logistics
+    "scimitar",
+    "basilisk",
+    "guardian",
+    "oneiros",
+    # Carriers
+    "archon",
+    "thanatos",
+    "chimera",
+    "nidhoggur",
+    # Supercarriers
+    "aeon",
+    "nyx",
+    "wyvern",
+    "hel",
+    # Titans
+    "avatar",
+    "erebus",
+    "leviathan",
+    "ragnarok",
+    # Other notable ships
+    "tengu",
+    "loki",
+    "proteus",
+    "legion",
+    "svipul",
+    "confessor",
+    "jackdaw",
+    "hecate",
+}
+
 
 def _is_valid_system(name: str) -> bool:
     """Check if a name is a valid EVE system."""
@@ -251,6 +453,57 @@ def _is_hostile_name(word: str) -> bool:
         return False
 
     return True
+
+
+def _detect_threat_type(text: str) -> ThreatType:
+    """Detect the type of threat from intel text."""
+    # Check for bubble first (most specific)
+    for pattern in BUBBLE_PATTERNS:
+        if pattern.search(text):
+            return ThreatType.bubble
+
+    # Check for gate camp
+    for pattern in CAMP_PATTERNS:
+        if pattern.search(text):
+            return ThreatType.gate_camp
+
+    # Check for fleet
+    for pattern in FLEET_PATTERNS:
+        if pattern.search(text):
+            return ThreatType.fleet
+
+    return ThreatType.hostile
+
+
+def _detect_ship_types(text: str) -> list[str]:
+    """Detect ship types mentioned in intel text."""
+    words = text.lower().split()
+    found = []
+    for word in words:
+        # Strip common suffixes/punctuation
+        clean_word = word.rstrip(".,!?'\"")
+        if clean_word in SHIP_TYPES:
+            # Return original casing if possible
+            for orig in text.split():
+                if orig.lower().rstrip(".,!?'\"") == clean_word:
+                    found.append(orig.rstrip(".,!?'\""))
+                    break
+    return found
+
+
+def _detect_direction(text: str) -> str | None:
+    """Detect direction of travel from intel text."""
+    match = DIRECTION_PATTERN.search(text)
+    if match:
+        target = match.group(1)
+        # Validate it's a system name
+        if _is_valid_system(target):
+            # Determine direction type
+            full_match = match.group(0).lower()
+            if "from" in full_match or "outbound" in full_match:
+                return f"from {target}"
+            return f"toward {target}"
+    return None
 
 
 def parse_intel_line(line: str, reporter: str | None = None) -> IntelReport | None:
@@ -306,6 +559,11 @@ def parse_intel_line(line: str, reporter: str | None = None) -> IntelReport | No
                 is_clear=True,
             )
 
+    # Detect threat type, ship types, and direction
+    threat_type = _detect_threat_type(remaining_text)
+    ship_types = _detect_ship_types(remaining_text)
+    direction = _detect_direction(remaining_text)
+
     # Check for count (+1, +2, etc.)
     hostile_count = 0
     count_match = COUNT_PATTERN.search(remaining_text)
@@ -333,6 +591,9 @@ def parse_intel_line(line: str, reporter: str | None = None) -> IntelReport | No
         reported_at=datetime.now(UTC),
         reporter=reporter,
         raw_text=line,
+        threat_type=threat_type,
+        ship_types=ship_types,
+        direction=direction,
     )
 
 
@@ -398,3 +659,127 @@ def get_intel_risk_modifier(system_name: str) -> float:
         return 2.0
     else:
         return 2.5
+
+
+@dataclass
+class IntelStats:
+    """Statistics about current intel state."""
+
+    total_systems: int
+    total_hostiles: int
+    total_reports: int
+    gate_camps: int
+    bubbles: int
+    fleets: int
+    oldest_report_seconds: float
+    newest_report_seconds: float
+
+
+def get_intel_stats() -> IntelStats:
+    """
+    Get statistics about current intel state.
+
+    Returns:
+        IntelStats with summary information
+    """
+    store = get_intel_store()
+    all_intel = store.get_all_intel()
+
+    if not all_intel:
+        return IntelStats(
+            total_systems=0,
+            total_hostiles=0,
+            total_reports=0,
+            gate_camps=0,
+            bubbles=0,
+            fleets=0,
+            oldest_report_seconds=0,
+            newest_report_seconds=0,
+        )
+
+    total_reports = 0
+    gate_camps = 0
+    bubbles = 0
+    fleets = 0
+    oldest_time = datetime.now(UTC)
+    newest_time = datetime.min.replace(tzinfo=UTC)
+
+    for intel in all_intel.values():
+        for report in intel.reports:
+            total_reports += 1
+            if report.threat_type == ThreatType.gate_camp:
+                gate_camps += 1
+            elif report.threat_type == ThreatType.bubble:
+                bubbles += 1
+            elif report.threat_type == ThreatType.fleet:
+                fleets += 1
+
+            if report.reported_at < oldest_time:
+                oldest_time = report.reported_at
+            if report.reported_at > newest_time:
+                newest_time = report.reported_at
+
+    now = datetime.now(UTC)
+    return IntelStats(
+        total_systems=len(all_intel),
+        total_hostiles=sum(intel.total_hostiles for intel in all_intel.values()),
+        total_reports=total_reports,
+        gate_camps=gate_camps,
+        bubbles=bubbles,
+        fleets=fleets,
+        oldest_report_seconds=(now - oldest_time).total_seconds() if total_reports else 0,
+        newest_report_seconds=(now - newest_time).total_seconds() if total_reports else 0,
+    )
+
+
+def get_nearby_intel(system_name: str, max_jumps: int = 3) -> dict[str, SystemIntel]:
+    """
+    Get intel for systems within a certain number of jumps.
+
+    Args:
+        system_name: Center system to search from
+        max_jumps: Maximum jumps to search (default 3)
+
+    Returns:
+        Dict mapping system names to their intel
+    """
+    universe = load_universe()
+
+    if system_name not in universe.systems:
+        return {}
+
+    # Build adjacency map from gates
+    adjacency: dict[str, set[str]] = {}
+    for gate in universe.gates:
+        if gate.from_system not in adjacency:
+            adjacency[gate.from_system] = set()
+        if gate.to_system not in adjacency:
+            adjacency[gate.to_system] = set()
+        adjacency[gate.from_system].add(gate.to_system)
+        adjacency[gate.to_system].add(gate.from_system)
+
+    # BFS to find nearby systems
+    visited = {system_name}
+    frontier = [system_name]
+    current_jump = 0
+
+    while frontier and current_jump < max_jumps:
+        next_frontier = []
+        for sys_name in frontier:
+            neighbors = adjacency.get(sys_name, set())
+            for neighbor in neighbors:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    next_frontier.append(neighbor)
+        frontier = next_frontier
+        current_jump += 1
+
+    # Get intel for all visited systems
+    store = get_intel_store()
+    result = {}
+    for sys_name in visited:
+        intel = store.get_system_intel(sys_name)
+        if intel and intel.total_hostiles > 0:
+            result[sys_name] = intel
+
+    return result

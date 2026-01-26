@@ -484,3 +484,240 @@ class TestGetIntelStore:
         reset_intel_store()
         store2 = get_intel_store()
         assert store1 is not store2
+
+
+class TestThreatTypeDetection:
+    """Tests for threat type detection."""
+
+    def test_gate_camp_detection(self, mock_universe):
+        """Test gate camp detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita camp")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.gate_camp
+
+    def test_gate_camp_with_gatecamp(self, mock_universe):
+        """Test gatecamp keyword."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita gatecamp")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.gate_camp
+
+    def test_bubble_detection(self, mock_universe):
+        """Test bubble detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita bubble")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.bubble
+
+    def test_dictor_bubble(self, mock_universe):
+        """Test dictor implies bubble."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita dictor")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.bubble
+
+    def test_fleet_detection(self, mock_universe):
+        """Test fleet detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita fleet")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.fleet
+
+    def test_gang_detection(self, mock_universe):
+        """Test gang as fleet."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita gang")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.fleet
+
+    def test_default_hostile(self, mock_universe):
+        """Test default threat type is hostile."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita +1")
+
+        from backend.app.services.intel_parser import ThreatType
+
+        assert report.threat_type == ThreatType.hostile
+
+
+class TestShipTypeDetection:
+    """Tests for ship type detection."""
+
+    def test_sabre_detection(self, mock_universe):
+        """Test Sabre detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita Sabre")
+
+        assert "Sabre" in report.ship_types
+
+    def test_multiple_ships(self, mock_universe):
+        """Test multiple ship types."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita Sabre Cerberus")
+
+        assert "Sabre" in report.ship_types
+        assert "Cerberus" in report.ship_types
+
+    def test_case_insensitive(self, mock_universe):
+        """Test case insensitive ship detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita sabre CERBERUS")
+
+        # Should preserve original casing
+        assert len(report.ship_types) == 2
+
+    def test_no_ships(self, mock_universe):
+        """Test no ship types detected."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita +3")
+
+        assert report.ship_types == []
+
+
+class TestDirectionDetection:
+    """Tests for direction detection."""
+
+    def test_direction_toward(self, mock_universe):
+        """Test 'toward' direction detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita toward Amarr")
+
+        assert report.direction == "toward Amarr"
+
+    def test_direction_to(self, mock_universe):
+        """Test 'to' direction detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita to Amarr")
+
+        assert report.direction == "toward Amarr"
+
+    def test_direction_arrow(self, mock_universe):
+        """Test '->' direction detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita -> Amarr")
+
+        assert report.direction == "toward Amarr"
+
+    def test_direction_from(self, mock_universe):
+        """Test 'from' direction detection."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita from Amarr")
+
+        assert report.direction == "from Amarr"
+
+    def test_no_direction(self, mock_universe):
+        """Test no direction detected."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita +3")
+
+        assert report.direction is None
+
+    def test_invalid_destination(self, mock_universe):
+        """Test invalid destination system."""
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            report = parse_intel_line("Jita toward InvalidSystem")
+
+        assert report.direction is None
+
+
+class TestGetIntelStats:
+    """Tests for get_intel_stats function."""
+
+    def test_empty_stats(self):
+        """Test stats with no intel."""
+        from backend.app.services.intel_parser import get_intel_stats
+
+        stats = get_intel_stats()
+        assert stats.total_systems == 0
+        assert stats.total_hostiles == 0
+        assert stats.total_reports == 0
+
+    def test_stats_with_reports(self, mock_universe):
+        """Test stats with multiple reports."""
+        from backend.app.services.intel_parser import get_intel_stats
+
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            submit_intel("Jita +3")
+            submit_intel("Amarr +2")
+            submit_intel("Rancer camp")
+            submit_intel("Tama bubble")
+
+        stats = get_intel_stats()
+        assert stats.total_systems == 4
+        assert stats.total_hostiles >= 6
+        assert stats.total_reports == 4
+        assert stats.gate_camps == 1
+        assert stats.bubbles == 1
+
+    def test_stats_fleet_count(self, mock_universe):
+        """Test fleet count in stats."""
+        from backend.app.services.intel_parser import get_intel_stats
+
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            submit_intel("Jita fleet")
+            submit_intel("Amarr gang")
+
+        stats = get_intel_stats()
+        assert stats.fleets == 2
+
+
+class TestGetNearbyIntel:
+    """Tests for get_nearby_intel function."""
+
+    def test_nearby_intel_empty(self):
+        """Test nearby intel with no intel."""
+        from backend.app.services.intel_parser import get_nearby_intel
+
+        with patch("backend.app.services.intel_parser.load_universe") as mock_load:
+            mock = MagicMock()
+            jita = MagicMock()
+            jita.stargates = {"gate1": "Perimeter"}
+            mock.systems = {"Jita": jita, "Perimeter": MagicMock(stargates={})}
+            mock_load.return_value = mock
+
+            result = get_nearby_intel("Jita", max_jumps=2)
+
+        assert result == {}
+
+    def test_nearby_intel_invalid_system(self):
+        """Test nearby intel with invalid center system."""
+        from backend.app.services.intel_parser import get_nearby_intel
+
+        with patch("backend.app.services.intel_parser.load_universe") as mock_load:
+            mock = MagicMock()
+            mock.systems = {}
+            mock_load.return_value = mock
+
+            result = get_nearby_intel("InvalidSystem", max_jumps=2)
+
+        assert result == {}
+
+    def test_nearby_intel_finds_hostiles(self, mock_universe):
+        """Test nearby intel finds hostiles in range."""
+        from backend.app.services.intel_parser import get_nearby_intel
+
+        # Set up mock universe with stargates
+        jita = MagicMock(stargates={"gate1": "Amarr"})
+        amarr = MagicMock(stargates={"gate1": "Jita"})
+        mock_universe.systems = {"Jita": jita, "Amarr": amarr}
+
+        with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
+            submit_intel("Amarr +3")
+
+            result = get_nearby_intel("Jita", max_jumps=1)
+
+        assert "Amarr" in result
+        assert result["Amarr"].total_hostiles == 3
