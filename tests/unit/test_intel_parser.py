@@ -683,9 +683,11 @@ class TestGetNearbyIntel:
 
         with patch("backend.app.services.intel_parser.load_universe") as mock_load:
             mock = MagicMock()
-            jita = MagicMock()
-            jita.stargates = {"gate1": "Perimeter"}
-            mock.systems = {"Jita": jita, "Perimeter": MagicMock(stargates={})}
+            mock_gate = MagicMock()
+            mock_gate.from_system = "Jita"
+            mock_gate.to_system = "Perimeter"
+            mock.systems = {"Jita": MagicMock(), "Perimeter": MagicMock()}
+            mock.gates = [mock_gate]
             mock_load.return_value = mock
 
             result = get_nearby_intel("Jita", max_jumps=2)
@@ -709,10 +711,11 @@ class TestGetNearbyIntel:
         """Test nearby intel finds hostiles in range."""
         from backend.app.services.intel_parser import get_nearby_intel
 
-        # Set up mock universe with stargates
-        jita = MagicMock(stargates={"gate1": "Amarr"})
-        amarr = MagicMock(stargates={"gate1": "Jita"})
-        mock_universe.systems = {"Jita": jita, "Amarr": amarr}
+        # Set up mock universe with gates
+        mock_gate = MagicMock()
+        mock_gate.from_system = "Jita"
+        mock_gate.to_system = "Amarr"
+        mock_universe.gates = [mock_gate]
 
         with patch("backend.app.services.intel_parser.load_universe", return_value=mock_universe):
             submit_intel("Amarr +3")
