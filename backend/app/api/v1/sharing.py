@@ -313,7 +313,7 @@ async def export_all_formats(route_data: dict[str, Any]) -> ExportAllFormatsResp
     """Export route in all formats."""
     return ExportAllFormatsResponse(
         text=export_to_text(route_data),
-        json_str=export_to_json(route_data),
+        json=export_to_json(route_data),
         waypoint_systems=export_to_waypoint_names(route_data),
         dotlan_url=export_to_dotlan_url(route_data),
         eveeye_url=export_to_eveeye_url(route_data),
@@ -343,7 +343,7 @@ async def export_shared_route(token: str) -> ExportAllFormatsResponse:
 
     return ExportAllFormatsResponse(
         text=export_to_text(shared.route_data),
-        json_str=export_to_json(shared.route_data),
+        json=export_to_json(shared.route_data),
         waypoint_systems=export_to_waypoint_names(shared.route_data),
         dotlan_url=export_to_dotlan_url(shared.route_data),
         eveeye_url=export_to_eveeye_url(shared.route_data),

@@ -346,7 +346,7 @@ async def get_route_from_current_location(
     profile: str = Query("safer", description="Routing profile"),
     avoid: list[str] | None = Query(None, description="Systems to avoid"),
     bridges: bool = Query(False, description="Use Ansiblex bridges"),
-    character: LocationScope = None,
+    character: LocationScope | None = None,
 ) -> RouteFromHereResponse:
     """
     Calculate a route from the character's current location.
@@ -357,6 +357,12 @@ async def get_route_from_current_location(
     2. Calculates route to destination
     3. Returns full route details
     """
+    if character is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required for location-based routing",
+        )
+
     # Get current location
     location = await get_character_location(character)
 

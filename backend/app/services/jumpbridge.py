@@ -637,7 +637,7 @@ def discover_bridges_from_structures(
         owner_id = structure.get("owner_id")
 
         # Try to get system name from ID
-        from_system = system_id_to_name.get(solar_system_id, "")
+        from_system = system_id_to_name.get(solar_system_id, "") if solar_system_id else ""
 
         # Try to parse destination from structure name using separators
         to_system = None
