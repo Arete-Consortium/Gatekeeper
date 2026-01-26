@@ -1,6 +1,5 @@
 """Tests for starmap pathfinding module."""
 
-import math
 
 from backend.starmap.graph.pathfinding import (
     PriorityItem,

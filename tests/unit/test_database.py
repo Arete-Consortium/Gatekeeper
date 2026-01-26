@@ -1,6 +1,5 @@
 """Unit tests for database configuration and session management."""
 
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -129,7 +128,7 @@ class TestGetEngine:
                 mock_engine = MagicMock()
                 mock_create.return_value = mock_engine
 
-                engine = get_engine()
+                get_engine()
 
                 # Should include pool settings for postgresql
                 call_kwargs = mock_create.call_args.kwargs

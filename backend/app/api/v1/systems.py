@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from ...models.risk import RiskReport, ShipProfile, SHIP_PROFILES
+from ...models.risk import SHIP_PROFILES, RiskReport
 from ...models.system import SystemSummary
 from ...services.data_loader import get_neighbors, load_universe
 from ...services.risk_engine import compute_risk_async

@@ -4,11 +4,11 @@ Allows users to add notes, warnings, and tags to systems.
 Notes can be personal or shared with the community.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from threading import RLock
-from typing import Callable
 
 
 class NoteType(str, Enum):

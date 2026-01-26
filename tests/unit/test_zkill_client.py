@@ -2,8 +2,8 @@
 
 import pytest
 
-from backend.app.services.zkill_client import fetch_system_stats
 from backend.app.models.risk import ZKillStats
+from backend.app.services.zkill_client import fetch_system_stats
 
 
 class TestZKillClient:

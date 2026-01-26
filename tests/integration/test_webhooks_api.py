@@ -1,6 +1,5 @@
 """Integration tests for webhooks API endpoints."""
 
-import pytest
 
 
 class TestWebhooksListEndpoint:

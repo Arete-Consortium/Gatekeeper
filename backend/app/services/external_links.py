@@ -8,9 +8,7 @@ Generates links to popular EVE Online tools:
 - ESI (official API)
 """
 
-from typing import Any
 from urllib.parse import quote
-
 
 # =============================================================================
 # Dotlan Links

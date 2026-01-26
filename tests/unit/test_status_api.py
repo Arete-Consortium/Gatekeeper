@@ -1,7 +1,7 @@
 """Unit tests for status API endpoints."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

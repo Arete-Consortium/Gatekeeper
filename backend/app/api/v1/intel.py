@@ -3,7 +3,7 @@
 Provides endpoints for submitting and retrieving intel channel data.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -12,7 +12,6 @@ from ...services.intel_parser import (
     IntelReport,
     SystemIntel,
     get_intel_store,
-    parse_intel_line,
     parse_intel_text,
     submit_intel,
 )

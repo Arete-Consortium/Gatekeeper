@@ -6,12 +6,12 @@ Implements EVE Online's jump fatigue mechanics:
 - Both timers decay in real-time when not jumping
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from threading import RLock
-from typing import Callable
 
-from .jump_drive import CapitalShipType, calculate_distance_ly
+from .jump_drive import calculate_distance_ly
 
 
 @dataclass

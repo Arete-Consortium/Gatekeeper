@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI, Request
 
 from backend.app.middleware.rate_limit import (

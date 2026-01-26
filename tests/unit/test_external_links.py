@@ -1,6 +1,5 @@
 """Unit tests for external links service."""
 
-import pytest
 
 from backend.app.services.external_links import (
     dotlan_jump_url,

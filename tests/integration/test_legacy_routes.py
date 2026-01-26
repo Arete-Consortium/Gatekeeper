@@ -1,6 +1,5 @@
 """Integration tests for legacy /systems and /map routes."""
 
-import pytest
 
 
 class TestLegacySystemsRoutes:

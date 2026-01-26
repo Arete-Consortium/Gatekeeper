@@ -186,7 +186,7 @@ class TestIntelStore:
         """Test that max reports per system is enforced."""
         store = IntelStore(max_reports_per_system=3)
 
-        for i in range(5):
+        for _ in range(5):
             store.add_report(IntelReport(system_name="Jita", hostile_count=1))
 
         intel = store.get_system_intel("Jita")

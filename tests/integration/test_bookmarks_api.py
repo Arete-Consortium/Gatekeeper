@@ -5,7 +5,6 @@ These tests verify the API exists and handles validation errors properly.
 Full CRUD tests require authenticated test setup.
 """
 
-import pytest
 
 
 class TestBookmarksEndpointExists:

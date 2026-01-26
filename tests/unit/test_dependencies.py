@@ -1,7 +1,6 @@
 """Unit tests for authentication dependencies."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
 
 import pytest
 

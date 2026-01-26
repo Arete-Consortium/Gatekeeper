@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from backend.app.api.metrics import (
     normalize_path,
     record_cache_hit,

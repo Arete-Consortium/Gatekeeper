@@ -2,8 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytest
-
 from backend.app.db.models import (
     CacheEntry,
     KillRecord,

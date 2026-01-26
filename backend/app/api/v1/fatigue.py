@@ -194,7 +194,7 @@ async def calculate_jump(
         result = calculate_single_jump_fatigue(from_system, to_system, state)
         return JumpFatigueResponse.from_result(result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.post(
@@ -222,7 +222,7 @@ async def calculate_route(request: RouteRequest) -> RouteFatigueResponse:
         )
         return RouteFatigueResponse.from_result(result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.get(
@@ -292,7 +292,7 @@ async def record_character_jump(
         )
         return FatigueStateResponse.from_state(state)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 @router.delete(

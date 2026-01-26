@@ -1,6 +1,5 @@
 """Unit tests for token storage service."""
 
-import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path

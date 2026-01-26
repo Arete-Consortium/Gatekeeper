@@ -11,22 +11,21 @@ from backend.app.api.v1.character import (
     CharacterLocation,
     CharacterOnlineStatus,
     CharacterShip,
-    WaypointRequest,
-    WaypointResponse,
     RouteFromHereRequest,
-    RouteFromHereResponse,
     SetRouteWaypointsRequest,
     SetRouteWaypointsResponse,
+    WaypointRequest,
+    WaypointResponse,
     get_character_location,
     get_character_online,
     get_character_ship,
-    set_waypoint,
-    set_route_destination,
     get_route_from_current_location,
+    set_route_destination,
     set_route_waypoints,
+    set_waypoint,
 )
 from backend.app.api.v1.dependencies import AuthenticatedCharacter
-from backend.app.models.route import RouteResponse, RouteHop
+from backend.app.models.route import RouteHop, RouteResponse
 
 
 @pytest.fixture

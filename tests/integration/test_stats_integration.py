@@ -1,6 +1,5 @@
 """Integration tests for stats API endpoints."""
 
-import pytest
 
 
 class TestSystemStatsEndpoint:

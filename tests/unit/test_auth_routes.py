@@ -3,17 +3,15 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from backend.app.api.v1.auth import (
     AuthStatus,
     CharacterInfo,
     LoginResponse,
     TokenResponse,
+    _oauth_states,
     cleanup_expired_states,
     generate_state,
     validate_state,
-    _oauth_states,
 )
 from backend.app.services.token_store import MemoryTokenStore
 
@@ -424,7 +422,7 @@ class TestRefreshTokenEndpoint:
         """Test successful token refresh."""
         import asyncio
 
-        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+        from backend.app.services.token_store import get_token_store
 
         token_store = MemoryTokenStore()
 
@@ -481,7 +479,7 @@ class TestRefreshTokenEndpoint:
         """Test token refresh when token is revoked."""
         import asyncio
 
-        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+        from backend.app.services.token_store import get_token_store
 
         token_store = MemoryTokenStore()
 
@@ -539,7 +537,7 @@ class TestMeEndpointExpired:
         """Test /me returns authenticated=False with expired token info."""
         import asyncio
 
-        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+        from backend.app.services.token_store import get_token_store
 
         token_store = MemoryTokenStore()
 
@@ -580,7 +578,7 @@ class TestLogoutSuccess:
         """Test successful logout removes token and returns success."""
         import asyncio
 
-        from backend.app.services.token_store import MemoryTokenStore, get_token_store
+        from backend.app.services.token_store import get_token_store
 
         token_store = MemoryTokenStore()
 

@@ -4,7 +4,7 @@ Provides endpoints for generating links to external EVE tools.
 """
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...services.external_links import (
     get_alliance_links,

@@ -4,7 +4,6 @@ Provides endpoints for managing user annotations on systems.
 """
 
 from datetime import datetime
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -153,7 +152,7 @@ async def create_note(request: CreateNoteRequest) -> SystemNoteResponse:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid note type: {request.note_type}. Valid types: {[t.value for t in NoteType]}",
-        )
+        ) from None
 
     store = get_notes_store()
     note = store.add_note(
@@ -217,7 +216,7 @@ async def get_system_notes(
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid note type: {note_type}",
-            )
+            ) from None
         notes = store.get_system_notes(system_name, note_type=note_type_enum, author=author)
     else:
         notes = store.get_system_notes(system_name, author=author)
@@ -281,7 +280,7 @@ async def update_note(note_id: str, request: UpdateNoteRequest) -> SystemNoteRes
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid note type: {request.note_type}",
-            )
+            ) from None
 
     note = store.update_note(
         note_id=note_id,
@@ -399,7 +398,7 @@ async def search_notes(
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid note type: {note_type}",
-            )
+            ) from None
 
     store = get_notes_store()
     notes = store.search_notes(query, note_type=note_type_enum, limit=limit)

@@ -1,6 +1,5 @@
 """Integration tests for external links API endpoints."""
 
-import pytest
 
 
 class TestListToolsEndpoint:

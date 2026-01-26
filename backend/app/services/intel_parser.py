@@ -11,10 +11,10 @@ Common formats supported:
 
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from threading import RLock
-from typing import Callable
 
 from .data_loader import load_universe
 
