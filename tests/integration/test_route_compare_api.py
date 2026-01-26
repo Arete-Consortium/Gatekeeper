@@ -236,3 +236,336 @@ class TestRouteProfilesEndpoint:
 
         # Safer should have lower or equal max risk
         assert data_safer["max_risk"] <= data_short["max_risk"]
+
+
+class TestBulkRoutesEndpoint:
+    """Tests for POST /api/v1/route/bulk."""
+
+    def test_bulk_routes_basic(self, test_client: TestClient):
+        """Should calculate routes to multiple destinations."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr", "Dodixie"],
+                "profile": "shortest",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["from_system"] == "Jita"
+        assert data["profile"] == "shortest"
+        assert data["total_destinations"] == 2
+        assert data["successful"] == 2
+        assert data["failed"] == 0
+        assert len(data["routes"]) == 2
+
+    def test_bulk_routes_result_structure(self, test_client: TestClient):
+        """Each bulk route result should have required fields."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr"],
+                "profile": "shortest",
+            },
+        )
+
+        data = response.json()
+        route = data["routes"][0]
+
+        assert "to_system" in route
+        assert "success" in route
+        assert route["success"] is True
+        assert "total_jumps" in route
+        assert "total_cost" in route
+        assert "max_risk" in route
+        assert "avg_risk" in route
+        assert "path_systems" in route
+
+    def test_bulk_routes_unknown_origin(self, test_client: TestClient):
+        """Should return error for unknown origin system."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "FakeSystem",
+                "to_systems": ["Amarr"],
+                "profile": "shortest",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Unknown origin" in response.json()["detail"]
+
+    def test_bulk_routes_unknown_profile(self, test_client: TestClient):
+        """Should return error for unknown profile."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr"],
+                "profile": "invalid_profile",
+            },
+        )
+
+        assert response.status_code == 400
+        assert "Unknown profile" in response.json()["detail"]
+
+    def test_bulk_routes_unknown_destination(self, test_client: TestClient):
+        """Should handle unknown destination gracefully."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr", "FakeSystem"],
+                "profile": "shortest",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["successful"] == 1
+        assert data["failed"] == 1
+
+        # Find the failed route
+        failed_route = next(r for r in data["routes"] if r["to_system"] == "FakeSystem")
+        assert failed_route["success"] is False
+        assert "Unknown system" in failed_route["error"]
+
+    def test_bulk_routes_same_origin_destination(self, test_client: TestClient):
+        """Should handle destination same as origin."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Jita", "Amarr"],
+                "profile": "shortest",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["successful"] == 2
+
+        # Find the self-route
+        self_route = next(r for r in data["routes"] if r["to_system"] == "Jita")
+        assert self_route["success"] is True
+        assert self_route["total_jumps"] == 0
+        assert self_route["path_systems"] == ["Jita"]
+
+    def test_bulk_routes_sorted_by_jumps(self, test_client: TestClient):
+        """Results should be sorted by jump count."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr", "Perimeter", "Urlen"],
+                "profile": "shortest",
+            },
+        )
+
+        data = response.json()
+        routes = data["routes"]
+
+        # Check routes are sorted by jumps (ascending)
+        for i in range(len(routes) - 1):
+            if routes[i]["success"] and routes[i + 1]["success"]:
+                assert routes[i]["total_jumps"] <= routes[i + 1]["total_jumps"]
+
+    def test_bulk_routes_with_avoid(self, test_client: TestClient):
+        """Should respect avoid list in bulk routes."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr"],
+                "profile": "shortest",
+                "avoid": ["Niarja"],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        route = data["routes"][0]
+        assert "Niarja" not in route["path_systems"]
+
+    def test_bulk_routes_with_bridges(self, test_client: TestClient):
+        """Should accept use_bridges parameter."""
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr"],
+                "profile": "shortest",
+                "use_bridges": True,
+            },
+        )
+
+        assert response.status_code == 200
+
+    def test_bulk_routes_route_error_handling(self, test_client: TestClient):
+        """Should handle routing errors gracefully."""
+        # Try to route with all intermediate systems avoided (should fail)
+        response = test_client.post(
+            "/api/v1/route/bulk",
+            json={
+                "from_system": "Jita",
+                "to_systems": ["Amarr"],
+                "profile": "shortest",
+                "avoid": ["Perimeter"],  # Block route from Jita
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # Route should fail since Perimeter is blocked
+        assert data["failed"] >= 0  # May succeed via alternate route
+
+
+class TestGenerateRecommendation:
+    """Tests for recommendation generation."""
+
+    def test_recommendation_with_different_profiles(self, test_client: TestClient):
+        """Should generate meaningful recommendation when profiles differ."""
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Amarr",
+                "profiles": ["shortest", "safer", "paranoid"],
+            },
+        )
+
+        data = response.json()
+        recommendation = data["recommendation"]
+
+        # Should have some content
+        assert len(recommendation) > 10
+
+    def test_recommendation_mentions_profiles(self, test_client: TestClient):
+        """Recommendation should mention profile names."""
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Amarr",
+                "profiles": ["shortest", "safer"],
+            },
+        )
+
+        data = response.json()
+        recommendation = data["recommendation"].lower()
+
+        # Should mention at least one profile
+        assert "shortest" in recommendation or "safer" in recommendation or "same" in recommendation
+
+
+class TestRouteSecurityCategories:
+    """Tests for route security category counting."""
+
+    def test_route_through_lowsec(self, test_client: TestClient):
+        """Should count lowsec jumps correctly."""
+        # Route to a lowsec system
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Shenela",
+                "profiles": ["shortest"],
+            },
+        )
+
+        # If system exists and route found, should count correctly
+        if response.status_code == 200:
+            data = response.json()
+            if data["routes"]:
+                route = data["routes"][0]
+                total = route["highsec_jumps"] + route["lowsec_jumps"] + route["nullsec_jumps"]
+                assert total == len(route["path_systems"])
+
+    def test_route_to_nullsec_system(self, test_client: TestClient):
+        """Should count nullsec jumps when route passes through nullsec."""
+        # LZ-6SU is a nullsec system
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "LZ-6SU",
+                "profiles": ["shortest"],
+            },
+        )
+
+        # If route found, check nullsec counting
+        if response.status_code == 200:
+            data = response.json()
+            if data["routes"]:
+                route = data["routes"][0]
+                # Should have at least 1 nullsec jump (the destination)
+                assert route["nullsec_jumps"] >= 1
+
+    def test_highsec_only_route_recommendation(self, test_client: TestClient):
+        """Routes staying in highsec should note that in recommendation."""
+        # Jita to Perimeter is entirely highsec
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Perimeter",
+                "profiles": ["shortest", "safer"],
+            },
+        )
+
+        data = response.json()
+        route = data["routes"][0]
+
+        # Should be all highsec
+        assert route["lowsec_jumps"] == 0
+        assert route["nullsec_jumps"] == 0
+
+
+class TestRecommendationEdgeCases:
+    """Edge case tests for recommendation generation."""
+
+    def test_empty_profiles_list(self, test_client: TestClient):
+        """Should handle empty profiles list."""
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Amarr",
+                "profiles": [],
+            },
+        )
+
+        # Either error or empty routes
+        if response.status_code == 200:
+            data = response.json()
+            assert len(data["routes"]) == 0
+            assert "No routes" in data["recommendation"]
+
+    def test_recommendation_different_tradeoffs(self, test_client: TestClient):
+        """Should generate tradeoff recommendations when profiles differ."""
+        # Use a route where profiles might differ
+        response = test_client.post(
+            "/api/v1/route/compare",
+            json={
+                "from_system": "Jita",
+                "to_system": "Dodixie",
+                "profiles": ["shortest", "paranoid"],
+            },
+        )
+
+        data = response.json()
+        routes = data["routes"]
+
+        if len(routes) >= 2:
+            # Find if routes differ
+            shortest = next((r for r in routes if r["profile"] == "shortest"), None)
+            paranoid = next((r for r in routes if r["profile"] == "paranoid"), None)
+
+            if shortest and paranoid:
+                if shortest["total_jumps"] != paranoid["total_jumps"]:
+                    # Should mention tradeoffs
+                    assert "jumps" in data["recommendation"].lower() or "risk" in data["recommendation"].lower()

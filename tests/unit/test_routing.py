@@ -5,7 +5,9 @@ import pytest
 from backend.app.api.v1.routing import (
     RouteHistoryEntry,
     RouteHistoryResponse,
+    RouteSummary,
     _add_to_history,
+    _generate_recommendation,
     clear_route_history,
     get_history,
     get_route_history,
@@ -305,3 +307,149 @@ class TestDijkstraEdgeCases:
 
         assert path == []
         assert cost == math.inf
+
+
+class TestGenerateRecommendation:
+    """Unit tests for _generate_recommendation function."""
+
+    def test_empty_routes(self):
+        """Should return appropriate message for empty routes."""
+        result = _generate_recommendation([])
+        assert result == "No routes available"
+
+    def test_single_route(self):
+        """Should return appropriate message for single route."""
+        route = RouteSummary(
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=3.0,
+            bridges_used=0,
+            highsec_jumps=10,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["Jita", "Perimeter"],
+        )
+        result = _generate_recommendation([route])
+        assert "Only shortest profile calculated" in result
+
+    def test_identical_routes(self):
+        """Should recognize when all profiles produce same route."""
+        route1 = RouteSummary(
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=3.0,
+            bridges_used=0,
+            highsec_jumps=10,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "B"],
+        )
+        route2 = RouteSummary(
+            profile="safer",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=3.0,
+            bridges_used=0,
+            highsec_jumps=10,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "B"],
+        )
+        result = _generate_recommendation([route1, route2])
+        assert "same" in result.lower() and "10-jump" in result
+
+    def test_different_routes_tradeoff(self):
+        """Should describe tradeoffs when profiles differ."""
+        shortest = RouteSummary(
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=50.0,
+            avg_risk=30.0,
+            bridges_used=0,
+            highsec_jumps=5,
+            lowsec_jumps=5,
+            nullsec_jumps=0,
+            path_systems=["A", "B"],
+        )
+        safer = RouteSummary(
+            profile="safer",
+            total_jumps=15,
+            total_cost=15.0,
+            max_risk=20.0,
+            avg_risk=10.0,
+            bridges_used=0,
+            highsec_jumps=15,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "C", "B"],
+        )
+        result = _generate_recommendation([shortest, safer])
+        # Should mention the tradeoff
+        assert "fastest" in result.lower() or "shortest" in result.lower()
+        assert "jumps" in result.lower()
+
+    def test_same_profile_fastest_safest(self):
+        """Should handle when one profile is both fastest and safest."""
+        route1 = RouteSummary(
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=3.0,
+            bridges_used=0,
+            highsec_jumps=10,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "B"],
+        )
+        route2 = RouteSummary(
+            profile="safer",
+            total_jumps=15,
+            total_cost=15.0,
+            max_risk=10.0,
+            avg_risk=5.0,
+            bridges_used=0,
+            highsec_jumps=15,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "C", "B"],
+        )
+        result = _generate_recommendation([route1, route2])
+        # Should mention 'shortest' being both
+        assert "shortest" in result.lower()
+
+    def test_highsec_only_note(self):
+        """Should note when route stays entirely in highsec."""
+        route1 = RouteSummary(
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=50.0,
+            avg_risk=30.0,
+            bridges_used=0,
+            highsec_jumps=5,
+            lowsec_jumps=5,
+            nullsec_jumps=0,
+            path_systems=["A", "B"],
+        )
+        route2 = RouteSummary(
+            profile="safer",
+            total_jumps=15,
+            total_cost=15.0,
+            max_risk=20.0,
+            avg_risk=10.0,
+            bridges_used=0,
+            highsec_jumps=15,
+            lowsec_jumps=0,
+            nullsec_jumps=0,
+            path_systems=["A", "C", "B"],
+        )
+        result = _generate_recommendation([route1, route2])
+        # Should note safer stays in highsec
+        assert "highsec" in result.lower()
