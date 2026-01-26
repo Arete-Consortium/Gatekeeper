@@ -244,3 +244,64 @@ class TestRouteHistoryModels:
 
         assert response.total == 1
         assert len(response.routes) == 1
+
+
+class TestComputeRouteEdgeCases:
+    """Edge case tests for compute_route."""
+
+    def test_compute_route_avoid_origin(self):
+        """Test error when trying to avoid the origin system."""
+        with pytest.raises(ValueError, match="Cannot avoid origin system"):
+            compute_route("Jita", "Amarr", "shortest", avoid={"Jita"})
+
+    def test_compute_route_avoid_destination(self):
+        """Test error when trying to avoid the destination system."""
+        with pytest.raises(ValueError, match="Cannot avoid destination system"):
+            compute_route("Jita", "Amarr", "shortest", avoid={"Amarr"})
+
+
+class TestBuildGraphEdgeCases:
+    """Edge case tests for _build_graph."""
+
+    def test_build_graph_with_avoid(self):
+        """Test that avoided systems are excluded from graph."""
+        graph, _ = _build_graph(avoid={"Perimeter"})
+
+        assert "Perimeter" not in graph
+        # Jita should still be in graph
+        assert "Jita" in graph
+        # Perimeter should not be a neighbor of Jita
+        assert "Perimeter" not in graph["Jita"]
+
+    def test_build_graph_with_bridges(self):
+        """Test building graph with jump bridges enabled."""
+        graph, edge_types = _build_graph(use_bridges=True)
+
+        # Graph should still have all systems
+        assert "Jita" in graph
+
+
+class TestDijkstraEdgeCases:
+    """Edge case tests for _dijkstra."""
+
+    def test_dijkstra_unreachable_destination(self):
+        """Test dijkstra returns empty path when destination unreachable."""
+        import math
+        from unittest.mock import MagicMock, patch
+
+        # Create a minimal disconnected graph
+        graph = {
+            "A": {"B": 1.0},
+            "B": {"A": 1.0},
+            "C": {},  # Disconnected node
+        }
+
+        # Mock compute_risk since these aren't real systems
+        mock_risk = MagicMock()
+        mock_risk.score = 0.0
+
+        with patch("backend.app.services.routing.compute_risk", return_value=mock_risk):
+            path, cost = _dijkstra(graph, "A", "C", "shortest")
+
+        assert path == []
+        assert cost == math.inf

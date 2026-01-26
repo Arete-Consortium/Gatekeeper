@@ -407,3 +407,188 @@ class TestGetNotesStore:
         reset_notes_store()
         store2 = get_notes_store()
         assert store1 is not store2
+
+
+class TestSystemNotesEdgeCases:
+    """Additional edge case tests for system notes."""
+
+    def test_subscriber_exception_does_not_crash(self):
+        """Test that subscriber exceptions don't crash add_note."""
+        store = SystemNotesStore()
+
+        def bad_callback(system, note):
+            raise ValueError("Callback error")
+
+        store.subscribe(bad_callback)
+
+        # Should not raise despite callback error
+        note = store.add_note("Jita", NoteType.INFO, "Test")
+        assert note is not None
+
+    def test_unsubscribe_callback(self):
+        """Test unsubscribing a callback."""
+        store = SystemNotesStore()
+        callback_data = []
+
+        def callback(system, note):
+            callback_data.append(note)
+
+        store.subscribe(callback)
+        store.add_note("Jita", NoteType.INFO, "Note 1")
+        assert len(callback_data) == 1
+
+        store.unsubscribe(callback)
+        store.add_note("Jita", NoteType.INFO, "Note 2")
+        assert len(callback_data) == 1  # No new callback
+
+    def test_unsubscribe_nonexistent_callback(self):
+        """Test unsubscribing a callback that wasn't subscribed."""
+        store = SystemNotesStore()
+
+        def callback(system, note):
+            pass
+
+        # Should not raise
+        store.unsubscribe(callback)
+
+    def test_get_system_notes_string_note_type(self):
+        """Test get_system_notes with string note_type."""
+        store = SystemNotesStore()
+        store.add_note("Jita", NoteType.INFO, "Info note")
+        store.add_note("Jita", NoteType.WARNING, "Warning note")
+
+        notes = store.get_system_notes("Jita", note_type="warning")
+
+        assert len(notes) == 1
+        assert notes[0].note_type == NoteType.WARNING
+
+    def test_get_system_notes_include_private(self):
+        """Test get_system_notes with include_private=True."""
+        store = SystemNotesStore()
+        store.add_note("Jita", NoteType.INFO, "Public", is_shared=True)
+        store.add_note("Jita", NoteType.INFO, "Private", is_shared=False)
+
+        notes = store.get_system_notes("Jita", include_private=True)
+
+        assert len(notes) == 2
+
+    def test_update_note_with_string_type(self):
+        """Test updating note with string note_type."""
+        store = SystemNotesStore()
+        note = store.add_note("Jita", NoteType.INFO, "Content")
+
+        updated = store.update_note(note.note_id, note_type="warning")
+
+        assert updated.note_type == NoteType.WARNING
+
+    def test_update_note_tags(self):
+        """Test updating note tags."""
+        store = SystemNotesStore()
+        note = store.add_note("Jita", NoteType.INFO, "Content", tags=["old"])
+
+        updated = store.update_note(note.note_id, tags=["new", "tags"])
+
+        assert updated.tags == ["new", "tags"]
+
+    def test_update_note_is_shared(self):
+        """Test updating note is_shared status."""
+        store = SystemNotesStore()
+        note = store.add_note("Jita", NoteType.INFO, "Content", is_shared=True)
+
+        updated = store.update_note(note.note_id, is_shared=False)
+
+        assert updated.is_shared is False
+
+    def test_update_note_expires_at(self):
+        """Test updating note expires_at."""
+        store = SystemNotesStore()
+        note = store.add_note("Jita", NoteType.INFO, "Content")
+
+        new_expiry = datetime.now(UTC) + timedelta(hours=24)
+        updated = store.update_note(note.note_id, expires_at=new_expiry)
+
+        assert updated.expires_at == new_expiry
+
+    def test_delete_note_cleans_empty_system(self):
+        """Test that deleting last note removes system entry."""
+        store = SystemNotesStore()
+        note = store.add_note("Jita", NoteType.INFO, "Only note")
+
+        store.delete_note(note.note_id)
+
+        # System should have no notes
+        assert store.get_system_notes("Jita") == []
+
+    def test_search_notes_excludes_expired(self):
+        """Test search excludes expired notes."""
+        store = SystemNotesStore()
+        store.add_note(
+            "Jita",
+            NoteType.INFO,
+            "Expired note",
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+        store.add_note("Amarr", NoteType.INFO, "Valid note")
+
+        results = store.search_notes("note")
+
+        assert len(results) == 1
+        assert results[0].system_name == "Amarr"
+
+    def test_search_notes_excludes_private(self):
+        """Test search excludes private notes."""
+        store = SystemNotesStore()
+        store.add_note("Jita", NoteType.INFO, "Private note", is_shared=False)
+        store.add_note("Amarr", NoteType.INFO, "Public note", is_shared=True)
+
+        results = store.search_notes("note")
+
+        assert len(results) == 1
+        assert results[0].system_name == "Amarr"
+
+    def test_search_notes_with_string_note_type(self):
+        """Test search with string note_type filter."""
+        store = SystemNotesStore()
+        store.add_note("Jita", NoteType.INFO, "Info note")
+        store.add_note("Amarr", NoteType.WARNING, "Warning note")
+
+        results = store.search_notes("note", note_type="warning")
+
+        assert len(results) == 1
+        assert results[0].note_type == NoteType.WARNING
+
+    def test_search_notes_type_filter_excludes(self):
+        """Test search with note_type excludes non-matching."""
+        store = SystemNotesStore()
+        store.add_note("Jita", NoteType.INFO, "Info content")
+        store.add_note("Amarr", NoteType.WARNING, "Warning content")
+
+        results = store.search_notes("content", note_type=NoteType.INFO)
+
+        assert len(results) == 1
+        assert results[0].system_name == "Jita"
+
+    def test_clear_system_nonexistent(self):
+        """Test clearing a system that doesn't exist."""
+        store = SystemNotesStore()
+        store.add_note("Amarr", NoteType.INFO, "Note")
+
+        # Should not raise for nonexistent system
+        store.clear_system("Jita")
+
+        # Amarr should still have its note
+        assert len(store.get_system_notes("Amarr")) == 1
+
+    def test_get_note_returns_none_for_expired(self):
+        """Test get_note returns None for expired notes."""
+        store = SystemNotesStore()
+        note = store.add_note(
+            "Jita",
+            NoteType.INFO,
+            "Expired",
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+
+        # The note exists but is expired
+        result = store.get_note(note.note_id)
+        assert result is None
