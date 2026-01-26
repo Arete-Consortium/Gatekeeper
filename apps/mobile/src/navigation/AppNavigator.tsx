@@ -4,7 +4,13 @@
  */
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { HomeScreen, RouteScreen, SettingsScreen } from '../screens';
+import {
+  HomeScreen,
+  RouteScreen,
+  SettingsScreen,
+  FittingScreen,
+  AlertsScreen,
+} from '../screens';
 import { RootStackParamList } from './types';
 import { THEME } from '../config';
 
@@ -45,6 +51,16 @@ export const AppNavigator: React.FC = () => {
         name="Settings"
         component={SettingsScreen}
         options={{ title: 'Settings' }}
+      />
+      <Stack.Screen
+        name="Fitting"
+        component={FittingScreen}
+        options={{ title: 'Fitting Analyzer' }}
+      />
+      <Stack.Screen
+        name="Alerts"
+        component={AlertsScreen}
+        options={{ title: 'Kill Alerts' }}
       />
     </Stack.Navigator>
   );

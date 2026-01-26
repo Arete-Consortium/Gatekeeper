@@ -216,6 +216,20 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.toolsGrid}>
           <TouchableOpacity
             style={styles.toolCard}
+            onPress={() => navigation.navigate('Fitting')}
+          >
+            <Text style={styles.toolName}>Fitting Analyzer</Text>
+            <Text style={styles.toolDescription}>Parse EFT fittings for travel advice</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.toolCard}
+            onPress={() => navigation.navigate('Alerts')}
+          >
+            <Text style={styles.toolName}>Kill Alerts</Text>
+            <Text style={styles.toolDescription}>Discord & Slack notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.toolCard}
             onPress={() => navigation.navigate('Settings')}
           >
             <Text style={styles.toolName}>Settings</Text>
