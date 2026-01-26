@@ -156,6 +156,72 @@ class TestWebhooksDetailEndpoint:
         verify_response = test_client.get(f"/api/v1/webhooks/{webhook_id}")
         assert verify_response.status_code == 404
 
+    def test_update_webhook_invalid_system(self, test_client):
+        """Test updating webhook with invalid system returns 400."""
+        # Create first
+        create_response = test_client.post(
+            "/api/v1/webhooks/",
+            json={
+                "webhook_url": "https://discord.com/api/webhooks/888/test",
+                "webhook_type": "discord",
+                "systems": ["Jita"],
+            }
+        )
+        assert create_response.status_code == 201
+        webhook_id = create_response.json()["id"]
+
+        # Update with invalid system
+        update_response = test_client.patch(
+            f"/api/v1/webhooks/{webhook_id}",
+            json={"systems": ["NonExistentSystem"]}
+        )
+        assert update_response.status_code == 400
+        assert "Unknown system" in update_response.json()["detail"]
+
+    def test_update_webhook_min_value(self, test_client):
+        """Test updating webhook min_value field."""
+        # Create first
+        create_response = test_client.post(
+            "/api/v1/webhooks/",
+            json={
+                "webhook_url": "https://discord.com/api/webhooks/777/test",
+                "webhook_type": "discord",
+            }
+        )
+        assert create_response.status_code == 201
+        webhook_id = create_response.json()["id"]
+
+        # Update min_value only
+        update_response = test_client.patch(
+            f"/api/v1/webhooks/{webhook_id}",
+            json={"min_value": 500000000}
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["min_value"] == 500000000
+
+    def test_update_webhook_include_pods(self, test_client):
+        """Test updating webhook include_pods field."""
+        # Create first
+        create_response = test_client.post(
+            "/api/v1/webhooks/",
+            json={
+                "webhook_url": "https://discord.com/api/webhooks/666/test",
+                "webhook_type": "discord",
+                "include_pods": True,
+            }
+        )
+        assert create_response.status_code == 201
+        webhook_id = create_response.json()["id"]
+        assert create_response.json()["include_pods"] is True
+
+        # Update include_pods only
+        update_response = test_client.patch(
+            f"/api/v1/webhooks/{webhook_id}",
+            json={"include_pods": False}
+        )
+        assert update_response.status_code == 200
+        assert update_response.json()["include_pods"] is False
+
 
 class TestWebhookTestEndpoint:
     """Tests for POST /api/v1/webhooks/test endpoint."""
@@ -175,3 +241,72 @@ class TestWebhookTestEndpoint:
             }
         )
         assert response.status_code == 422
+
+    def test_test_webhook_success(self, test_client, monkeypatch):
+        """Test successful webhook test message."""
+        from unittest.mock import AsyncMock
+
+        # Mock the send_webhook function to return success
+        mock_send = AsyncMock(return_value=True)
+        monkeypatch.setattr(
+            "backend.app.api.v1.webhooks.send_webhook",
+            mock_send
+        )
+
+        response = test_client.post(
+            "/api/v1/webhooks/test",
+            json={
+                "webhook_url": "https://discord.com/api/webhooks/123/test",
+                "webhook_type": "discord",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "successfully" in data["message"]
+
+    def test_test_webhook_failure(self, test_client, monkeypatch):
+        """Test failed webhook test message."""
+        from unittest.mock import AsyncMock
+
+        # Mock the send_webhook function to return failure
+        mock_send = AsyncMock(return_value=False)
+        monkeypatch.setattr(
+            "backend.app.api.v1.webhooks.send_webhook",
+            mock_send
+        )
+
+        response = test_client.post(
+            "/api/v1/webhooks/test",
+            json={
+                "webhook_url": "https://discord.com/api/webhooks/456/test",
+                "webhook_type": "discord",
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is False
+        assert "Failed" in data["message"]
+
+    def test_test_webhook_slack_type(self, test_client, monkeypatch):
+        """Test webhook test with Slack type."""
+        from unittest.mock import AsyncMock
+
+        mock_send = AsyncMock(return_value=True)
+        monkeypatch.setattr(
+            "backend.app.api.v1.webhooks.send_webhook",
+            mock_send
+        )
+
+        response = test_client.post(
+            "/api/v1/webhooks/test",
+            json={
+                "webhook_url": "https://hooks.slack.com/services/T/B/x",
+                "webhook_type": "slack",
+            }
+        )
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
