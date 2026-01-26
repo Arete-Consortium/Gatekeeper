@@ -6,6 +6,9 @@ from pathlib import Path
 
 from ..core.config import settings
 from ..models.jumpbridge import (
+    BridgeValidationIssue,
+    BridgeValidationResult,
+    BulkBridgeResponse,
     JumpBridge,
     JumpBridgeConfig,
     JumpBridgeImportResponse,
@@ -374,3 +377,229 @@ def get_bridge_stats() -> JumpBridgeStats:
         systems_connected=len(connected_systems),
         bridges_by_network=bridges_by_network,
     )
+
+
+def validate_bridge(
+    from_system: str,
+    to_system: str,
+) -> list[BridgeValidationIssue]:
+    """
+    Validate a single bridge against universe rules.
+
+    Rules:
+    - Both systems must exist
+    - Systems must be different
+    - Ansiblex bridges cannot be in highsec (security >= 0.5)
+    - Warning if bridge connects different regions
+
+    Args:
+        from_system: Origin system name
+        to_system: Destination system name
+
+    Returns:
+        List of validation issues (empty if valid)
+    """
+    universe = load_universe()
+    issues: list[BridgeValidationIssue] = []
+
+    # Check systems exist
+    if from_system not in universe.systems:
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"Unknown system: {from_system}",
+                severity="error",
+            )
+        )
+        return issues
+
+    if to_system not in universe.systems:
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"Unknown system: {to_system}",
+                severity="error",
+            )
+        )
+        return issues
+
+    # Check same system
+    if from_system == to_system:
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue="Origin and destination are the same system",
+                severity="error",
+            )
+        )
+        return issues
+
+    sys1 = universe.systems[from_system]
+    sys2 = universe.systems[to_system]
+
+    # Check highsec - Ansiblex cannot be anchored in highsec
+    if sys1.category == "highsec":
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"{from_system} is highsec (security {sys1.security:.1f}) - Ansiblex cannot be anchored",
+                severity="error",
+            )
+        )
+
+    if sys2.category == "highsec":
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"{to_system} is highsec (security {sys2.security:.1f}) - Ansiblex cannot be anchored",
+                severity="error",
+            )
+        )
+
+    # Check wormhole space - cannot have Ansiblex
+    if sys1.category == "wh":
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"{from_system} is wormhole space - Ansiblex cannot be anchored",
+                severity="error",
+            )
+        )
+
+    if sys2.category == "wh":
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"{to_system} is wormhole space - Ansiblex cannot be anchored",
+                severity="error",
+            )
+        )
+
+    # Warning if different regions (unusual but possible)
+    if sys1.region_id != sys2.region_id:
+        issues.append(
+            BridgeValidationIssue(
+                from_system=from_system,
+                to_system=to_system,
+                issue=f"Cross-region bridge: {sys1.region_name} to {sys2.region_name}",
+                severity="warning",
+            )
+        )
+
+    return issues
+
+
+def validate_network(network_name: str) -> BridgeValidationResult:
+    """
+    Validate all bridges in a network.
+
+    Args:
+        network_name: Name of the network to validate
+
+    Returns:
+        BridgeValidationResult with all issues found
+    """
+    config = load_bridge_config()
+
+    # Find network
+    network = None
+    for n in config.networks:
+        if n.name == network_name:
+            network = n
+            break
+
+    if network is None:
+        return BridgeValidationResult(
+            network_name=network_name,
+            total_bridges=0,
+            valid_bridges=0,
+            issues=[
+                BridgeValidationIssue(
+                    from_system="",
+                    to_system="",
+                    issue=f"Network not found: {network_name}",
+                    severity="error",
+                )
+            ],
+        )
+
+    all_issues: list[BridgeValidationIssue] = []
+    valid_count = 0
+
+    for bridge in network.bridges:
+        issues = validate_bridge(bridge.from_system, bridge.to_system)
+        if not any(i.severity == "error" for i in issues):
+            valid_count += 1
+        all_issues.extend(issues)
+
+    return BridgeValidationResult(
+        network_name=network_name,
+        total_bridges=len(network.bridges),
+        valid_bridges=valid_count,
+        issues=all_issues,
+    )
+
+
+def bulk_add_bridges(
+    network_name: str,
+    bridges: list[tuple[str, str, int | None, str | None]],
+) -> BulkBridgeResponse:
+    """
+    Add multiple bridges to a network.
+
+    Args:
+        network_name: Name of the network
+        bridges: List of (from_system, to_system, structure_id, owner) tuples
+
+    Returns:
+        BulkBridgeResponse with counts and errors
+    """
+    succeeded = 0
+    failed = 0
+    errors: list[str] = []
+
+    for from_sys, to_sys, struct_id, owner in bridges:
+        success, message = add_bridge(network_name, from_sys, to_sys, struct_id, owner)
+        if success:
+            succeeded += 1
+        else:
+            failed += 1
+            errors.append(f"{from_sys} <-> {to_sys}: {message}")
+
+    return BulkBridgeResponse(succeeded=succeeded, failed=failed, errors=errors)
+
+
+def bulk_remove_bridges(
+    network_name: str,
+    bridges: list[tuple[str, str]],
+) -> BulkBridgeResponse:
+    """
+    Remove multiple bridges from a network.
+
+    Args:
+        network_name: Name of the network
+        bridges: List of (from_system, to_system) tuples
+
+    Returns:
+        BulkBridgeResponse with counts and errors
+    """
+    succeeded = 0
+    failed = 0
+    errors: list[str] = []
+
+    for from_sys, to_sys in bridges:
+        success, message = remove_bridge(network_name, from_sys, to_sys)
+        if success:
+            succeeded += 1
+        else:
+            failed += 1
+            errors.append(f"{from_sys} <-> {to_sys}: {message}")
+
+    return BulkBridgeResponse(succeeded=succeeded, failed=failed, errors=errors)

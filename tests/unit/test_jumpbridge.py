@@ -10,10 +10,14 @@ from backend.app.models.jumpbridge import (
     JumpBridgeNetwork,
 )
 from backend.app.services.jumpbridge import (
+    bulk_add_bridges,
+    bulk_remove_bridges,
     clear_bridge_cache,
     load_bridge_config,
     parse_bridge_text,
     save_bridge_config,
+    validate_bridge,
+    validate_network,
 )
 
 
@@ -21,14 +25,33 @@ from backend.app.services.jumpbridge import (
 def mock_universe():
     """Create a mock universe with known systems."""
     mock = MagicMock()
+
+    # Create systems with proper attributes for validation tests
+    def make_system(name, security, category, region_id, region_name):
+        sys = MagicMock()
+        sys.name = name
+        sys.security = security
+        sys.category = category
+        sys.region_id = region_id
+        sys.region_name = region_name
+        return sys
+
     mock.systems = {
-        "Jita": MagicMock(),
-        "Amarr": MagicMock(),
-        "Dodixie": MagicMock(),
-        "HED-GP": MagicMock(),
-        "1DQ1-A": MagicMock(),
-        "8QT-H4": MagicMock(),
-        "Perimeter": MagicMock(),
+        # Highsec systems
+        "Jita": make_system("Jita", 0.9, "highsec", 10000002, "The Forge"),
+        "Amarr": make_system("Amarr", 1.0, "highsec", 10000043, "Domain"),
+        "Dodixie": make_system("Dodixie", 0.9, "highsec", 10000032, "Sinq Laison"),
+        "Perimeter": make_system("Perimeter", 0.9, "highsec", 10000002, "The Forge"),
+        # Nullsec systems
+        "HED-GP": make_system("HED-GP", -0.4, "nullsec", 10000014, "Catch"),
+        "1DQ1-A": make_system("1DQ1-A", -0.5, "nullsec", 10000060, "Delve"),
+        "8QT-H4": make_system("8QT-H4", -0.3, "nullsec", 10000060, "Delve"),
+        "Niarja": make_system("Niarja", -1.0, "nullsec", 10000065, "Triglavian"),
+        # Lowsec systems
+        "Amamake": make_system("Amamake", 0.4, "lowsec", 10000042, "Metropolis"),
+        "Tama": make_system("Tama", 0.3, "lowsec", 10000016, "Lonetrek"),
+        # Wormhole system
+        "J123456": make_system("J123456", -1.0, "wh", 11000001, "A-R00001"),
     }
     return mock
 
@@ -1070,3 +1093,322 @@ class TestGetBridgeStats:
         assert stats.active_bridges == 1
         assert stats.systems_connected == 2  # Only from enabled network
         assert stats.bridges_by_network == {"EnabledNet": 1, "DisabledNet": 1}
+
+
+class TestValidateBridge:
+    """Tests for validate_bridge function."""
+
+    def test_valid_nullsec_bridge(self, mock_universe):
+        """Should return no errors for valid nullsec bridge."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "8QT-H4")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 0
+
+    def test_valid_lowsec_bridge(self, mock_universe):
+        """Should return no errors for valid lowsec bridge."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("Amamake", "Tama")
+
+        errors = [i for i in issues if i.severity == "error"]
+        # Cross-region is a warning, not error
+        assert len(errors) == 0
+
+    def test_highsec_from_system_error(self, mock_universe):
+        """Should return error for highsec origin system."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("Jita", "1DQ1-A")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "highsec" in errors[0].issue.lower()
+        assert "Jita" in errors[0].issue
+
+    def test_highsec_to_system_error(self, mock_universe):
+        """Should return error for highsec destination system."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "Amarr")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "highsec" in errors[0].issue.lower()
+        assert "Amarr" in errors[0].issue
+
+    def test_both_highsec_error(self, mock_universe):
+        """Should return errors for both highsec systems."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("Jita", "Amarr")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 2
+
+    def test_wormhole_system_error(self, mock_universe):
+        """Should return error for wormhole system."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("J123456", "1DQ1-A")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "wormhole" in errors[0].issue.lower()
+
+    def test_unknown_from_system_error(self, mock_universe):
+        """Should return error for unknown origin system."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("FakeSystem", "1DQ1-A")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "Unknown system" in errors[0].issue
+
+    def test_unknown_to_system_error(self, mock_universe):
+        """Should return error for unknown destination system."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "FakeSystem")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "Unknown system" in errors[0].issue
+
+    def test_same_system_error(self, mock_universe):
+        """Should return error when origin and destination are the same."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "1DQ1-A")
+
+        errors = [i for i in issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "same system" in errors[0].issue.lower()
+
+    def test_cross_region_warning(self, mock_universe):
+        """Should return warning for cross-region bridge."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "HED-GP")  # Delve to Catch
+
+        warnings = [i for i in issues if i.severity == "warning"]
+        assert len(warnings) == 1
+        assert "Cross-region" in warnings[0].issue
+
+    def test_same_region_no_warning(self, mock_universe):
+        """Should not warn for same-region bridge."""
+        with patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe):
+            issues = validate_bridge("1DQ1-A", "8QT-H4")  # Both in Delve
+
+        warnings = [i for i in issues if i.severity == "warning"]
+        assert len(warnings) == 0
+
+
+class TestValidateNetwork:
+    """Tests for validate_network function."""
+
+    def test_validate_valid_network(self, mock_universe, tmp_path):
+        """Should return all bridges valid for valid network."""
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="1DQ1-A", to_system="8QT-H4")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = validate_network("TestNet")
+
+        assert result.total_bridges == 1
+        assert result.valid_bridges == 1
+        errors = [i for i in result.issues if i.severity == "error"]
+        assert len(errors) == 0
+
+    def test_validate_network_with_invalid_bridges(self, mock_universe, tmp_path):
+        """Should return issues for invalid bridges."""
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="1DQ1-A", to_system="8QT-H4")  # Valid
+        bridge2 = JumpBridge(from_system="Jita", to_system="Amarr")  # Invalid - highsec
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge1, bridge2], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = validate_network("TestNet")
+
+        assert result.total_bridges == 2
+        assert result.valid_bridges == 1
+        errors = [i for i in result.issues if i.severity == "error"]
+        assert len(errors) == 2  # Both Jita and Amarr are highsec
+
+    def test_validate_network_not_found(self, tmp_path):
+        """Should return error for nonexistent network."""
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            result = validate_network("NonExistent")
+
+        assert result.total_bridges == 0
+        assert result.valid_bridges == 0
+        errors = [i for i in result.issues if i.severity == "error"]
+        assert len(errors) == 1
+        assert "not found" in errors[0].issue.lower()
+
+
+class TestBulkAddBridges:
+    """Tests for bulk_add_bridges function."""
+
+    def test_bulk_add_all_success(self, mock_universe, tmp_path):
+        """Should add all valid bridges."""
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = bulk_add_bridges(
+                "TestNet",
+                [
+                    ("1DQ1-A", "8QT-H4", None, None),
+                    ("Amamake", "Tama", 123, "Test Corp"),
+                ],
+            )
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert result.succeeded == 2
+        assert result.failed == 0
+        assert len(result.errors) == 0
+        assert len(loaded.networks[0].bridges) == 2
+
+    def test_bulk_add_partial_failure(self, mock_universe, tmp_path):
+        """Should report failures for invalid bridges."""
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = bulk_add_bridges(
+                "TestNet",
+                [
+                    ("1DQ1-A", "8QT-H4", None, None),  # Valid
+                    ("FakeSystem", "1DQ1-A", None, None),  # Invalid
+                ],
+            )
+
+        assert result.succeeded == 1
+        assert result.failed == 1
+        assert len(result.errors) == 1
+        assert "FakeSystem" in result.errors[0]
+
+    def test_bulk_add_network_not_found(self, mock_universe, tmp_path):
+        """Should fail all bridges if network doesn't exist."""
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            result = bulk_add_bridges(
+                "NonExistent",
+                [("1DQ1-A", "8QT-H4", None, None)],
+            )
+
+        assert result.succeeded == 0
+        assert result.failed == 1
+
+
+class TestBulkRemoveBridges:
+    """Tests for bulk_remove_bridges function."""
+
+    def test_bulk_remove_all_success(self, tmp_path):
+        """Should remove all specified bridges."""
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="A", to_system="B")
+        bridge2 = JumpBridge(from_system="C", to_system="D")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge1, bridge2], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = bulk_remove_bridges(
+                "TestNet",
+                [("A", "B"), ("C", "D")],
+            )
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert result.succeeded == 2
+        assert result.failed == 0
+        assert len(loaded.networks[0].bridges) == 0
+
+    def test_bulk_remove_partial_failure(self, tmp_path):
+        """Should report failures for nonexistent bridges."""
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="A", to_system="B")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            result = bulk_remove_bridges(
+                "TestNet",
+                [("A", "B"), ("X", "Y")],  # First exists, second doesn't
+            )
+
+        assert result.succeeded == 1
+        assert result.failed == 1
+        assert "X" in result.errors[0] and "Y" in result.errors[0]
+
+    def test_bulk_remove_network_not_found(self, tmp_path):
+        """Should fail all if network doesn't exist."""
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            result = bulk_remove_bridges("NonExistent", [("A", "B")])
+
+        assert result.succeeded == 0
+        assert result.failed == 1

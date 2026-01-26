@@ -3,6 +3,9 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from ...models.jumpbridge import (
+    BridgeValidationResult,
+    BulkBridgeRequest,
+    BulkBridgeResponse,
     JumpBridge,
     JumpBridgeAddRequest,
     JumpBridgeConfig,
@@ -13,6 +16,8 @@ from ...models.jumpbridge import (
 )
 from ...services.jumpbridge import (
     add_bridge,
+    bulk_add_bridges,
+    bulk_remove_bridges,
     clear_bridge_cache,
     delete_network,
     get_bridge_stats,
@@ -20,6 +25,8 @@ from ...services.jumpbridge import (
     load_bridge_config,
     remove_bridge,
     toggle_network,
+    validate_bridge,
+    validate_network,
 )
 
 router = APIRouter()
@@ -83,6 +90,38 @@ def import_bridge_network(
 def get_stats() -> JumpBridgeStats:
     """Get statistics about jump bridge networks."""
     return get_bridge_stats()
+
+
+@router.get(
+    "/validate",
+    summary="Validate a single bridge",
+    description="Check if a bridge connection is valid according to game rules.",
+)
+def validate_single_bridge(
+    from_system: str = Query(..., description="Origin system name"),
+    to_system: str = Query(..., description="Destination system name"),
+) -> dict:
+    """
+    Validate a single bridge connection.
+
+    Checks:
+    - Both systems exist
+    - Systems are different
+    - Neither system is highsec (Ansiblex cannot be anchored)
+    - Neither system is wormhole space
+    - Warning if cross-region
+    """
+    issues = validate_bridge(from_system, to_system)
+    errors = [i for i in issues if i.severity == "error"]
+    warnings = [i for i in issues if i.severity == "warning"]
+
+    return {
+        "valid": len(errors) == 0,
+        "from_system": from_system,
+        "to_system": to_system,
+        "errors": [i.issue for i in errors],
+        "warnings": [i.issue for i in warnings],
+    }
 
 
 @router.patch(
@@ -183,3 +222,53 @@ def remove_single_bridge(
             raise HTTPException(status_code=404, detail=message)
         raise HTTPException(status_code=400, detail=message)
     return {"status": "ok", "removed": f"{from_system} <-> {to_system}"}
+
+
+@router.get(
+    "/{network_name}/validate",
+    response_model=BridgeValidationResult,
+    summary="Validate a network",
+    description="Validate all bridges in a network against game rules.",
+)
+def validate_bridge_network(network_name: str) -> BridgeValidationResult:
+    """
+    Validate all bridges in a network.
+
+    Returns validation issues including:
+    - Highsec systems (error - cannot anchor Ansiblex)
+    - Wormhole systems (error - cannot anchor Ansiblex)
+    - Cross-region bridges (warning - unusual but valid)
+    """
+    return validate_network(network_name)
+
+
+@router.post(
+    "/{network_name}/bridges/bulk",
+    response_model=BulkBridgeResponse,
+    summary="Bulk add bridges",
+    description="Add multiple bridges to a network in one request.",
+)
+def bulk_add_to_network(
+    network_name: str,
+    request: BulkBridgeRequest,
+) -> BulkBridgeResponse:
+    """Add multiple bridges to a network."""
+    clear_bridge_cache()
+    bridges = [(b.from_system, b.to_system, b.structure_id, b.owner) for b in request.bridges]
+    return bulk_add_bridges(network_name, bridges)
+
+
+@router.delete(
+    "/{network_name}/bridges/bulk",
+    response_model=BulkBridgeResponse,
+    summary="Bulk remove bridges",
+    description="Remove multiple bridges from a network in one request.",
+)
+def bulk_remove_from_network(
+    network_name: str,
+    request: BulkBridgeRequest,
+) -> BulkBridgeResponse:
+    """Remove multiple bridges from a network."""
+    clear_bridge_cache()
+    bridges = [(b.from_system, b.to_system) for b in request.bridges]
+    return bulk_remove_bridges(network_name, bridges)

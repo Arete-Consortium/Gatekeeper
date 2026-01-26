@@ -71,3 +71,40 @@ class JumpBridgeStats(BaseModel):
     active_bridges: int
     systems_connected: int
     bridges_by_network: dict[str, int]
+
+
+class BridgeValidationIssue(BaseModel):
+    """A single validation issue for a bridge."""
+
+    from_system: str
+    to_system: str
+    issue: str
+    severity: str = Field(..., description="Severity level: 'error' or 'warning'")
+
+
+class BridgeValidationResult(BaseModel):
+    """Result of validating a bridge network."""
+
+    network_name: str
+    total_bridges: int
+    valid_bridges: int
+    issues: list[BridgeValidationIssue] = Field(default_factory=list)
+
+    @property
+    def is_valid(self) -> bool:
+        """Check if there are any errors (warnings are ok)."""
+        return not any(i.severity == "error" for i in self.issues)
+
+
+class BulkBridgeRequest(BaseModel):
+    """Request to add or remove multiple bridges."""
+
+    bridges: list[JumpBridgeAddRequest] = Field(..., description="List of bridges to add/remove")
+
+
+class BulkBridgeResponse(BaseModel):
+    """Response from bulk bridge operation."""
+
+    succeeded: int
+    failed: int
+    errors: list[str] = Field(default_factory=list)

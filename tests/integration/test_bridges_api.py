@@ -546,3 +546,191 @@ class TestRemoveSingleBridgeEndpoint:
         data = response.json()
         assert len(data["bridges"]) == 1
         assert data["bridges"][0]["from_system"] == "Amarr"
+
+
+class TestValidateSingleBridgeEndpoint:
+    """Tests for GET /api/v1/bridges/validate."""
+
+    def test_validate_valid_nullsec_bridge(self, test_client: TestClient):
+        """Should return valid for nullsec bridge."""
+        # Using nullsec systems from the test universe
+        response = test_client.get("/api/v1/bridges/validate?from_system=HED-GP&to_system=V-3YG7")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["from_system"] == "HED-GP"
+        assert data["to_system"] == "V-3YG7"
+        assert "valid" in data
+
+    def test_validate_highsec_bridge_invalid(self, test_client: TestClient):
+        """Should return errors for highsec bridge."""
+        response = test_client.get("/api/v1/bridges/validate?from_system=Jita&to_system=Perimeter")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is False
+        assert len(data["errors"]) > 0
+        assert any("highsec" in e.lower() for e in data["errors"])
+
+    def test_validate_unknown_system(self, test_client: TestClient):
+        """Should return error for unknown system."""
+        response = test_client.get("/api/v1/bridges/validate?from_system=FakeSystem&to_system=Jita")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is False
+        assert any("Unknown" in e for e in data["errors"])
+
+
+class TestValidateNetworkEndpoint:
+    """Tests for GET /api/v1/bridges/{network_name}/validate."""
+
+    def test_validate_network(self, test_client: TestClient):
+        """Should validate all bridges in network."""
+        # Create network with mixed bridges
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={
+                "network_name": "TestNetwork",
+                "bridge_text": "HED-GP <-> V-3YG7\nJita <-> Perimeter",
+            },
+        )
+
+        response = test_client.get("/api/v1/bridges/TestNetwork/validate")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["network_name"] == "TestNetwork"
+        assert data["total_bridges"] == 2
+        assert "issues" in data
+
+    def test_validate_network_not_found(self, test_client: TestClient):
+        """Should return error for nonexistent network."""
+        response = test_client.get("/api/v1/bridges/NonExistent/validate")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_bridges"] == 0
+        assert any("not found" in i["issue"].lower() for i in data["issues"])
+
+
+class TestBulkAddBridgesEndpoint:
+    """Tests for POST /api/v1/bridges/{network_name}/bridges/bulk."""
+
+    def test_bulk_add_bridges(self, test_client: TestClient):
+        """Should add multiple bridges."""
+        # Create empty network
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={"network_name": "TestNetwork", "bridge_text": "# empty"},
+        )
+
+        response = test_client.post(
+            "/api/v1/bridges/TestNetwork/bridges/bulk",
+            json={
+                "bridges": [
+                    {"from_system": "HED-GP", "to_system": "V-3YG7"},
+                    {"from_system": "Amarr", "to_system": "Niarja"},
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succeeded"] == 2
+        assert data["failed"] == 0
+
+    def test_bulk_add_partial_failure(self, test_client: TestClient):
+        """Should report partial failures."""
+        # Create empty network
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={"network_name": "TestNetwork", "bridge_text": "# empty"},
+        )
+
+        response = test_client.post(
+            "/api/v1/bridges/TestNetwork/bridges/bulk",
+            json={
+                "bridges": [
+                    {"from_system": "HED-GP", "to_system": "V-3YG7"},
+                    {"from_system": "FakeSystem", "to_system": "Jita"},
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succeeded"] == 1
+        assert data["failed"] == 1
+        assert len(data["errors"]) == 1
+
+    def test_bulk_add_network_not_found(self, test_client: TestClient):
+        """Should fail if network doesn't exist."""
+        response = test_client.post(
+            "/api/v1/bridges/NonExistent/bridges/bulk",
+            json={"bridges": [{"from_system": "HED-GP", "to_system": "V-3YG7"}]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succeeded"] == 0
+        assert data["failed"] == 1
+
+
+class TestBulkRemoveBridgesEndpoint:
+    """Tests for DELETE /api/v1/bridges/{network_name}/bridges/bulk."""
+
+    def test_bulk_remove_bridges(self, test_client: TestClient):
+        """Should remove multiple bridges."""
+        # Create network with bridges
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={
+                "network_name": "TestNetwork",
+                "bridge_text": "Jita <-> Perimeter\nAmarr <-> Niarja",
+            },
+        )
+
+        response = test_client.request(
+            "DELETE",
+            "/api/v1/bridges/TestNetwork/bridges/bulk",
+            json={
+                "bridges": [
+                    {"from_system": "Jita", "to_system": "Perimeter"},
+                    {"from_system": "Amarr", "to_system": "Niarja"},
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succeeded"] == 2
+        assert data["failed"] == 0
+
+        # Verify bridges removed
+        get_response = test_client.get("/api/v1/bridges/TestNetwork")
+        assert len(get_response.json()["bridges"]) == 0
+
+    def test_bulk_remove_partial_failure(self, test_client: TestClient):
+        """Should report partial failures."""
+        # Create network with one bridge
+        test_client.post(
+            "/api/v1/bridges/import",
+            json={"network_name": "TestNetwork", "bridge_text": "Jita <-> Perimeter"},
+        )
+
+        response = test_client.request(
+            "DELETE",
+            "/api/v1/bridges/TestNetwork/bridges/bulk",
+            json={
+                "bridges": [
+                    {"from_system": "Jita", "to_system": "Perimeter"},
+                    {"from_system": "X", "to_system": "Y"},  # Doesn't exist
+                ]
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["succeeded"] == 1
+        assert data["failed"] == 1
