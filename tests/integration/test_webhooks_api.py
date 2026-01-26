@@ -1,7 +1,6 @@
 """Integration tests for webhooks API endpoints."""
 
 
-
 class TestWebhooksListEndpoint:
     """Tests for GET /api/v1/webhooks/ endpoint."""
 
@@ -31,7 +30,7 @@ class TestWebhooksCreateEndpoint:
             json={
                 "webhook_url": "not-a-valid-url",
                 "webhook_type": "discord",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -42,7 +41,7 @@ class TestWebhooksCreateEndpoint:
             json={
                 "webhook_url": "https://discord.com/api/webhooks/test",
                 "webhook_type": "invalid_type",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -54,7 +53,7 @@ class TestWebhooksCreateEndpoint:
                 "webhook_url": "https://discord.com/api/webhooks/test",
                 "webhook_type": "discord",
                 "systems": ["NonExistentSystem"],
-            }
+            },
         )
         assert response.status_code == 400
 
@@ -68,7 +67,7 @@ class TestWebhooksCreateEndpoint:
                 "systems": ["Jita"],
                 "min_value": 100000000,
                 "include_pods": False,
-            }
+            },
         )
         assert response.status_code == 201
 
@@ -90,7 +89,7 @@ class TestWebhooksCreateEndpoint:
             json={
                 "webhook_url": "https://hooks.slack.com/services/T00/B00/xyz",
                 "webhook_type": "slack",
-            }
+            },
         )
         assert response.status_code == 201
 
@@ -113,10 +112,7 @@ class TestWebhooksDetailEndpoint:
 
     def test_update_webhook_not_found(self, test_client):
         """Test updating nonexistent webhook returns 404."""
-        response = test_client.patch(
-            "/api/v1/webhooks/nonexistent-id",
-            json={"enabled": False}
-        )
+        response = test_client.patch("/api/v1/webhooks/nonexistent-id", json={"enabled": False})
         assert response.status_code == 404
 
     def test_webhook_crud_flow(self, test_client):
@@ -128,7 +124,7 @@ class TestWebhooksDetailEndpoint:
                 "webhook_url": "https://discord.com/api/webhooks/999/test",
                 "webhook_type": "discord",
                 "systems": ["Jita", "Perimeter"],
-            }
+            },
         )
         assert create_response.status_code == 201
         webhook_id = create_response.json()["id"]
@@ -140,8 +136,7 @@ class TestWebhooksDetailEndpoint:
 
         # Update
         update_response = test_client.patch(
-            f"/api/v1/webhooks/{webhook_id}",
-            json={"enabled": False, "systems": ["Jita"]}
+            f"/api/v1/webhooks/{webhook_id}", json={"enabled": False, "systems": ["Jita"]}
         )
         assert update_response.status_code == 200
         assert update_response.json()["enabled"] is False
@@ -164,15 +159,14 @@ class TestWebhooksDetailEndpoint:
                 "webhook_url": "https://discord.com/api/webhooks/888/test",
                 "webhook_type": "discord",
                 "systems": ["Jita"],
-            }
+            },
         )
         assert create_response.status_code == 201
         webhook_id = create_response.json()["id"]
 
         # Update with invalid system
         update_response = test_client.patch(
-            f"/api/v1/webhooks/{webhook_id}",
-            json={"systems": ["NonExistentSystem"]}
+            f"/api/v1/webhooks/{webhook_id}", json={"systems": ["NonExistentSystem"]}
         )
         assert update_response.status_code == 400
         assert "Unknown system" in update_response.json()["detail"]
@@ -185,15 +179,14 @@ class TestWebhooksDetailEndpoint:
             json={
                 "webhook_url": "https://discord.com/api/webhooks/777/test",
                 "webhook_type": "discord",
-            }
+            },
         )
         assert create_response.status_code == 201
         webhook_id = create_response.json()["id"]
 
         # Update min_value only
         update_response = test_client.patch(
-            f"/api/v1/webhooks/{webhook_id}",
-            json={"min_value": 500000000}
+            f"/api/v1/webhooks/{webhook_id}", json={"min_value": 500000000}
         )
         assert update_response.status_code == 200
         assert update_response.json()["min_value"] == 500000000
@@ -207,7 +200,7 @@ class TestWebhooksDetailEndpoint:
                 "webhook_url": "https://discord.com/api/webhooks/666/test",
                 "webhook_type": "discord",
                 "include_pods": True,
-            }
+            },
         )
         assert create_response.status_code == 201
         webhook_id = create_response.json()["id"]
@@ -215,8 +208,7 @@ class TestWebhooksDetailEndpoint:
 
         # Update include_pods only
         update_response = test_client.patch(
-            f"/api/v1/webhooks/{webhook_id}",
-            json={"include_pods": False}
+            f"/api/v1/webhooks/{webhook_id}", json={"include_pods": False}
         )
         assert update_response.status_code == 200
         assert update_response.json()["include_pods"] is False
@@ -237,7 +229,7 @@ class TestWebhookTestEndpoint:
             json={
                 "webhook_url": "not-a-url",
                 "webhook_type": "discord",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -247,17 +239,14 @@ class TestWebhookTestEndpoint:
 
         # Mock the send_webhook function to return success
         mock_send = AsyncMock(return_value=True)
-        monkeypatch.setattr(
-            "backend.app.api.v1.webhooks.send_webhook",
-            mock_send
-        )
+        monkeypatch.setattr("backend.app.api.v1.webhooks.send_webhook", mock_send)
 
         response = test_client.post(
             "/api/v1/webhooks/test",
             json={
                 "webhook_url": "https://discord.com/api/webhooks/123/test",
                 "webhook_type": "discord",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -271,17 +260,14 @@ class TestWebhookTestEndpoint:
 
         # Mock the send_webhook function to return failure
         mock_send = AsyncMock(return_value=False)
-        monkeypatch.setattr(
-            "backend.app.api.v1.webhooks.send_webhook",
-            mock_send
-        )
+        monkeypatch.setattr("backend.app.api.v1.webhooks.send_webhook", mock_send)
 
         response = test_client.post(
             "/api/v1/webhooks/test",
             json={
                 "webhook_url": "https://discord.com/api/webhooks/456/test",
                 "webhook_type": "discord",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -294,17 +280,14 @@ class TestWebhookTestEndpoint:
         from unittest.mock import AsyncMock
 
         mock_send = AsyncMock(return_value=True)
-        monkeypatch.setattr(
-            "backend.app.api.v1.webhooks.send_webhook",
-            mock_send
-        )
+        monkeypatch.setattr("backend.app.api.v1.webhooks.send_webhook", mock_send)
 
         response = test_client.post(
             "/api/v1/webhooks/test",
             json={
                 "webhook_url": "https://hooks.slack.com/services/T/B/x",
                 "webhook_type": "slack",
-            }
+            },
         )
 
         assert response.status_code == 200

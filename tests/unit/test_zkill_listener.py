@@ -301,12 +301,8 @@ class TestProcessKill:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.zkill_listener.compute_risk"
-            ) as mock_risk,
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.compute_risk") as mock_risk,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_risk.return_value = MagicMock(score=0.75)
             mock_cm.broadcast_kill = AsyncMock()
@@ -339,9 +335,7 @@ class TestProcessKill:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_cm.broadcast_kill = AsyncMock()
             await listener._process_kill(pod_kill_package)
@@ -362,9 +356,7 @@ class TestProcessKill:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_cm.broadcast_kill = AsyncMock()
             await listener._process_kill(sample_package)
@@ -395,9 +387,7 @@ class TestProcessKill:
                 "backend.app.services.zkill_listener.compute_risk",
                 side_effect=Exception("Risk error"),
             ),
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_cm.broadcast_kill = AsyncMock()
             await listener._process_kill(sample_package)
@@ -418,9 +408,7 @@ class TestProcessKill:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_cm.broadcast_kill = AsyncMock()
             await listener._process_kill(sample_package)
@@ -458,9 +446,7 @@ class TestProcessKill:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.zkill_listener.connection_manager"
-            ) as mock_cm,
+            patch("backend.app.services.zkill_listener.connection_manager") as mock_cm,
         ):
             mock_cm.broadcast_kill = AsyncMock()
             # Should not raise even without callback

@@ -1,7 +1,6 @@
 """Integration tests for external links API endpoints."""
 
 
-
 class TestListToolsEndpoint:
     """Tests for GET /api/v1/links/tools."""
 

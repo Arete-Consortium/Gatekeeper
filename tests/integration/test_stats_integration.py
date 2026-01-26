@@ -1,7 +1,6 @@
 """Integration tests for stats API endpoints."""
 
 
-
 class TestSystemStatsEndpoint:
     """Tests for /api/v1/stats/system/{name} endpoint."""
 
@@ -37,10 +36,7 @@ class TestBulkStatsEndpoint:
 
     def test_bulk_stats(self, test_client):
         """Test getting stats for multiple systems."""
-        response = test_client.post(
-            "/api/v1/stats/bulk",
-            json={"systems": ["Jita", "Perimeter"]}
-        )
+        response = test_client.post("/api/v1/stats/bulk", json={"systems": ["Jita", "Perimeter"]})
         assert response.status_code == 200
 
         data = response.json()
@@ -50,37 +46,27 @@ class TestBulkStatsEndpoint:
 
     def test_bulk_stats_with_hours(self, test_client):
         """Test bulk stats with custom hours."""
-        response = test_client.post(
-            "/api/v1/stats/bulk",
-            json={"systems": ["Jita"], "hours": 12}
-        )
+        response = test_client.post("/api/v1/stats/bulk", json={"systems": ["Jita"], "hours": 12})
         assert response.status_code == 200
         assert response.json()["hours"] == 12
 
     def test_bulk_stats_empty_list_validation(self, test_client):
         """Test bulk stats requires at least one system."""
-        response = test_client.post(
-            "/api/v1/stats/bulk",
-            json={"systems": []}
-        )
+        response = test_client.post("/api/v1/stats/bulk", json={"systems": []})
         # Validation error - min_length=1
         assert response.status_code == 422
 
     def test_bulk_stats_rejects_unknown_system(self, test_client):
         """Test that bulk stats rejects unknown systems."""
         response = test_client.post(
-            "/api/v1/stats/bulk",
-            json={"systems": ["Jita", "NonExistentSystem"]}
+            "/api/v1/stats/bulk", json={"systems": ["Jita", "NonExistentSystem"]}
         )
         # Returns 400 for unknown system
         assert response.status_code == 400
 
     def test_bulk_stats_response_structure(self, test_client):
         """Test bulk stats response has correct structure."""
-        response = test_client.post(
-            "/api/v1/stats/bulk",
-            json={"systems": ["Jita"]}
-        )
+        response = test_client.post("/api/v1/stats/bulk", json={"systems": ["Jita"]})
         assert response.status_code == 200
 
         data = response.json()

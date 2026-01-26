@@ -301,3 +301,292 @@ class TestAnalyzeRouteIntegration:
         response = analyze_route(request)
 
         assert len(response.alternatives) == 0
+
+
+class TestFindAlternatives:
+    """Tests for _find_alternatives function edge cases."""
+
+    def test_paranoid_profile_no_alternatives(self):
+        """Test that paranoid profile has no safer alternatives to suggest."""
+        from unittest.mock import MagicMock
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        # Create a mock route
+        mock_route = MagicMock()
+        mock_route.path = []
+        mock_route.total_jumps = 5
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        alternatives = _find_alternatives(
+            "Jita",
+            "Amarr",
+            "paranoid",  # Already safest profile
+            mock_route,
+            set(),
+            False,
+            thresholds,
+        )
+
+        # paranoid has no safer profiles
+        assert len(alternatives) == 0
+
+    def test_safer_profile_tries_paranoid_only(self):
+        """Test that safer profile only tries paranoid."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        mock_route = MagicMock()
+        mock_route.path = []
+        mock_route.total_jumps = 5
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        # Mock compute_route to raise ValueError (no route found)
+        with patch(
+            "backend.app.services.ai_analyzer.compute_route",
+            side_effect=ValueError("No route"),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "safer",
+                mock_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        # ValueError means no route found, should return empty
+        assert len(alternatives) == 0
+
+    def test_alternative_not_suggested_if_not_better(self):
+        """Test alternatives not suggested if same/more dangerous systems."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        # Mock current route with 0 dangerous systems
+        mock_current_route = MagicMock()
+        mock_hop = MagicMock()
+        mock_hop.system_name = "Jita"
+        mock_current_route.path = [mock_hop]
+        mock_current_route.total_jumps = 1
+
+        # Alternative route also has 0 dangerous
+        mock_alt_route = MagicMock()
+        mock_alt_route.path = [mock_hop, mock_hop]  # Longer but same danger
+        mock_alt_route.total_jumps = 2
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        # Both routes have 0 dangerous systems, alternative is not better
+        with (
+            patch(
+                "backend.app.services.ai_analyzer.compute_route",
+                return_value=mock_alt_route,
+            ),
+            patch(
+                "backend.app.services.ai_analyzer._count_dangerous_systems",
+                return_value=0,  # Same danger for both
+            ),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "shortest",
+                mock_current_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        # Alternative not better, should not be suggested
+        assert len(alternatives) == 0
+
+    def test_alternative_suggested_with_same_or_fewer_jumps(self):
+        """Test alternative improvement text when same or fewer jumps."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        # Mock current route with 2 dangerous systems
+        mock_current_route = MagicMock()
+        mock_hop = MagicMock()
+        mock_hop.system_name = "Jita"
+        mock_current_route.path = [mock_hop]
+        mock_current_route.total_jumps = 10
+
+        # Alternative route - same jumps but safer
+        mock_alt_route = MagicMock()
+        mock_alt_route.path = [mock_hop]
+        mock_alt_route.total_jumps = 10  # Same jumps
+        mock_alt_route.max_risk = 5.0
+        mock_alt_route.avg_risk = 2.0
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        call_count = [0]
+
+        def mock_count_dangerous(path, thresh):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return 2  # Current route - 2 dangerous
+            return 1  # Alternative - 1 dangerous
+
+        with (
+            patch(
+                "backend.app.services.ai_analyzer.compute_route",
+                return_value=mock_alt_route,
+            ),
+            patch(
+                "backend.app.services.ai_analyzer._count_dangerous_systems",
+                side_effect=mock_count_dangerous,
+            ),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "shortest",
+                mock_current_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        assert len(alternatives) >= 1
+        assert "Same or fewer jumps" in alternatives[0].improvement
+
+    def test_alternative_with_more_jumps(self):
+        """Test alternative improvement text when more jumps."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        mock_current_route = MagicMock()
+        mock_hop = MagicMock()
+        mock_hop.system_name = "Jita"
+        mock_current_route.path = [mock_hop]
+        mock_current_route.total_jumps = 10
+
+        mock_alt_route = MagicMock()
+        mock_alt_route.path = [mock_hop]
+        mock_alt_route.total_jumps = 15  # 5 more jumps
+        mock_alt_route.max_risk = 5.0
+        mock_alt_route.avg_risk = 2.0
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        call_count = [0]
+
+        def mock_count_dangerous(path, thresh):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return 3  # Current route - 3 dangerous
+            return 1  # Alternative - 1 dangerous
+
+        with (
+            patch(
+                "backend.app.services.ai_analyzer.compute_route",
+                return_value=mock_alt_route,
+            ),
+            patch(
+                "backend.app.services.ai_analyzer._count_dangerous_systems",
+                side_effect=mock_count_dangerous,
+            ),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "shortest",
+                mock_current_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        assert len(alternatives) >= 1
+        assert "Adds 5 jump(s)" in alternatives[0].improvement
+        assert "avoids 2 dangerous" in alternatives[0].improvement
+
+    def test_alternative_compute_route_value_error(self):
+        """Test that ValueError from compute_route is handled."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        mock_current_route = MagicMock()
+        mock_hop = MagicMock()
+        mock_hop.system_name = "Jita"
+        mock_current_route.path = [mock_hop]
+        mock_current_route.total_jumps = 10
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        # First call to _count_dangerous_systems returns danger count
+        # compute_route raises ValueError
+        with (
+            patch(
+                "backend.app.services.ai_analyzer.compute_route",
+                side_effect=ValueError("No route found"),
+            ),
+            patch(
+                "backend.app.services.ai_analyzer._count_dangerous_systems",
+                return_value=2,
+            ),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "shortest",
+                mock_current_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        # ValueError is caught, should return empty
+        assert len(alternatives) == 0
+
+    def test_profile_not_in_routing_profiles(self):
+        """Test handling when alternative profile not in routing_profiles."""
+        from unittest.mock import MagicMock, patch
+
+        from backend.app.services.ai_analyzer import _find_alternatives
+
+        mock_current_route = MagicMock()
+        mock_hop = MagicMock()
+        mock_hop.system_name = "Jita"
+        mock_current_route.path = [mock_hop]
+        mock_current_route.total_jumps = 10
+
+        thresholds = {"medium": 5, "high": 10, "extreme": 20}
+
+        # Mock config with no safer/paranoid profiles
+        mock_config = MagicMock()
+        mock_config.routing_profiles = {"shortest": {}}  # Only has shortest
+
+        with (
+            patch(
+                "backend.app.services.ai_analyzer.load_risk_config",
+                return_value=mock_config,
+            ),
+            patch(
+                "backend.app.services.ai_analyzer._count_dangerous_systems",
+                return_value=2,
+            ),
+        ):
+            alternatives = _find_alternatives(
+                "Jita",
+                "Amarr",
+                "shortest",
+                mock_current_route,
+                set(),
+                False,
+                thresholds,
+            )
+
+        # safer and paranoid not in config, should skip them
+        assert len(alternatives) == 0

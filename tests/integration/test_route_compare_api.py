@@ -568,4 +568,7 @@ class TestRecommendationEdgeCases:
             if shortest and paranoid:
                 if shortest["total_jumps"] != paranoid["total_jumps"]:
                     # Should mention tradeoffs
-                    assert "jumps" in data["recommendation"].lower() or "risk" in data["recommendation"].lower()
+                    assert (
+                        "jumps" in data["recommendation"].lower()
+                        or "risk" in data["recommendation"].lower()
+                    )

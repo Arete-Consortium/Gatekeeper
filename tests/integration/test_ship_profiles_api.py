@@ -34,7 +34,16 @@ class TestShipProfilesEndpoint:
         data = response.json()
 
         profile_names = [p["name"] for p in data["profiles"]]
-        expected = ["default", "hauler", "frigate", "cruiser", "battleship", "mining", "capital", "cloaky"]
+        expected = [
+            "default",
+            "hauler",
+            "frigate",
+            "cruiser",
+            "battleship",
+            "mining",
+            "capital",
+            "cloaky",
+        ]
 
         for name in expected:
             assert name in profile_names, f"Profile {name} not found"
@@ -94,7 +103,9 @@ class TestSystemRiskWithShipProfile:
     def test_hauler_has_higher_risk_than_default(self, test_client):
         """Test that hauler profile results in higher risk than default."""
         default_response = test_client.get("/api/v1/systems/Jita/risk?live=false")
-        hauler_response = test_client.get("/api/v1/systems/Jita/risk?ship_profile=hauler&live=false")
+        hauler_response = test_client.get(
+            "/api/v1/systems/Jita/risk?ship_profile=hauler&live=false"
+        )
 
         default_data = default_response.json()
         hauler_data = hauler_response.json()
@@ -105,7 +116,9 @@ class TestSystemRiskWithShipProfile:
     def test_cloaky_has_lower_risk_than_default(self, test_client):
         """Test that cloaky profile results in lower risk than default."""
         default_response = test_client.get("/api/v1/systems/Jita/risk?live=false")
-        cloaky_response = test_client.get("/api/v1/systems/Jita/risk?ship_profile=cloaky&live=false")
+        cloaky_response = test_client.get(
+            "/api/v1/systems/Jita/risk?ship_profile=cloaky&live=false"
+        )
 
         default_data = default_response.json()
         cloaky_data = cloaky_response.json()

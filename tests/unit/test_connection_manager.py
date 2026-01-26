@@ -186,3 +186,88 @@ class TestConnectionManager:
         assert stats["active_connections"] == 1
         assert len(stats["clients"]) == 1
         assert stats["clients"][0]["systems_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_broadcast_kill_region_filter_match(
+        self, manager, mock_websocket, sample_kill_data
+    ):
+        """Test broadcasting kill that matches region filter."""
+        await manager.connect("client1", mock_websocket)
+        await manager.update_subscription("client1", regions=[10000002])  # The Forge
+
+        sent_count = await manager.broadcast_kill(sample_kill_data)
+        assert sent_count == 1
+
+    @pytest.mark.asyncio
+    async def test_broadcast_kill_region_filter_no_match(
+        self, manager, mock_websocket, sample_kill_data
+    ):
+        """Test broadcasting kill that doesn't match region filter."""
+        await manager.connect("client1", mock_websocket)
+        await manager.update_subscription("client1", regions=[10000043])  # Domain
+
+        sent_count = await manager.broadcast_kill(sample_kill_data)
+        assert sent_count == 0
+
+    @pytest.mark.asyncio
+    async def test_send_to_client_error_disconnects(self, manager, mock_websocket):
+        """Test that send_to_client disconnects client on error."""
+        await manager.connect("client1", mock_websocket)
+        mock_websocket.send_json.side_effect = Exception("Connection closed")
+
+        result = await manager.send_to_client("client1", {"type": "test"})
+
+        assert result is False
+        assert manager.connection_count == 0
+
+    @pytest.mark.asyncio
+    async def test_broadcast_error_disconnects_client(self, manager):
+        """Test broadcast disconnects failing clients."""
+        ws1 = AsyncMock()
+        ws1.accept = AsyncMock()
+        ws1.send_json = AsyncMock()
+
+        ws2 = AsyncMock()
+        ws2.accept = AsyncMock()
+        ws2.send_json = AsyncMock(side_effect=Exception("Connection closed"))
+
+        await manager.connect("client1", ws1)
+        await manager.connect("client2", ws2)
+
+        sent_count = await manager.broadcast({"type": "test"})
+
+        assert sent_count == 1  # Only client1 succeeded
+        assert manager.connection_count == 1  # client2 disconnected
+
+    @pytest.mark.asyncio
+    async def test_broadcast_kill_error_disconnects_client(self, manager, sample_kill_data):
+        """Test broadcast_kill disconnects failing clients."""
+        ws1 = AsyncMock()
+        ws1.accept = AsyncMock()
+        ws1.send_json = AsyncMock()
+
+        ws2 = AsyncMock()
+        ws2.accept = AsyncMock()
+        ws2.send_json = AsyncMock(side_effect=Exception("Connection closed"))
+
+        await manager.connect("client1", ws1)
+        await manager.connect("client2", ws2)
+
+        sent_count = await manager.broadcast_kill(sample_kill_data)
+
+        assert sent_count == 1  # Only client1 succeeded
+        assert manager.connection_count == 1  # client2 disconnected
+
+    @pytest.mark.asyncio
+    async def test_broadcast_kill_null_value(self, manager, mock_websocket):
+        """Test broadcast_kill handles None total_value gracefully."""
+        await manager.connect("client1", mock_websocket)
+        await manager.update_subscription("client1", min_value=1000000)
+
+        kill_data = {
+            "solar_system_id": 30000142,
+            "region_id": 10000002,
+            "total_value": None,
+        }
+        sent_count = await manager.broadcast_kill(kill_data)
+        assert sent_count == 0  # None treated as 0, below min_value

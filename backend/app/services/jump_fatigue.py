@@ -213,7 +213,9 @@ def calculate_single_jump_fatigue(
         current_red_seconds=max(0.0, red_before - wait_time),  # Red decays during wait
     )
 
-    multiplier = (red_before - wait_time) / FATIGUE_MULTIPLIER_DIVISOR if red_before > wait_time else 0.0
+    multiplier = (
+        (red_before - wait_time) / FATIGUE_MULTIPLIER_DIVISOR if red_before > wait_time else 0.0
+    )
 
     return JumpFatigueResult(
         distance_ly=round(distance, 2),
@@ -365,7 +367,9 @@ class FatigueTracker:
         """Set fatigue state for a character (e.g., from ESI data)."""
         now = datetime.now(UTC)
 
-        blue_expires = now + timedelta(seconds=blue_timer_seconds) if blue_timer_seconds > 0 else None
+        blue_expires = (
+            now + timedelta(seconds=blue_timer_seconds) if blue_timer_seconds > 0 else None
+        )
         red_expires = now + timedelta(seconds=red_timer_seconds) if red_timer_seconds > 0 else None
 
         state = FatigueState(

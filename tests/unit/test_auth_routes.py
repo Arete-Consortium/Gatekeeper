@@ -522,9 +522,7 @@ class TestRefreshTokenEndpoint:
                 assert "re-authenticate" in response.json()["detail"]
 
                 # Token should be removed
-                stored = asyncio.get_event_loop().run_until_complete(
-                    token_store.get_token(12345)
-                )
+                stored = asyncio.get_event_loop().run_until_complete(token_store.get_token(12345))
                 assert stored is None
         finally:
             app.dependency_overrides.pop(get_token_store, None)
@@ -607,9 +605,7 @@ class TestLogoutSuccess:
             assert data["character_id"] == "12345"
 
             # Token should be removed
-            stored = asyncio.get_event_loop().run_until_complete(
-                token_store.get_token(12345)
-            )
+            stored = asyncio.get_event_loop().run_until_complete(token_store.get_token(12345))
             assert stored is None
         finally:
             app.dependency_overrides.pop(get_token_store, None)

@@ -1,6 +1,5 @@
 """Unit tests for external links service."""
 
-
 from backend.app.services.external_links import (
     dotlan_jump_url,
     dotlan_radar_url,

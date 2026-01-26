@@ -27,7 +27,9 @@ class CreateNoteRequest(BaseModel):
     """Request to create a note."""
 
     system_name: str = Field(..., description="System to annotate")
-    note_type: str = Field("info", description="Note type: info, warning, safe, fleet, bookmark, hostile, friendly")
+    note_type: str = Field(
+        "info", description="Note type: info, warning, safe, fleet, bookmark, hostile, friendly"
+    )
     content: str = Field(..., min_length=1, max_length=1000, description="Note content")
     author: str | None = Field(None, description="Author name")
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
@@ -96,7 +98,9 @@ class SystemNotesSummaryResponse(BaseModel):
             total_notes=summary.total_notes,
             note_types=summary.note_types,
             has_warnings=summary.has_warnings,
-            latest_note=SystemNoteResponse.from_note(summary.latest_note) if summary.latest_note else None,
+            latest_note=SystemNoteResponse.from_note(summary.latest_note)
+            if summary.latest_note
+            else None,
             notes=[SystemNoteResponse.from_note(n) for n in summary.notes],
         )
 
@@ -226,9 +230,7 @@ async def get_system_notes(
     for note in notes:
         type_counts[note.note_type.value] = type_counts.get(note.note_type.value, 0) + 1
 
-    has_warnings = any(
-        n.note_type in (NoteType.WARNING, NoteType.HOSTILE) for n in notes
-    )
+    has_warnings = any(n.note_type in (NoteType.WARNING, NoteType.HOSTILE) for n in notes)
 
     summary = SystemNotesSummary(
         system_name=system_name,
@@ -335,8 +337,7 @@ async def get_all_warnings() -> WarningsResponse:
     warnings = store.get_all_warnings()
 
     systems = {
-        name: [SystemNoteResponse.from_note(n) for n in notes]
-        for name, notes in warnings.items()
+        name: [SystemNoteResponse.from_note(n) for n in notes] for name, notes in warnings.items()
     }
 
     total_warnings = sum(len(notes) for notes in warnings.values())

@@ -183,9 +183,7 @@ class TestComputeRouteRisksAsync:
             new_callable=AsyncMock,
             return_value=mock_stats,
         ):
-            results = await compute_route_risks_async(
-                ["Jita", "Perimeter"], fetch_live=True
-            )
+            results = await compute_route_risks_async(["Jita", "Perimeter"], fetch_live=True)
 
             assert results["Jita"].zkill_stats is not None
             assert results["Jita"].zkill_stats.recent_kills == 100
@@ -243,7 +241,16 @@ class TestShipProfiles:
 
     def test_all_profiles_exist(self):
         """Test that all expected profiles exist."""
-        expected_profiles = ["default", "hauler", "frigate", "cruiser", "battleship", "mining", "capital", "cloaky"]
+        expected_profiles = [
+            "default",
+            "hauler",
+            "frigate",
+            "cruiser",
+            "battleship",
+            "mining",
+            "capital",
+            "cloaky",
+        ]
 
         for profile_name in expected_profiles:
             assert profile_name in SHIP_PROFILES

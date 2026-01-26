@@ -462,9 +462,7 @@ class TestGetCache:
         with patch("backend.app.services.cache.settings") as mock_settings:
             mock_settings.REDIS_URL = "redis://localhost:6379"
 
-            with patch(
-                "redis.asyncio.from_url", side_effect=Exception("Connection refused")
-            ):
+            with patch("redis.asyncio.from_url", side_effect=Exception("Connection refused")):
                 cache = await get_cache()
 
             assert isinstance(cache, MemoryCacheService)

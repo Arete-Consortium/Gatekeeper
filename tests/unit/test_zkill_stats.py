@@ -141,9 +141,7 @@ class TestGetCachedStatsSync:
         mock_cache = MemoryCacheService()
         cache_key = "zkill:stats:30000142"
         # Manually insert into the cache
-        mock_cache._get_cache(600)[cache_key] = json.dumps(
-            {"recent_kills": 10, "recent_pods": 5}
-        )
+        mock_cache._get_cache(600)[cache_key] = json.dumps({"recent_kills": 10, "recent_pods": 5})
 
         with patch("backend.app.services.zkill_stats.get_cache_sync", return_value=mock_cache):
             result = get_cached_stats_sync(30000142)
@@ -220,7 +218,9 @@ class TestFetchSystemKills:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -237,7 +237,9 @@ class TestFetchSystemKills:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -252,13 +254,17 @@ class TestFetchSystemKills:
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPStatusError("Rate limited", request=MagicMock(), response=mock_response)
+            side_effect=httpx.HTTPStatusError(
+                "Rate limited", request=MagicMock(), response=mock_response
+            )
         )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -273,13 +279,17 @@ class TestFetchSystemKills:
 
         mock_client = AsyncMock()
         mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPStatusError("Server error", request=MagicMock(), response=mock_response)
+            side_effect=httpx.HTTPStatusError(
+                "Server error", request=MagicMock(), response=mock_response
+            )
         )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -295,7 +305,9 @@ class TestFetchSystemKills:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -315,7 +327,9 @@ class TestFetchSystemKills:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -337,7 +351,9 @@ class TestFetchSystemKills:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("backend.app.services.zkill_stats.get_cache", return_value=mock_cache):
-            with patch("backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "backend.app.services.zkill_stats.httpx.AsyncClient", return_value=mock_client
+            ):
                 with patch("backend.app.services.zkill_stats._rate_limit", new_callable=AsyncMock):
                     result = await fetch_system_kills(30000142)
 
@@ -430,7 +446,9 @@ class TestPreloaderLoop:
                 raise Exception("Test error")
             return {}
 
-        with patch("backend.app.services.zkill_stats.fetch_bulk_system_stats", side_effect=mock_fetch):
+        with patch(
+            "backend.app.services.zkill_stats.fetch_bulk_system_stats", side_effect=mock_fetch
+        ):
             preloader._running = True
             task = asyncio.create_task(preloader._preload_loop())
 

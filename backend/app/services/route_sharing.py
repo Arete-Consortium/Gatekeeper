@@ -65,7 +65,7 @@ class RouteShareStore:
         while True:
             # URL-safe base64 token
             raw = secrets.token_bytes(self.token_length)
-            token = base64.urlsafe_b64encode(raw).decode("ascii")[:self.token_length]
+            token = base64.urlsafe_b64encode(raw).decode("ascii")[: self.token_length]
             # Remove potentially confusing characters
             token = token.replace("-", "x").replace("_", "y")
 
@@ -78,7 +78,8 @@ class RouteShareStore:
         now = datetime.now(UTC)
         with self._lock:
             expired = [
-                token for token, route in self._routes.items()
+                token
+                for token, route in self._routes.items()
                 if route.expires_at and route.expires_at < now
             ]
             for token in expired:
@@ -94,7 +95,7 @@ class RouteShareStore:
                     key=lambda x: x[1].last_accessed or x[1].created_at,
                 )
                 to_remove = len(sorted_routes) // 10
-                for token, _ in sorted_routes[:max(to_remove, 1)]:
+                for token, _ in sorted_routes[: max(to_remove, 1)]:
                     del self._routes[token]
 
     def create_share(

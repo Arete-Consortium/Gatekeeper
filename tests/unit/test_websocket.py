@@ -56,13 +56,15 @@ class TestKillfeedWebSocket:
             ws.receive_json()
 
             # Subscribe
-            ws.send_json({
-                "type": "subscribe",
-                "systems": [30000142, 30002187],
-                "regions": [10000002],
-                "min_value": 1000000,
-                "include_pods": False,
-            })
+            ws.send_json(
+                {
+                    "type": "subscribe",
+                    "systems": [30000142, 30002187],
+                    "regions": [10000002],
+                    "min_value": 1000000,
+                    "include_pods": False,
+                }
+            )
             data = ws.receive_json()
 
             assert data["type"] == "subscribed"
@@ -79,10 +81,12 @@ class TestKillfeedWebSocket:
             ws.receive_json()
 
             # Subscribe with only systems
-            ws.send_json({
-                "type": "subscribe",
-                "systems": [30000142],
-            })
+            ws.send_json(
+                {
+                    "type": "subscribe",
+                    "systems": [30000142],
+                }
+            )
             data = ws.receive_json()
 
             assert data["type"] == "subscribed"

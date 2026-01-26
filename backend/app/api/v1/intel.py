@@ -194,9 +194,7 @@ async def get_all_intel() -> AllIntelResponse:
     store = get_intel_store()
     all_intel = store.get_all_intel()
 
-    systems = {
-        name: SystemIntelResponse.from_intel(intel) for name, intel in all_intel.items()
-    }
+    systems = {name: SystemIntelResponse.from_intel(intel) for name, intel in all_intel.items()}
 
     total_hostiles = sum(intel.total_hostiles for intel in all_intel.values())
 

@@ -6,7 +6,6 @@ Full CRUD tests require authenticated test setup.
 """
 
 
-
 class TestBookmarksEndpointExists:
     """Tests that bookmarks endpoints exist and handle requests."""
 
@@ -43,7 +42,7 @@ class TestBookmarksCreateValidation:
             json={
                 "from_system": "Jita",
                 "to_system": "Perimeter",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -54,7 +53,7 @@ class TestBookmarksCreateValidation:
             json={
                 "name": "Test",
                 "to_system": "Perimeter",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -65,7 +64,7 @@ class TestBookmarksCreateValidation:
             json={
                 "name": "Test",
                 "from_system": "Jita",
-            }
+            },
         )
         assert response.status_code == 422
 
@@ -75,8 +74,5 @@ class TestBookmarksUpdateValidation:
 
     def test_update_bookmark_requires_auth(self, test_client):
         """Test that updating a bookmark requires authentication."""
-        response = test_client.patch(
-            "/api/v1/bookmarks/some-id",
-            json={"name": "Updated Name"}
-        )
+        response = test_client.patch("/api/v1/bookmarks/some-id", json={"name": "Updated Name"})
         assert response.status_code in (401, 422)

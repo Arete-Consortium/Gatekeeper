@@ -228,9 +228,7 @@ class SystemNotesStore:
         for note in notes:
             type_counts[note.note_type.value] = type_counts.get(note.note_type.value, 0) + 1
 
-        has_warnings = any(
-            n.note_type in (NoteType.WARNING, NoteType.HOSTILE) for n in notes
-        )
+        has_warnings = any(n.note_type in (NoteType.WARNING, NoteType.HOSTILE) for n in notes)
 
         return SystemNotesSummary(
             system_name=system_name,
@@ -322,9 +320,7 @@ class SystemNotesStore:
                     and not n.is_expired
                 ]
                 if warnings:
-                    result[system_name] = sorted(
-                        warnings, key=lambda x: x.created_at, reverse=True
-                    )
+                    result[system_name] = sorted(warnings, key=lambda x: x.created_at, reverse=True)
 
         return result
 

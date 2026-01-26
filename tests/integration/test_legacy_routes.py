@@ -1,7 +1,6 @@
 """Integration tests for legacy /systems and /map routes."""
 
 
-
 class TestLegacySystemsRoutes:
     """Tests for /systems legacy endpoints."""
 
@@ -85,11 +84,14 @@ class TestLegacyMapRoutes:
 
     def test_map_route_shortest(self, test_client):
         """Test GET /map/route with shortest profile."""
-        response = test_client.get("/map/route", params={
-            "from": "Jita",
-            "to": "Amarr",
-            "profile": "shortest",
-        })
+        response = test_client.get(
+            "/map/route",
+            params={
+                "from": "Jita",
+                "to": "Amarr",
+                "profile": "shortest",
+            },
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -103,11 +105,14 @@ class TestLegacyMapRoutes:
 
     def test_map_route_safer(self, test_client):
         """Test GET /map/route with safer profile."""
-        response = test_client.get("/map/route", params={
-            "from": "Jita",
-            "to": "Amarr",
-            "profile": "safer",
-        })
+        response = test_client.get(
+            "/map/route",
+            params={
+                "from": "Jita",
+                "to": "Amarr",
+                "profile": "safer",
+            },
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -115,11 +120,14 @@ class TestLegacyMapRoutes:
 
     def test_map_route_paranoid(self, test_client):
         """Test GET /map/route with paranoid profile."""
-        response = test_client.get("/map/route", params={
-            "from": "Jita",
-            "to": "Amarr",
-            "profile": "paranoid",
-        })
+        response = test_client.get(
+            "/map/route",
+            params={
+                "from": "Jita",
+                "to": "Amarr",
+                "profile": "paranoid",
+            },
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -127,21 +135,27 @@ class TestLegacyMapRoutes:
 
     def test_map_route_invalid_profile(self, test_client):
         """Test GET /map/route with invalid profile returns 400."""
-        response = test_client.get("/map/route", params={
-            "from": "Jita",
-            "to": "Amarr",
-            "profile": "invalid_profile",
-        })
+        response = test_client.get(
+            "/map/route",
+            params={
+                "from": "Jita",
+                "to": "Amarr",
+                "profile": "invalid_profile",
+            },
+        )
 
         assert response.status_code == 400
         assert "Unknown routing profile" in response.json()["detail"]
 
     def test_map_route_invalid_system(self, test_client):
         """Test GET /map/route with invalid system returns 400."""
-        response = test_client.get("/map/route", params={
-            "from": "FakeSystem",
-            "to": "Amarr",
-            "profile": "shortest",
-        })
+        response = test_client.get(
+            "/map/route",
+            params={
+                "from": "FakeSystem",
+                "to": "Amarr",
+                "profile": "shortest",
+            },
+        )
 
         assert response.status_code == 400

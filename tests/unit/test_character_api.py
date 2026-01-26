@@ -194,7 +194,9 @@ class TestGetCharacterLocation:
         mock_client.__aexit__.return_value = None
 
         with patch("backend.app.api.v1.character.httpx.AsyncClient", return_value=mock_client):
-            with patch("backend.app.api.v1.character.load_universe", side_effect=Exception("Load failed")):
+            with patch(
+                "backend.app.api.v1.character.load_universe", side_effect=Exception("Load failed")
+            ):
                 result = await get_character_location(mock_character)
 
         # Should still return the location without enrichment
@@ -593,8 +595,20 @@ class TestGetRouteFromCurrentLocation:
             max_risk=20.0,
             avg_risk=10.0,
             path=[
-                RouteHop(system_name="Jita", system_id=30000142, cumulative_jumps=0, cumulative_cost=0, risk_score=5.0),
-                RouteHop(system_name="Amarr", system_id=30002187, cumulative_jumps=10, cumulative_cost=10.0, risk_score=3.0),
+                RouteHop(
+                    system_name="Jita",
+                    system_id=30000142,
+                    cumulative_jumps=0,
+                    cumulative_cost=0,
+                    risk_score=5.0,
+                ),
+                RouteHop(
+                    system_name="Amarr",
+                    system_id=30002187,
+                    cumulative_jumps=10,
+                    cumulative_cost=10.0,
+                    risk_score=3.0,
+                ),
             ],
         )
 
