@@ -10,6 +10,7 @@ from ..models.jumpbridge import (
     JumpBridgeConfig,
     JumpBridgeImportResponse,
     JumpBridgeNetwork,
+    JumpBridgeStats,
 )
 from .data_loader import load_universe
 
@@ -234,3 +235,142 @@ def delete_network(network_name: str) -> bool:
             save_bridge_config(config)
             return True
     return False
+
+
+def add_bridge(
+    network_name: str,
+    from_system: str,
+    to_system: str,
+    structure_id: int | None = None,
+    owner: str | None = None,
+) -> tuple[bool, str]:
+    """
+    Add a single jump bridge to a network.
+
+    Args:
+        network_name: Name of the network to add bridge to
+        from_system: Origin system name
+        to_system: Destination system name
+        structure_id: Optional ESI structure ID
+        owner: Optional owner alliance/corp
+
+    Returns:
+        Tuple of (success, message)
+    """
+    universe = load_universe()
+
+    # Validate systems
+    if from_system not in universe.systems:
+        return False, f"Unknown system: {from_system}"
+    if to_system not in universe.systems:
+        return False, f"Unknown system: {to_system}"
+    if from_system == to_system:
+        return False, "Origin and destination must be different systems"
+
+    config = load_bridge_config()
+
+    # Find network
+    network = None
+    for n in config.networks:
+        if n.name == network_name:
+            network = n
+            break
+
+    if network is None:
+        return False, f"Network not found: {network_name}"
+
+    # Check for duplicate
+    key = tuple(sorted([from_system, to_system]))
+    for bridge in network.bridges:
+        existing_key = tuple(sorted([bridge.from_system, bridge.to_system]))
+        if existing_key == key:
+            return False, f"Bridge already exists: {from_system} <-> {to_system}"
+
+    # Add bridge
+    network.bridges.append(
+        JumpBridge(
+            from_system=from_system,
+            to_system=to_system,
+            structure_id=structure_id,
+            owner=owner,
+        )
+    )
+    save_bridge_config(config)
+    return True, "Bridge added successfully"
+
+
+def remove_bridge(
+    network_name: str,
+    from_system: str,
+    to_system: str,
+) -> tuple[bool, str]:
+    """
+    Remove a single jump bridge from a network.
+
+    Args:
+        network_name: Name of the network
+        from_system: Origin system name
+        to_system: Destination system name
+
+    Returns:
+        Tuple of (success, message)
+    """
+    config = load_bridge_config()
+
+    # Find network
+    network = None
+    for n in config.networks:
+        if n.name == network_name:
+            network = n
+            break
+
+    if network is None:
+        return False, f"Network not found: {network_name}"
+
+    # Find and remove bridge
+    key = tuple(sorted([from_system, to_system]))
+    for i, bridge in enumerate(network.bridges):
+        existing_key = tuple(sorted([bridge.from_system, bridge.to_system]))
+        if existing_key == key:
+            network.bridges.pop(i)
+            save_bridge_config(config)
+            return True, "Bridge removed successfully"
+
+    return False, f"Bridge not found: {from_system} <-> {to_system}"
+
+
+def get_bridge_stats() -> JumpBridgeStats:
+    """
+    Get statistics about jump bridge networks.
+
+    Returns:
+        JumpBridgeStats with network and bridge counts
+    """
+    config = load_bridge_config()
+
+    total_bridges = 0
+    active_bridges = 0
+    active_networks = 0
+    bridges_by_network: dict[str, int] = {}
+    connected_systems: set[str] = set()
+
+    for network in config.networks:
+        bridge_count = len(network.bridges)
+        total_bridges += bridge_count
+        bridges_by_network[network.name] = bridge_count
+
+        if network.enabled:
+            active_networks += 1
+            active_bridges += bridge_count
+            for bridge in network.bridges:
+                connected_systems.add(bridge.from_system)
+                connected_systems.add(bridge.to_system)
+
+    return JumpBridgeStats(
+        total_networks=len(config.networks),
+        active_networks=active_networks,
+        total_bridges=total_bridges,
+        active_bridges=active_bridges,
+        systems_connected=len(connected_systems),
+        bridges_by_network=bridges_by_network,
+    )

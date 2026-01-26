@@ -619,3 +619,454 @@ class TestGetActiveBridges:
             active = get_active_bridges()
 
         assert active == []
+
+
+class TestAddBridge:
+    """Tests for add_bridge function."""
+
+    def test_add_bridge_success(self, mock_universe, tmp_path):
+        """Should add a bridge to existing network."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = add_bridge("TestNet", "Jita", "Amarr")
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert success is True
+        assert "successfully" in message.lower()
+        assert len(loaded.networks[0].bridges) == 1
+        assert loaded.networks[0].bridges[0].from_system == "Jita"
+        assert loaded.networks[0].bridges[0].to_system == "Amarr"
+
+    def test_add_bridge_with_optional_fields(self, mock_universe, tmp_path):
+        """Should add bridge with structure_id and owner."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, _ = add_bridge(
+                "TestNet", "Jita", "Amarr", structure_id=123456, owner="Test Alliance"
+            )
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert success is True
+        assert loaded.networks[0].bridges[0].structure_id == 123456
+        assert loaded.networks[0].bridges[0].owner == "Test Alliance"
+
+    def test_add_bridge_unknown_from_system(self, mock_universe, tmp_path):
+        """Should fail for unknown origin system."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = add_bridge("TestNet", "FakeSystem", "Amarr")
+
+        assert success is False
+        assert "Unknown system" in message
+        assert "FakeSystem" in message
+
+    def test_add_bridge_unknown_to_system(self, mock_universe, tmp_path):
+        """Should fail for unknown destination system."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = add_bridge("TestNet", "Jita", "FakeSystem")
+
+        assert success is False
+        assert "Unknown system" in message
+        assert "FakeSystem" in message
+
+    def test_add_bridge_same_system(self, mock_universe, tmp_path):
+        """Should fail when origin and destination are the same."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = add_bridge("TestNet", "Jita", "Jita")
+
+        assert success is False
+        assert "different" in message.lower()
+
+    def test_add_bridge_network_not_found(self, mock_universe, tmp_path):
+        """Should fail for nonexistent network."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            success, message = add_bridge("NonExistent", "Jita", "Amarr")
+
+        assert success is False
+        assert "not found" in message.lower()
+        assert "NonExistent" in message
+
+    def test_add_bridge_duplicate(self, mock_universe, tmp_path):
+        """Should fail when bridge already exists."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = add_bridge("TestNet", "Jita", "Amarr")
+
+        assert success is False
+        assert "already exists" in message.lower()
+
+    def test_add_bridge_duplicate_reverse_order(self, mock_universe, tmp_path):
+        """Should detect duplicate when systems are in reverse order."""
+        from backend.app.services.jumpbridge import add_bridge
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with (
+            patch("backend.app.services.jumpbridge.load_universe", return_value=mock_universe),
+            patch(
+                "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+            ),
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            # Try to add reverse direction
+            success, message = add_bridge("TestNet", "Amarr", "Jita")
+
+        assert success is False
+        assert "already exists" in message.lower()
+
+
+class TestRemoveBridge:
+    """Tests for remove_bridge function."""
+
+    def test_remove_bridge_success(self, tmp_path):
+        """Should remove an existing bridge."""
+        from backend.app.services.jumpbridge import remove_bridge
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = remove_bridge("TestNet", "Jita", "Amarr")
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert success is True
+        assert "successfully" in message.lower()
+        assert len(loaded.networks[0].bridges) == 0
+
+    def test_remove_bridge_reverse_order(self, tmp_path):
+        """Should remove bridge when systems are in reverse order."""
+        from backend.app.services.jumpbridge import remove_bridge
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            # Remove with reverse system order
+            success, message = remove_bridge("TestNet", "Amarr", "Jita")
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert success is True
+        assert len(loaded.networks[0].bridges) == 0
+
+    def test_remove_bridge_network_not_found(self, tmp_path):
+        """Should fail for nonexistent network."""
+        from backend.app.services.jumpbridge import remove_bridge
+
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            success, message = remove_bridge("NonExistent", "Jita", "Amarr")
+
+        assert success is False
+        assert "not found" in message.lower()
+        assert "NonExistent" in message
+
+    def test_remove_bridge_not_found(self, tmp_path):
+        """Should fail when bridge doesn't exist."""
+        from backend.app.services.jumpbridge import remove_bridge
+
+        config_path = tmp_path / "bridges.json"
+        network = JumpBridgeNetwork(name="TestNet", bridges=[], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            success, message = remove_bridge("TestNet", "Jita", "Amarr")
+
+        assert success is False
+        assert "not found" in message.lower()
+
+    def test_remove_bridge_preserves_others(self, tmp_path):
+        """Should preserve other bridges in network."""
+        from backend.app.services.jumpbridge import remove_bridge
+
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="Jita", to_system="Amarr")
+        bridge2 = JumpBridge(from_system="Dodixie", to_system="Perimeter")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge1, bridge2], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            remove_bridge("TestNet", "Jita", "Amarr")
+
+            clear_bridge_cache()
+            loaded = load_bridge_config()
+
+        assert len(loaded.networks[0].bridges) == 1
+        assert loaded.networks[0].bridges[0].from_system == "Dodixie"
+
+
+class TestGetBridgeStats:
+    """Tests for get_bridge_stats function."""
+
+    def test_stats_empty_config(self, tmp_path):
+        """Should return zeros for empty config."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        config_path.write_text('{"networks": []}')
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            stats = get_bridge_stats()
+
+        assert stats.total_networks == 0
+        assert stats.active_networks == 0
+        assert stats.total_bridges == 0
+        assert stats.active_bridges == 0
+        assert stats.systems_connected == 0
+        assert stats.bridges_by_network == {}
+
+    def test_stats_single_enabled_network(self, tmp_path):
+        """Should count enabled network correctly."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            stats = get_bridge_stats()
+
+        assert stats.total_networks == 1
+        assert stats.active_networks == 1
+        assert stats.total_bridges == 1
+        assert stats.active_bridges == 1
+        assert stats.systems_connected == 2
+        assert stats.bridges_by_network == {"TestNet": 1}
+
+    def test_stats_disabled_network(self, tmp_path):
+        """Should count disabled network but not active bridges."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        bridge = JumpBridge(from_system="Jita", to_system="Amarr")
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge], enabled=False)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            stats = get_bridge_stats()
+
+        assert stats.total_networks == 1
+        assert stats.active_networks == 0
+        assert stats.total_bridges == 1
+        assert stats.active_bridges == 0
+        assert stats.systems_connected == 0  # Only counts active bridges
+
+    def test_stats_multiple_networks(self, tmp_path):
+        """Should aggregate stats across networks."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="Jita", to_system="Amarr")
+        bridge2 = JumpBridge(from_system="Dodixie", to_system="Perimeter")
+        bridge3 = JumpBridge(from_system="A", to_system="B")
+        network1 = JumpBridgeNetwork(name="Net1", bridges=[bridge1, bridge2], enabled=True)
+        network2 = JumpBridgeNetwork(name="Net2", bridges=[bridge3], enabled=True)
+        config = JumpBridgeConfig(networks=[network1, network2])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            stats = get_bridge_stats()
+
+        assert stats.total_networks == 2
+        assert stats.active_networks == 2
+        assert stats.total_bridges == 3
+        assert stats.active_bridges == 3
+        assert stats.systems_connected == 6  # Jita, Amarr, Dodixie, Perimeter, A, B
+        assert stats.bridges_by_network == {"Net1": 2, "Net2": 1}
+
+    def test_stats_shared_systems_counted_once(self, tmp_path):
+        """Systems connected multiple times should be counted once."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="Jita", to_system="Amarr")
+        bridge2 = JumpBridge(from_system="Jita", to_system="Dodixie")  # Jita shared
+        network = JumpBridgeNetwork(name="TestNet", bridges=[bridge1, bridge2], enabled=True)
+        config = JumpBridgeConfig(networks=[network])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            stats = get_bridge_stats()
+
+        assert stats.systems_connected == 3  # Jita, Amarr, Dodixie (Jita counted once)
+
+    def test_stats_mixed_enabled_disabled(self, tmp_path):
+        """Should correctly handle mix of enabled/disabled networks."""
+        from backend.app.services.jumpbridge import get_bridge_stats
+
+        config_path = tmp_path / "bridges.json"
+        bridge1 = JumpBridge(from_system="Jita", to_system="Amarr")
+        bridge2 = JumpBridge(from_system="Dodixie", to_system="Perimeter")
+        network1 = JumpBridgeNetwork(name="EnabledNet", bridges=[bridge1], enabled=True)
+        network2 = JumpBridgeNetwork(name="DisabledNet", bridges=[bridge2], enabled=False)
+        config = JumpBridgeConfig(networks=[network1, network2])
+
+        clear_bridge_cache()
+        with patch(
+            "backend.app.services.jumpbridge.get_bridge_config_path", return_value=config_path
+        ):
+            save_bridge_config(config)
+            clear_bridge_cache()
+            stats = get_bridge_stats()
+
+        assert stats.total_networks == 2
+        assert stats.active_networks == 1
+        assert stats.total_bridges == 2
+        assert stats.active_bridges == 1
+        assert stats.systems_connected == 2  # Only from enabled network
+        assert stats.bridges_by_network == {"EnabledNet": 1, "DisabledNet": 1}

@@ -51,3 +51,23 @@ class JumpBridgeImportResponse(BaseModel):
     bridges_imported: int
     bridges_skipped: int
     errors: list[str] = Field(default_factory=list)
+
+
+class JumpBridgeAddRequest(BaseModel):
+    """Request to add a single jump bridge."""
+
+    from_system: str = Field(..., description="Origin system name")
+    to_system: str = Field(..., description="Destination system name")
+    structure_id: int | None = Field(None, description="ESI structure ID if known")
+    owner: str | None = Field(None, description="Alliance/corp that owns the bridge")
+
+
+class JumpBridgeStats(BaseModel):
+    """Statistics about jump bridge networks."""
+
+    total_networks: int
+    active_networks: int
+    total_bridges: int
+    active_bridges: int
+    systems_connected: int
+    bridges_by_network: dict[str, int]

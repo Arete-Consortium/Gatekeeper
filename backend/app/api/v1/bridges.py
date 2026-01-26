@@ -3,16 +3,22 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from ...models.jumpbridge import (
+    JumpBridge,
+    JumpBridgeAddRequest,
     JumpBridgeConfig,
     JumpBridgeImportRequest,
     JumpBridgeImportResponse,
     JumpBridgeNetwork,
+    JumpBridgeStats,
 )
 from ...services.jumpbridge import (
+    add_bridge,
     clear_bridge_cache,
     delete_network,
+    get_bridge_stats,
     import_bridges,
     load_bridge_config,
+    remove_bridge,
     toggle_network,
 )
 
@@ -68,6 +74,17 @@ def import_bridge_network(
     )
 
 
+@router.get(
+    "/stats",
+    response_model=JumpBridgeStats,
+    summary="Get jump bridge statistics",
+    description="Returns statistics about all jump bridge networks.",
+)
+def get_stats() -> JumpBridgeStats:
+    """Get statistics about jump bridge networks."""
+    return get_bridge_stats()
+
+
 @router.patch(
     "/{network_name}",
     summary="Toggle network status",
@@ -110,3 +127,59 @@ def get_network(network_name: str) -> JumpBridgeNetwork:
         if network.name == network_name:
             return network
     raise HTTPException(status_code=404, detail=f"Network '{network_name}' not found")
+
+
+@router.post(
+    "/{network_name}/bridges",
+    response_model=JumpBridge,
+    status_code=201,
+    summary="Add a single bridge",
+    description="Add a single jump bridge to an existing network.",
+)
+def add_single_bridge(
+    network_name: str,
+    request: JumpBridgeAddRequest,
+) -> JumpBridge:
+    """Add a single jump bridge to a network."""
+    clear_bridge_cache()
+    success, message = add_bridge(
+        network_name=network_name,
+        from_system=request.from_system,
+        to_system=request.to_system,
+        structure_id=request.structure_id,
+        owner=request.owner,
+    )
+    if not success:
+        if "not found" in message.lower():
+            raise HTTPException(status_code=404, detail=message)
+        raise HTTPException(status_code=400, detail=message)
+    return JumpBridge(
+        from_system=request.from_system,
+        to_system=request.to_system,
+        structure_id=request.structure_id,
+        owner=request.owner,
+    )
+
+
+@router.delete(
+    "/{network_name}/bridges",
+    summary="Remove a single bridge",
+    description="Remove a single jump bridge from a network.",
+)
+def remove_single_bridge(
+    network_name: str,
+    from_system: str = Query(..., description="Origin system name"),
+    to_system: str = Query(..., description="Destination system name"),
+) -> dict:
+    """Remove a single jump bridge from a network."""
+    clear_bridge_cache()
+    success, message = remove_bridge(
+        network_name=network_name,
+        from_system=from_system,
+        to_system=to_system,
+    )
+    if not success:
+        if "not found" in message.lower():
+            raise HTTPException(status_code=404, detail=message)
+        raise HTTPException(status_code=400, detail=message)
+    return {"status": "ok", "removed": f"{from_system} <-> {to_system}"}
