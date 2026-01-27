@@ -5,16 +5,21 @@ from typing import Any
 from ..services.fitting import (
     JumpCapability,
     ShipCategory,
-    get_ship_info as _get_ship_info,
     get_travel_recommendation,
     parse_eft_fitting,
 )
+from ..services.fitting import (
+    get_ship_info as _get_ship_info,
+)
 from ..services.map_visualization import (
-    ThreatLevel,
     get_region_map,
-    get_security_color,
     get_security_level,
     get_systems_in_range,
+)
+from ..services.thera import (
+    get_active_thera,
+    get_thera_cache_age,
+    get_thera_last_error,
 )
 from ..services.webhooks import (
     WebhookSubscription,
@@ -29,6 +34,7 @@ def calculate_route(
     destination: str,
     profile: str = "shortest",
     avoid_systems: list[str] | None = None,
+    use_thera: bool = False,
 ) -> dict[str, Any]:
     """
     Calculate a route between two systems.
@@ -40,14 +46,57 @@ def calculate_route(
 
     # Return mock data for demonstration
     # In production, this would call the actual routing service
-    return {
+    result = {
         "origin": origin,
         "destination": destination,
         "profile": profile,
         "avoid_systems": avoid_systems,
+        "use_thera": use_thera,
         "status": "route_calculated",
         "message": "Use the /api/v1/route endpoint for full routing with live data",
-        "api_endpoint": f"/api/v1/route?origin={origin}&destination={destination}&profile={profile}",
+        "api_endpoint": f"/api/v1/route?origin={origin}&destination={destination}&profile={profile}&use_thera={use_thera}",
+    }
+    return result
+
+
+async def get_thera_connections(max_ship_size: str | None = None) -> dict[str, Any]:
+    """Get active Thera wormhole connections from EVE-Scout.
+
+    Returns current Thera connections that can be used as shortcuts.
+    Optionally filter by max_ship_size (e.g., 'frigate', 'battleship').
+    """
+    connections = get_active_thera()
+
+    if max_ship_size:
+        connections = [c for c in connections if c.max_ship_size.lower() == max_ship_size.lower()]
+
+    return {
+        "connections": [
+            {
+                "id": c.id,
+                "in_system_name": c.in_system_name,
+                "out_system_name": c.out_system_name,
+                "wh_type": c.wh_type,
+                "max_ship_size": c.max_ship_size,
+                "remaining_hours": c.remaining_hours,
+            }
+            for c in connections
+        ],
+        "total": len(connections),
+    }
+
+
+async def get_thera_status() -> dict[str, Any]:
+    """Check Thera connection cache status and EVE-Scout API health."""
+    cache_age = get_thera_cache_age()
+    last_error = get_thera_last_error()
+    connections = get_active_thera()
+
+    return {
+        "cache_age": cache_age,
+        "connection_count": len(connections),
+        "api_healthy": last_error is None,
+        "last_error": last_error,
     }
 
 

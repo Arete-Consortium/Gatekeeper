@@ -31,10 +31,11 @@ from .tools import (
     get_jump_range,
     get_region_info,
     get_ship_info,
+    get_thera_connections,
+    get_thera_status,
     list_alert_subscriptions,
     parse_fitting,
 )
-
 
 JSONRPC_VERSION = "2.0"
 MCP_PROTOCOL_VERSION = "2024-11-05"
@@ -76,6 +77,11 @@ class MCPServer:
                             "items": {"type": "string"},
                             "description": "Systems to avoid (e.g., ['Tama', 'Rancer'])",
                             "default": [],
+                        },
+                        "use_thera": {
+                            "type": "boolean",
+                            "description": "Consider Thera wormhole shortcuts for routing",
+                            "default": False,
                         },
                     },
                     "required": ["origin", "destination"],
@@ -211,6 +217,27 @@ class MCPServer:
                     "properties": {},
                 },
             },
+            "gatekeeper_thera_connections": {
+                "name": "gatekeeper_thera_connections",
+                "description": "Get active Thera wormhole connections from EVE-Scout. Thera connections provide shortcuts through New Eden.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "max_ship_size": {
+                            "type": "string",
+                            "description": "Filter by max ship size (e.g., 'frigate', 'battleship')",
+                        },
+                    },
+                },
+            },
+            "gatekeeper_thera_status": {
+                "name": "gatekeeper_thera_status",
+                "description": "Check Thera connection cache status and EVE-Scout API health.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                },
+            },
         }
 
     async def handle_request(self, request: dict) -> dict:
@@ -238,16 +265,19 @@ class MCPServer:
 
     def _handle_initialize(self, req_id: Any, params: dict) -> dict:
         """Handle initialize request."""
-        return self._success_response(req_id, {
-            "protocolVersion": MCP_PROTOCOL_VERSION,
-            "capabilities": {
-                "tools": {},
+        return self._success_response(
+            req_id,
+            {
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": {
+                    "tools": {},
+                },
+                "serverInfo": {
+                    "name": "eve-gatekeeper",
+                    "version": VERSION,
+                },
             },
-            "serverInfo": {
-                "name": "eve-gatekeeper",
-                "version": VERSION,
-            },
-        })
+        )
 
     def _handle_tools_list(self, req_id: Any) -> dict:
         """Handle tools/list request."""
@@ -271,14 +301,20 @@ class MCPServer:
 
         try:
             result = await self._execute_tool(tool_name, arguments)
-            return self._success_response(req_id, {
-                "content": [{"type": "text", "text": json.dumps(result, indent=2)}],
-            })
+            return self._success_response(
+                req_id,
+                {
+                    "content": [{"type": "text", "text": json.dumps(result, indent=2)}],
+                },
+            )
         except Exception as e:
-            return self._success_response(req_id, {
-                "content": [{"type": "text", "text": f"Error: {str(e)}"}],
-                "isError": True,
-            })
+            return self._success_response(
+                req_id,
+                {
+                    "content": [{"type": "text", "text": f"Error: {str(e)}"}],
+                    "isError": True,
+                },
+            )
 
     async def _execute_tool(self, tool_name: str, arguments: dict) -> Any:
         """Execute a tool and return the result."""
@@ -292,6 +328,8 @@ class MCPServer:
             "gatekeeper_jump_range": get_jump_range,
             "gatekeeper_create_alert": create_alert_subscription,
             "gatekeeper_list_alerts": list_alert_subscriptions,
+            "gatekeeper_thera_connections": get_thera_connections,
+            "gatekeeper_thera_status": get_thera_status,
         }
 
         handler = tool_map.get(tool_name)
