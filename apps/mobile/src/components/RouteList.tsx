@@ -99,10 +99,26 @@ export const RouteList: React.FC<RouteListProps> = ({
               <Text style={styles.summaryLabel}>Max Risk</Text>
             </View>
           </View>
-          <View style={styles.profileBadge}>
-            <Text style={styles.profileText}>
-              Profile: {route.profile.charAt(0).toUpperCase() + route.profile.slice(1)}
-            </Text>
+          <View style={styles.badgeRow}>
+            <View style={styles.profileBadge}>
+              <Text style={styles.profileText}>
+                Profile: {route.profile.charAt(0).toUpperCase() + route.profile.slice(1)}
+              </Text>
+            </View>
+            {route.bridges_used > 0 && (
+              <View style={[styles.profileBadge, styles.bridgeBadge]}>
+                <Text style={styles.profileText}>
+                  {route.bridges_used} Bridge{route.bridges_used !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+            {route.thera_used > 0 && (
+              <View style={[styles.profileBadge, styles.theraBadge]}>
+                <Text style={styles.profileText}>
+                  {route.thera_used} Thera
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -146,13 +162,24 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 2,
   },
-  profileBadge: {
-    alignSelf: 'center',
+  badgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: THEME.spacing.xs,
     marginTop: THEME.spacing.sm,
+  },
+  profileBadge: {
     paddingHorizontal: THEME.spacing.md,
     paddingVertical: THEME.spacing.xs,
     backgroundColor: THEME.colors.primary,
     borderRadius: THEME.borderRadius.xl,
+  },
+  bridgeBadge: {
+    backgroundColor: '#ff9f0a',
+  },
+  theraBadge: {
+    backgroundColor: '#9900ff',
   },
   profileText: {
     color: THEME.colors.text,

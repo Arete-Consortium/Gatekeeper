@@ -14,6 +14,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { GatekeeperAPI } from '../services/GatekeeperAPI';
@@ -38,6 +39,8 @@ export const RouteScreen: React.FC = () => {
   );
   const [shipProfile, setShipProfile] = useState<ShipProfileKey>('default');
   const [showShipProfiles, setShowShipProfiles] = useState(false);
+  const [useBridges, setUseBridges] = useState(false);
+  const [useThera, setUseThera] = useState(false);
   const [loading, setLoading] = useState(false);
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,8 @@ export const RouteScreen: React.FC = () => {
       const result = await GatekeeperAPI.getRoute(
         origin.trim(),
         destination.trim(),
-        profile
+        profile,
+        { bridges: useBridges, thera: useThera }
       );
       setRouteResult(result);
     } catch (err: any) {
@@ -198,6 +202,34 @@ export const RouteScreen: React.FC = () => {
           )}
         </View>
 
+        <View style={styles.shortcutSection}>
+          <Text style={styles.sectionTitle}>Shortcuts</Text>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>Ansiblex Jump Bridges</Text>
+              <Text style={styles.toggleDescription}>Use player-owned jump bridges</Text>
+            </View>
+            <Switch
+              value={useBridges}
+              onValueChange={setUseBridges}
+              trackColor={{ false: THEME.colors.border, true: THEME.colors.primary }}
+              thumbColor={THEME.colors.text}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>Thera Shortcuts</Text>
+              <Text style={styles.toggleDescription}>Route through Thera wormhole connections</Text>
+            </View>
+            <Switch
+              value={useThera}
+              onValueChange={setUseThera}
+              trackColor={{ false: THEME.colors.border, true: THEME.colors.wormhole }}
+              thumbColor={THEME.colors.text}
+            />
+          </View>
+        </View>
+
         <View style={styles.actionSection}>
           <TouchableOpacity
             style={[styles.calculateButton, loading && styles.buttonDisabled]}
@@ -310,6 +342,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: THEME.spacing.sm,
     textAlign: 'center',
+  },
+  shortcutSection: {
+    marginBottom: THEME.spacing.md,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.md,
+    padding: THEME.spacing.md,
+    marginBottom: THEME.spacing.xs,
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: THEME.spacing.md,
+  },
+  toggleLabel: {
+    color: THEME.colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  toggleDescription: {
+    color: THEME.colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
   },
   actionSection: {
     flexDirection: 'row',

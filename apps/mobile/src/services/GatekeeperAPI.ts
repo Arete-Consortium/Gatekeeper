@@ -131,15 +131,21 @@ class GatekeeperAPIService {
   async getRoute(
     fromSystem: string,
     toSystem: string,
-    profile: 'shortest' | 'safer' | 'paranoid' = 'safer'
+    profile: 'shortest' | 'safer' | 'paranoid' = 'safer',
+    options?: { bridges?: boolean; thera?: boolean }
   ): Promise<RouteResponse> {
-    const response = await this.client.get('/map/route', {
-      params: {
-        from: fromSystem,
-        to: toSystem,
-        profile,
-      },
-    });
+    const params: Record<string, string | boolean> = {
+      from: fromSystem,
+      to: toSystem,
+      profile,
+    };
+    if (options?.bridges) {
+      params.bridges = true;
+    }
+    if (options?.thera) {
+      params.thera = true;
+    }
+    const response = await this.client.get('/map/route', { params });
     return response.data;
   }
 

@@ -62,6 +62,8 @@ export interface RouteResponse {
   max_risk: number;
   avg_risk: number;
   profile: 'shortest' | 'safer' | 'paranoid';
+  bridges_used: number;
+  thera_used: number;
 }
 
 // Routing profile configuration
