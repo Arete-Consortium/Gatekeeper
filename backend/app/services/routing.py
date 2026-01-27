@@ -1,18 +1,24 @@
 import math
 
-from ..models.route import RouteHop, RouteResponse
+from ..models.route import RouteHop, RouteResponse, WaypointLeg, WaypointRouteResponse
 from .data_loader import load_risk_config, load_universe
 from .jumpbridge import get_active_bridges
+from .pochven import get_active_pochven, is_pochven_enabled
 from .risk_engine import compute_risk
+from .thera import get_active_thera
 
 # Edge type markers for distinguishing gates from bridges
 EDGE_GATE = "gate"
 EDGE_BRIDGE = "bridge"
+EDGE_THERA = "thera"
+EDGE_POCHVEN = "pochven"
 
 
 def _build_graph(
     avoid: set[str] | None = None,
     use_bridges: bool = False,
+    use_thera: bool = False,
+    use_pochven: bool = False,
 ) -> tuple[dict[str, dict[str, float]], dict[tuple[str, str], str]]:
     """
     Build navigation graph from universe data.
@@ -20,11 +26,13 @@ def _build_graph(
     Args:
         avoid: Set of system names to exclude from the graph
         use_bridges: Whether to include Ansiblex jump bridges
+        use_thera: Whether to include Thera wormhole shortcuts
+        use_pochven: Whether to include Pochven filament connections
 
     Returns:
         Tuple of (adjacency dict, edge type dict)
         - Adjacency: system -> {neighbor -> distance}
-        - Edge types: (from, to) -> "gate" or "bridge"
+        - Edge types: (from, to) -> "gate", "bridge", "thera", or "pochven"
     """
     universe = load_universe()
     avoid = avoid or set()
@@ -59,6 +67,33 @@ def _build_graph(
                 graph[bridge.to_system][bridge.from_system] = 1.0
                 edge_types[(bridge.from_system, bridge.to_system)] = EDGE_BRIDGE
                 edge_types[(bridge.to_system, bridge.from_system)] = EDGE_BRIDGE
+
+    # Add Thera wormhole connections
+    if use_thera:
+        thera_connections = get_active_thera()
+        for conn in thera_connections:
+            if conn.in_system_name in avoid or conn.out_system_name in avoid:
+                continue
+            if conn.in_system_name in graph and conn.out_system_name in graph:
+                # Weight 2: system→Thera + Thera→system
+                graph[conn.in_system_name][conn.out_system_name] = 2.0
+                graph[conn.out_system_name][conn.in_system_name] = 2.0
+                edge_types[(conn.in_system_name, conn.out_system_name)] = EDGE_THERA
+                edge_types[(conn.out_system_name, conn.in_system_name)] = EDGE_THERA
+
+    # Add Pochven filament connections
+    if use_pochven and is_pochven_enabled():
+        pochven_connections = get_active_pochven()
+        for conn in pochven_connections:
+            if conn.from_system in avoid or conn.to_system in avoid:
+                continue
+            if conn.from_system in graph and conn.to_system in graph:
+                # Weight 1: direct filament connection
+                graph[conn.from_system][conn.to_system] = 1.0
+                edge_types[(conn.from_system, conn.to_system)] = EDGE_POCHVEN
+                if conn.bidirectional:
+                    graph[conn.to_system][conn.from_system] = 1.0
+                    edge_types[(conn.to_system, conn.from_system)] = EDGE_POCHVEN
 
     return graph, edge_types
 
@@ -112,6 +147,8 @@ def compute_route(
     profile: str = "shortest",
     avoid: set[str] | None = None,
     use_bridges: bool = False,
+    use_thera: bool = False,
+    use_pochven: bool = False,
 ) -> RouteResponse:
     """
     Compute a route between two systems.
@@ -122,6 +159,8 @@ def compute_route(
         profile: Routing profile ('shortest', 'safer', 'paranoid')
         avoid: Set of system names to avoid in routing
         use_bridges: Whether to use Ansiblex jump bridges
+        use_thera: Whether to use Thera wormhole shortcuts
+        use_pochven: Whether to use Pochven filament connections
 
     Returns:
         RouteResponse with path details
@@ -138,7 +177,9 @@ def compute_route(
     if to_system in avoid:
         raise ValueError(f"Cannot avoid destination system: {to_system}")
 
-    graph, edge_types = _build_graph(avoid, use_bridges=use_bridges)
+    graph, edge_types = _build_graph(
+        avoid, use_bridges=use_bridges, use_thera=use_thera, use_pochven=use_pochven
+    )
     path_names, total_cost = _dijkstra(graph, from_system, to_system, profile)
     if not path_names:
         raise ValueError("No route found")
@@ -148,6 +189,8 @@ def compute_route(
     max_risk = 0.0
     cumulative_cost = 0.0
     bridges_used = 0
+    thera_used = 0
+    pochven_used = 0
 
     for idx, name in enumerate(path_names):
         rr = compute_risk(name)
@@ -163,6 +206,10 @@ def compute_route(
             connection_type = edge_types.get((prev_name, name), EDGE_GATE)
             if connection_type == EDGE_BRIDGE:
                 bridges_used += 1
+            elif connection_type == EDGE_THERA:
+                thera_used += 1
+            elif connection_type == EDGE_POCHVEN:
+                pochven_used += 1
 
         hops.append(
             RouteHop(
@@ -187,4 +234,129 @@ def compute_route(
         avg_risk=avg_risk,
         path=hops,
         bridges_used=bridges_used,
+        thera_used=thera_used,
+        pochven_used=pochven_used,
+    )
+
+
+def compute_waypoint_route(
+    from_system: str,
+    waypoints: list[str],
+    profile: str = "shortest",
+    avoid: set[str] | None = None,
+    use_bridges: bool = False,
+    use_thera: bool = False,
+    use_pochven: bool = False,
+    optimize: bool = False,
+) -> WaypointRouteResponse:
+    """
+    Compute a multi-stop route through waypoints.
+
+    Args:
+        from_system: Origin system name
+        waypoints: Ordered list of waypoint system names
+        profile: Routing profile ('shortest', 'safer', 'paranoid')
+        avoid: Set of system names to avoid
+        use_bridges: Whether to use Ansiblex jump bridges
+        use_thera: Whether to use Thera wormhole shortcuts
+        optimize: If True, reorder waypoints using nearest-neighbor heuristic
+
+    Returns:
+        WaypointRouteResponse with leg details
+    """
+    universe = load_universe()
+    avoid = avoid or set()
+
+    # Validate all systems
+    if from_system not in universe.systems:
+        raise ValueError(f"Unknown from_system: {from_system}")
+    for wp in waypoints:
+        if wp not in universe.systems:
+            raise ValueError(f"Unknown waypoint system: {wp}")
+
+    original_order = list(waypoints)
+    ordered_waypoints = list(waypoints)
+
+    # Nearest-neighbor optimization
+    if optimize and len(waypoints) > 1:
+        remaining = list(waypoints)
+        optimized: list[str] = []
+        current = from_system
+
+        while remaining:
+            best_wp = None
+            best_jumps = float("inf")
+            for wp in remaining:
+                try:
+                    route = compute_route(
+                        current,
+                        wp,
+                        profile,
+                        avoid=avoid,
+                        use_bridges=use_bridges,
+                        use_thera=use_thera,
+                        use_pochven=use_pochven,
+                    )
+                    if route.total_jumps < best_jumps:
+                        best_jumps = route.total_jumps
+                        best_wp = wp
+                except ValueError:
+                    continue
+
+            if best_wp is None:
+                raise ValueError(f"No route found to remaining waypoints from {current}")
+            optimized.append(best_wp)
+            remaining.remove(best_wp)
+            current = best_wp
+
+        ordered_waypoints = optimized
+
+    # Compute legs
+    legs: list[WaypointLeg] = []
+    total_jumps = 0
+    total_cost = 0.0
+    total_bridges = 0
+    total_thera = 0
+    total_pochven = 0
+    current = from_system
+
+    for wp in ordered_waypoints:
+        route = compute_route(
+            current,
+            wp,
+            profile,
+            avoid=avoid,
+            use_bridges=use_bridges,
+            use_thera=use_thera,
+            use_pochven=use_pochven,
+        )
+        leg = WaypointLeg(
+            from_system=current,
+            to_system=wp,
+            jumps=route.total_jumps,
+            cost=route.total_cost,
+            bridges_used=route.bridges_used,
+            thera_used=route.thera_used,
+            pochven_used=route.pochven_used,
+            path_systems=[hop.system_name for hop in route.path],
+        )
+        legs.append(leg)
+        total_jumps += route.total_jumps
+        total_cost += route.total_cost
+        total_bridges += route.bridges_used
+        total_thera += route.thera_used
+        total_pochven += route.pochven_used
+        current = wp
+
+    return WaypointRouteResponse(
+        from_system=from_system,
+        waypoints=ordered_waypoints,
+        optimized=optimize,
+        original_order=original_order if optimize else [],
+        total_jumps=total_jumps,
+        total_cost=total_cost,
+        legs=legs,
+        total_bridges_used=total_bridges,
+        total_thera_used=total_thera,
+        total_pochven_used=total_pochven,
     )

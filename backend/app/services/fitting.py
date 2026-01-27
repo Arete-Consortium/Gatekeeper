@@ -7,8 +7,6 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from pydantic import BaseModel
-
 
 class ShipCategory(str, Enum):
     """Ship size/category for travel planning."""
@@ -438,8 +436,4 @@ def list_ships_by_category(category: ShipCategory) -> list[str]:
 
 def list_jump_capable_ships() -> list[str]:
     """List all ships with jump drive capability."""
-    return [
-        name
-        for name, data in SHIP_DATA.items()
-        if data.get("jump") != JumpCapability.none
-    ]
+    return [name for name, data in SHIP_DATA.items() if data.get("jump") != JumpCapability.none]

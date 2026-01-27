@@ -235,7 +235,9 @@ async def get_constellation_map_endpoint(constellation_name: str) -> RegionMapRe
     """Get constellation map data for visualization."""
     data = get_constellation_map(constellation_name)
     if not data:
-        raise HTTPException(status_code=404, detail=f"Constellation not found: {constellation_name}")
+        raise HTTPException(
+            status_code=404, detail=f"Constellation not found: {constellation_name}"
+        )
     return RegionMapResponse.from_region_data(data)
 
 

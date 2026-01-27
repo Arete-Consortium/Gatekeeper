@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ...services.fitting import (
-    JumpCapability,
     ParsedFitting,
     ShipCategory,
     TravelRecommendation,

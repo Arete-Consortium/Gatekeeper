@@ -173,8 +173,10 @@ def _should_alert(subscription: WebhookSubscription, alert: KillAlert) -> bool:
     if subscription.systems or subscription.regions:
         system_ok = alert.system_name in subscription.systems if subscription.systems else False
         region_ok = (
-            alert.region_id is not None and alert.region_id in subscription.regions
-        ) if subscription.regions else False
+            (alert.region_id is not None and alert.region_id in subscription.regions)
+            if subscription.regions
+            else False
+        )
         if not (system_ok or region_ok):
             return False
 
@@ -188,9 +190,7 @@ def _should_alert(subscription: WebhookSubscription, alert: KillAlert) -> bool:
 
     # Ship type filter
     if subscription.ship_types and alert.ship_type:
-        ship_match = any(
-            st.lower() in alert.ship_type.lower() for st in subscription.ship_types
-        )
+        ship_match = any(st.lower() in alert.ship_type.lower() for st in subscription.ship_types)
         if not ship_match:
             return False
 

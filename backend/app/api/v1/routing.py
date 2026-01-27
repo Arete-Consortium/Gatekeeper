@@ -15,10 +15,13 @@ from ...models.route import (
     RouteCompareResponse,
     RouteResponse,
     RouteSummary,
+    WaypointRouteRequest,
+    WaypointRouteResponse,
 )
+from ...services.avoidance import resolve_avoidance
 from ...services.data_loader import load_risk_config, load_universe
 from ...services.risk_engine import compute_risk, risk_to_color
-from ...services.routing import compute_route
+from ...services.routing import compute_route, compute_waypoint_route
 
 router = APIRouter()
 
@@ -88,6 +91,18 @@ def calculate_route(
         False,
         description="Use Ansiblex jump bridges if available",
     ),
+    thera: bool = Query(
+        False,
+        description="Use Thera wormhole shortcuts if available",
+    ),
+    pochven: bool = Query(
+        False,
+        description="Use Pochven filament routing if available",
+    ),
+    avoid_lists: list[str] | None = Query(
+        None,
+        description="Named avoidance lists to apply (combined with explicit avoid)",
+    ),
 ) -> RouteResponse:
     """
     Calculate a route between two systems.
@@ -100,6 +115,7 @@ def calculate_route(
         - `paranoid`: Maximum safety, avoids all dangerous areas
     - **avoid**: Systems to exclude from routing (e.g., "Tama,Rancer" or multiple &avoid=Tama&avoid=Rancer)
     - **bridges**: Use Ansiblex jump bridges in route calculation
+    - **avoid_lists**: Named avoidance lists to apply (e.g., "gatecamps")
     """
     cfg = load_risk_config()
     if profile not in cfg.routing_profiles:
@@ -116,8 +132,23 @@ def calculate_route(
             # Support comma-separated values in single param
             avoid_set.update(name.strip() for name in item.split(",") if name.strip())
 
+    # Resolve named avoidance lists
+    if avoid_lists:
+        try:
+            avoid_set.update(resolve_avoidance(avoid_lists))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
     try:
-        route = compute_route(from_system, to_system, profile, avoid=avoid_set, use_bridges=bridges)
+        route = compute_route(
+            from_system,
+            to_system,
+            profile,
+            avoid=avoid_set,
+            use_bridges=bridges,
+            use_thera=thera,
+            use_pochven=pochven,
+        )
         _add_to_history(route)
         return route
     except ValueError as e:
@@ -201,6 +232,12 @@ def compare_routes(request: RouteCompareRequest) -> RouteCompareResponse:
             )
 
     avoid_set = set(request.avoid)
+    if request.avoid_lists:
+        try:
+            avoid_set.update(resolve_avoidance(request.avoid_lists))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
     routes: list[RouteSummary] = []
 
     for profile in request.profiles:
@@ -211,6 +248,8 @@ def compare_routes(request: RouteCompareRequest) -> RouteCompareResponse:
                 profile,
                 avoid=avoid_set,
                 use_bridges=request.use_bridges,
+                use_thera=request.use_thera,
+                use_pochven=request.use_pochven,
             )
 
             # Count security categories
@@ -232,6 +271,8 @@ def compare_routes(request: RouteCompareRequest) -> RouteCompareResponse:
                     max_risk=round(route.max_risk, 1),
                     avg_risk=round(route.avg_risk, 1),
                     bridges_used=route.bridges_used,
+                    thera_used=route.thera_used,
+                    pochven_used=route.pochven_used,
                     highsec_jumps=highsec,
                     lowsec_jumps=lowsec,
                     nullsec_jumps=nullsec,
@@ -324,6 +365,12 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
         )
 
     avoid_set = set(request.avoid)
+    if request.avoid_lists:
+        try:
+            avoid_set.update(resolve_avoidance(request.avoid_lists))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from None
+
     results: list[BulkRouteResult] = []
     successful = 0
     failed = 0
@@ -364,6 +411,8 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
                 request.profile,
                 avoid=avoid_set,
                 use_bridges=request.use_bridges,
+                use_thera=request.use_thera,
+                use_pochven=request.use_pochven,
             )
             results.append(
                 BulkRouteResult(
@@ -374,6 +423,8 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
                     max_risk=round(route.max_risk, 1),
                     avg_risk=round(route.avg_risk, 1),
                     bridges_used=route.bridges_used,
+                    thera_used=route.thera_used,
+                    pochven_used=route.pochven_used,
                     path_systems=[hop.system_name for hop in route.path],
                 )
             )
@@ -399,3 +450,44 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
         failed=failed,
         routes=results,
     )
+
+
+@router.post(
+    "/waypoints",
+    response_model=WaypointRouteResponse,
+    summary="Calculate multi-stop route",
+    description="Calculate route through multiple waypoints, optionally optimizing order.",
+)
+def waypoint_route(request: WaypointRouteRequest) -> WaypointRouteResponse:
+    """
+    Calculate a route through multiple waypoints.
+
+    - **from_system**: Starting system
+    - **waypoints**: Ordered list of systems to visit
+    - **optimize**: If true, reorder waypoints to minimize total jumps (nearest-neighbor TSP)
+    - **profile**: Routing strategy
+    - **avoid**: Systems to exclude from routing
+    """
+    cfg = load_risk_config()
+    if request.profile not in cfg.routing_profiles:
+        available = ", ".join(cfg.routing_profiles.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown routing profile: '{request.profile}'. Available: {available}",
+        )
+
+    avoid_set = set(request.avoid)
+
+    try:
+        return compute_waypoint_route(
+            from_system=request.from_system,
+            waypoints=request.waypoints,
+            profile=request.profile,
+            avoid=avoid_set,
+            use_bridges=request.use_bridges,
+            use_thera=request.use_thera,
+            use_pochven=request.use_pochven,
+            optimize=request.optimize,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None

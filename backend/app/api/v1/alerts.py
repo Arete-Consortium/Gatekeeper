@@ -6,7 +6,7 @@ Provides endpoints for managing kill alert subscriptions via webhooks.
 import secrets
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
 
 from ...services.webhooks import (
@@ -14,7 +14,6 @@ from ...services.webhooks import (
     WebhookSubscription,
     WebhookType,
     add_subscription,
-    clear_subscriptions,
     dispatch_alert,
     get_subscription,
     list_subscriptions,
@@ -35,11 +34,17 @@ class CreateSubscriptionRequest(BaseModel):
     webhook_url: HttpUrl = Field(..., description="Discord or Slack webhook URL")
     webhook_type: str = Field("discord", description="Webhook type: discord or slack")
     name: str | None = Field(None, description="Friendly name for this subscription")
-    systems: list[str] = Field(default_factory=list, description="System names to watch (empty = all)")
-    regions: list[int] = Field(default_factory=list, description="Region IDs to watch (empty = all)")
+    systems: list[str] = Field(
+        default_factory=list, description="System names to watch (empty = all)"
+    )
+    regions: list[int] = Field(
+        default_factory=list, description="Region IDs to watch (empty = all)"
+    )
     min_value: float | None = Field(None, description="Minimum ISK value for alerts")
     include_pods: bool = Field(False, description="Include pod kills")
-    ship_types: list[str] = Field(default_factory=list, description="Ship types to filter (partial match)")
+    ship_types: list[str] = Field(
+        default_factory=list, description="Ship types to filter (partial match)"
+    )
 
 
 class UpdateSubscriptionRequest(BaseModel):

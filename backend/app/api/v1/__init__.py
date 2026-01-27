@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from .ai import router as ai_router
 from .alerts import router as alerts_router
 from .auth import router as auth_router
+from .avoidance import router as avoidance_router
 from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
@@ -15,11 +16,13 @@ from .jump import router as jump_router
 from .links import router as links_router
 from .map import router as map_router
 from .notes import router as notes_router
+from .pochven import router as pochven_router
 from .routing import router as routing_router
 from .sharing import router as sharing_router
 from .stats import router as stats_router
 from .status import router as status_router
 from .systems import router as systems_router
+from .thera import router as thera_router
 from .webhooks import router as webhooks_router
 from .websocket import router as websocket_router
 
@@ -27,6 +30,7 @@ router = APIRouter(prefix="/api/v1")
 
 router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(alerts_router)
+router.include_router(avoidance_router, prefix="/avoidance", tags=["avoidance"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(bookmarks_router, prefix="/bookmarks", tags=["bookmarks"])
 router.include_router(intel_router)
@@ -42,6 +46,8 @@ router.include_router(fatigue_router)
 router.include_router(map_router)
 router.include_router(fitting_router)
 router.include_router(bridges_router, prefix="/bridges", tags=["bridges"])
+router.include_router(thera_router, prefix="/thera", tags=["thera"])
+router.include_router(pochven_router, prefix="/pochven", tags=["pochven"])
 router.include_router(status_router, prefix="/status", tags=["status"])
 router.include_router(websocket_router, tags=["websocket"])
 router.include_router(links_router)
