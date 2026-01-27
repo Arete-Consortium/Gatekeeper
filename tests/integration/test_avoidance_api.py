@@ -188,16 +188,12 @@ class TestRoutingWithAvoidLists:
         )
 
         # Use it in routing
-        response = test_client.get(
-            "/api/v1/route/?from=Jita&to=Amarr&avoid_lists=gatecamps"
-        )
+        response = test_client.get("/api/v1/route/?from=Jita&to=Amarr&avoid_lists=gatecamps")
         # Should succeed (200) or 400 if route blocked, but not 422
         assert response.status_code in (200, 400)
 
     def test_route_with_unknown_avoid_list(self, test_client: TestClient):
         """Should return 400 for unknown avoidance list."""
-        response = test_client.get(
-            "/api/v1/route/?from=Jita&to=Amarr&avoid_lists=nonexistent"
-        )
+        response = test_client.get("/api/v1/route/?from=Jita&to=Amarr&avoid_lists=nonexistent")
         assert response.status_code == 400
         assert "not found" in response.json()["detail"].lower()

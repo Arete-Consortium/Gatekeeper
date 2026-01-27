@@ -205,10 +205,10 @@ def get_route_visualization(
 
         threat = threat_data.get(system_name, ThreatLevel.safe)
         node = create_system_node(
-            system_id=system.system_id,
+            system_id=system.id,
             system_name=system_name,
             security_status=system.security,
-            region_name=system.region,
+            region_name=system.region_name,
             threat_level=threat,
         )
         node.is_route_system = True
@@ -244,8 +244,8 @@ def get_route_visualization(
 
                 connections.append(
                     SystemConnection(
-                        from_system_id=prev_system.system_id,
-                        to_system_id=system.system_id,
+                        from_system_id=prev_system.id,
+                        to_system_id=system.id,
                         from_system_name=prev_name,
                         to_system_name=system_name,
                         connection_type=conn_type,
@@ -284,12 +284,12 @@ def get_region_map(region_name: str) -> RegionMapData | None:
     # Find all systems in the region
     region_systems: dict[str, SystemNode] = {}
     for system_name, system in universe.systems.items():
-        if system.region and system.region.lower() == region_name.lower():
+        if system.region_name and system.region_name.lower() == region_name.lower():
             node = create_system_node(
-                system_id=system.system_id,
+                system_id=system.id,
                 system_name=system_name,
                 security_status=system.security,
-                region_name=system.region,
+                region_name=system.region_name,
             )
             region_systems[system_name] = node
 
@@ -310,8 +310,8 @@ def get_region_map(region_name: str) -> RegionMapData | None:
                 to_sys = universe.systems[gate.to_system]
                 connections.append(
                     SystemConnection(
-                        from_system_id=from_sys.system_id,
-                        to_system_id=to_sys.system_id,
+                        from_system_id=from_sys.id,
+                        to_system_id=to_sys.id,
                         from_system_name=gate.from_system,
                         to_system_name=gate.to_system,
                         connection_type=ConnectionType.stargate,
@@ -386,10 +386,10 @@ def get_systems_in_range(
         system = universe.systems.get(system_name)
         if system:
             node = create_system_node(
-                system_id=system.system_id,
+                system_id=system.id,
                 system_name=system_name,
                 security_status=system.security,
-                region_name=system.region,
+                region_name=system.region_name,
             )
             node.route_index = distance  # Use route_index as jump distance
             systems.append(node)
@@ -408,8 +408,8 @@ def get_systems_in_range(
                         to_sys = universe.systems[neighbor]
                         connections.append(
                             SystemConnection(
-                                from_system_id=from_sys.system_id,
-                                to_system_id=to_sys.system_id,
+                                from_system_id=from_sys.id,
+                                to_system_id=to_sys.id,
                                 from_system_name=system_name,
                                 to_system_name=neighbor,
                                 connection_type=ConnectionType.stargate,
@@ -438,17 +438,20 @@ def get_constellation_map(constellation_name: str) -> RegionMapData | None:
     region_name = None
 
     for system_name, system in universe.systems.items():
-        if system.constellation and system.constellation.lower() == constellation_name.lower():
+        if (
+            system.constellation_name
+            and system.constellation_name.lower() == constellation_name.lower()
+        ):
             node = create_system_node(
-                system_id=system.system_id,
+                system_id=system.id,
                 system_name=system_name,
                 security_status=system.security,
-                region_name=system.region,
+                region_name=system.region_name,
             )
-            node.constellation_name = system.constellation
+            node.constellation_name = system.constellation_name
             const_systems[system_name] = node
-            if not region_name and system.region:
-                region_name = system.region
+            if not region_name and system.region_name:
+                region_name = system.region_name
 
     if not const_systems:
         return None
@@ -466,8 +469,8 @@ def get_constellation_map(constellation_name: str) -> RegionMapData | None:
                 to_sys = universe.systems[gate.to_system]
                 connections.append(
                     SystemConnection(
-                        from_system_id=from_sys.system_id,
-                        to_system_id=to_sys.system_id,
+                        from_system_id=from_sys.id,
+                        to_system_id=to_sys.id,
                         from_system_name=gate.from_system,
                         to_system_name=gate.to_system,
                         connection_type=ConnectionType.stargate,

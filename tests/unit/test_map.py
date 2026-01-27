@@ -1,6 +1,6 @@
 """Unit tests for map visualization API and service."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException

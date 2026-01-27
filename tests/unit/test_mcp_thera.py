@@ -1,7 +1,8 @@
 """Unit tests for Thera MCP tools."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from backend.app.mcp.server import MCPServer
 from backend.app.mcp.tools import (
@@ -31,8 +32,12 @@ def _make_connection(**kwargs) -> TheraConnection:
 
 MOCK_CONNECTIONS = [
     _make_connection(id=1, out_system_name="Jita", max_ship_size="battleship"),
-    _make_connection(id=2, out_system_name="Amarr", max_ship_size="frigate", out_system_id=30000143),
-    _make_connection(id=3, out_system_name="Dodixie", max_ship_size="battleship", out_system_id=30000144),
+    _make_connection(
+        id=2, out_system_name="Amarr", max_ship_size="frigate", out_system_id=30000143
+    ),
+    _make_connection(
+        id=3, out_system_name="Dodixie", max_ship_size="battleship", out_system_id=30000144
+    ),
 ]
 
 
@@ -114,18 +119,59 @@ class TestGetTheraStatus:
 class TestCalculateRouteThera:
     """Tests for calculate_route with use_thera parameter."""
 
-    def test_route_with_thera(self):
-        """Test calculate_route with use_thera=True."""
+    @patch("backend.app.mcp.tools.compute_route")
+    def test_route_with_thera(self, mock_route):
+        """Test calculate_route passes use_thera=True to compute_route."""
+        from backend.app.models.route import RouteResponse
+
+        mock_route.return_value = RouteResponse(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            total_jumps=8,
+            total_cost=8.0,
+            max_risk=3.0,
+            avg_risk=1.5,
+            path=[],
+            thera_used=1,
+        )
+
         result = calculate_route("Jita", "Amarr", use_thera=True)
 
-        assert result["use_thera"] is True
-        assert "use_thera=True" in result["api_endpoint"]
+        assert result["thera_used"] == 1
+        mock_route.assert_called_once_with(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            avoid=None,
+            use_thera=True,
+        )
 
-    def test_route_without_thera(self):
+    @patch("backend.app.mcp.tools.compute_route")
+    def test_route_without_thera(self, mock_route):
         """Test calculate_route defaults use_thera=False."""
-        result = calculate_route("Jita", "Amarr")
+        from backend.app.models.route import RouteResponse
 
-        assert result["use_thera"] is False
+        mock_route.return_value = RouteResponse(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=2.5,
+            path=[],
+        )
+
+        calculate_route("Jita", "Amarr")
+
+        mock_route.assert_called_once_with(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            avoid=None,
+            use_thera=False,
+        )
 
 
 class TestMCPServerTheraRegistration:

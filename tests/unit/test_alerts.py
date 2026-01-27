@@ -1,16 +1,16 @@
 """Unit tests for alerts API."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
 from backend.app.api.v1.alerts import (
     CreateSubscriptionRequest,
-    SubscriptionListResponse,
-    SubscriptionResponse,
     SendTestAlertRequest,
     SendTestAlertResponse,
+    SubscriptionListResponse,
+    SubscriptionResponse,
     UpdateSubscriptionRequest,
     create_subscription,
     delete_subscription_by_id,

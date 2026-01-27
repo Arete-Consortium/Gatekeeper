@@ -1,8 +1,9 @@
 """Unit tests for MCP server and tools."""
 
 import json
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from backend.app.mcp.server import MCPServer
 from backend.app.mcp.tools import (
@@ -17,7 +18,6 @@ from backend.app.mcp.tools import (
     parse_fitting,
 )
 from backend.app.services.webhooks import clear_subscriptions
-
 
 # Sample EFT fitting
 SAMPLE_FITTING = """[Caracal, Travel Fit]
@@ -178,25 +178,38 @@ class TestMCPServer:
 class TestCalculateRoute:
     """Tests for calculate_route tool."""
 
-    def test_basic_route(self):
-        """Test basic route calculation."""
+    @patch("backend.app.mcp.tools.compute_route")
+    def test_basic_route(self, mock_route):
+        """Test basic route returns serialized RouteResponse."""
+        from backend.app.models.route import RouteResponse
+
+        mock_route.return_value = RouteResponse(
+            from_system="Jita",
+            to_system="Amarr",
+            profile="shortest",
+            total_jumps=10,
+            total_cost=10.0,
+            max_risk=5.0,
+            avg_risk=2.5,
+            path=[],
+        )
+
         result = calculate_route("Jita", "Amarr")
 
-        assert result["origin"] == "Jita"
-        assert result["destination"] == "Amarr"
-        assert result["profile"] == "shortest"
+        assert result["from_system"] == "Jita"
+        assert result["to_system"] == "Amarr"
+        assert result["total_jumps"] == 10
+        mock_route.assert_called_once()
 
-    def test_route_with_profile(self):
-        """Test route with custom profile."""
-        result = calculate_route("Jita", "Amarr", profile="safer")
+    @patch("backend.app.mcp.tools.compute_route")
+    def test_route_unknown_system(self, mock_route):
+        """Test route with unknown system returns error dict."""
+        mock_route.side_effect = ValueError("Unknown from_system: FakeSystem")
 
-        assert result["profile"] == "safer"
+        result = calculate_route("FakeSystem", "Amarr")
 
-    def test_route_with_avoids(self):
-        """Test route with avoided systems."""
-        result = calculate_route("Jita", "Amarr", avoid_systems=["Tama", "Rancer"])
-
-        assert result["avoid_systems"] == ["Tama", "Rancer"]
+        assert "error" in result
+        assert "FakeSystem" in result["error"]
 
 
 class TestParseFitting:
@@ -266,12 +279,41 @@ class TestGetShipInfo:
 class TestCheckSystemThreat:
     """Tests for check_system_threat tool."""
 
-    def test_check_threat(self):
-        """Test checking system threat."""
+    @patch("backend.app.mcp.tools.risk_to_color", return_value="#FF0000")
+    @patch("backend.app.mcp.tools.compute_risk")
+    def test_check_threat(self, mock_risk, mock_color):
+        """Test checking system threat returns risk structure."""
+        from backend.app.models.risk import RiskBreakdown, RiskReport
+
+        mock_risk.return_value = RiskReport(
+            system_name="Tama",
+            system_id=30002813,
+            category="lowsec",
+            security=0.3,
+            score=15.0,
+            breakdown=RiskBreakdown(
+                security_component=5.0,
+                kills_component=7.0,
+                pods_component=3.0,
+            ),
+        )
+
         result = check_system_threat("Tama")
 
         assert result["system_name"] == "Tama"
-        assert "api_endpoints" in result
+        assert result["risk_score"] == 15.0
+        assert result["risk_color"] == "#FF0000"
+        assert "breakdown" in result
+
+    @patch("backend.app.mcp.tools.compute_risk")
+    def test_check_threat_unknown_system(self, mock_risk):
+        """Test unknown system returns error dict."""
+        mock_risk.side_effect = ValueError("Unknown system: FakeSystem")
+
+        result = check_system_threat("FakeSystem")
+
+        assert "error" in result
+        assert "FakeSystem" in result["error"]
 
 
 class TestGetRegionInfo:

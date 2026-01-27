@@ -102,6 +102,7 @@ class TestFetchTheraConnections:
 
         # Simulate cache expiry
         from backend.app.services.thera import _cache
+
         _cache["timestamp"] = time.time() - CACHE_TTL_SECONDS - 1
 
         fetch_thera_connections()
@@ -138,6 +139,7 @@ class TestFetchTheraConnections:
 
         # Expire cache
         from backend.app.services.thera import _cache
+
         _cache["timestamp"] = time.time() - CACHE_TTL_SECONDS - 1
 
         # API fails
@@ -291,6 +293,7 @@ class TestCacheHelpers:
     def test_clear_cache_resets_all(self):
         """Should reset all cache state."""
         from backend.app.services.thera import _cache
+
         _cache["timestamp"] = 999.0
         _cache["last_error"] = "some error"
 

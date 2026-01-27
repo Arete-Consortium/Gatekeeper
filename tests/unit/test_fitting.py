@@ -30,7 +30,6 @@ from backend.app.services.fitting import (
     parse_eft_fitting,
 )
 
-
 # Sample EFT fitting strings
 SIMPLE_FITTING = """[Caracal, Travel Fit]
 Damage Control II

@@ -16,6 +16,8 @@ from ..services.map_visualization import (
     get_security_level,
     get_systems_in_range,
 )
+from ..services.risk_engine import compute_risk, risk_to_color
+from ..services.routing import compute_route
 from ..services.thera import (
     get_active_thera,
     get_thera_cache_age,
@@ -44,19 +46,17 @@ def calculate_route(
     """
     avoid_systems = avoid_systems or []
 
-    # Return mock data for demonstration
-    # In production, this would call the actual routing service
-    result = {
-        "origin": origin,
-        "destination": destination,
-        "profile": profile,
-        "avoid_systems": avoid_systems,
-        "use_thera": use_thera,
-        "status": "route_calculated",
-        "message": "Use the /api/v1/route endpoint for full routing with live data",
-        "api_endpoint": f"/api/v1/route?origin={origin}&destination={destination}&profile={profile}&use_thera={use_thera}",
-    }
-    return result
+    try:
+        route = compute_route(
+            from_system=origin,
+            to_system=destination,
+            profile=profile,
+            avoid=set(avoid_systems) if avoid_systems else None,
+            use_thera=use_thera,
+        )
+        return route.model_dump()
+    except ValueError as e:
+        return {"error": str(e)}
 
 
 async def get_thera_connections(max_ship_size: str | None = None) -> dict[str, Any]:
@@ -188,17 +188,21 @@ def check_system_threat(system_name: str) -> dict[str, Any]:
     Note: This is a simplified implementation. Full threat data requires
     the live kill feed.
     """
-    # Return mock data for demonstration
-    # In production, this would query the zkill listener
-    return {
-        "system_name": system_name,
-        "status": "data_available_via_api",
-        "message": "Use the /api/v1/stats endpoint for live kill data",
-        "api_endpoints": {
-            "system_stats": f"/api/v1/stats/system/{system_name}",
-            "recent_kills": f"/api/v1/stats/system/{system_name}/kills",
-        },
-    }
+    try:
+        report = compute_risk(system_name)
+        color = risk_to_color(report.score)
+        return {
+            "system_name": system_name,
+            "system_id": report.system_id,
+            "security": report.security,
+            "risk_score": report.score,
+            "risk_color": color,
+            "danger_level": report.danger_level.value if report.danger_level else "unknown",
+            "category": report.category,
+            "breakdown": report.breakdown.model_dump(),
+        }
+    except ValueError as e:
+        return {"error": str(e)}
 
 
 def get_region_info(region_name: str) -> dict[str, Any]:

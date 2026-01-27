@@ -4,10 +4,9 @@ Tests for MCP server module.
 Improves coverage for backend/app/mcp/server.py
 """
 
-import json
 import pytest
 
-from backend.app.mcp.server import MCPServer, JSONRPC_VERSION, MCP_PROTOCOL_VERSION, VERSION
+from backend.app.mcp.server import JSONRPC_VERSION, MCP_PROTOCOL_VERSION, VERSION, MCPServer
 
 
 @pytest.fixture
@@ -257,7 +256,10 @@ class TestHandleToolCall:
         assert "result" in response
         assert "content" in response["result"]
         # Error should be indicated (lowercase "error" in JSON response)
-        assert response["result"].get("isError", False) or "error" in response["result"]["content"][0]["text"]
+        assert (
+            response["result"].get("isError", False)
+            or "error" in response["result"]["content"][0]["text"]
+        )
 
 
 class TestExecuteTool:

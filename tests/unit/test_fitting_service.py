@@ -1,19 +1,14 @@
 """Unit tests for fitting service - additional coverage."""
 
-import pytest
-
 from backend.app.services.fitting import (
     JumpCapability,
-    ParsedFitting,
     ShipCategory,
-    TravelRecommendation,
     get_ship_info,
     get_travel_recommendation,
     list_jump_capable_ships,
     list_ships_by_category,
     parse_eft_fitting,
 )
-
 
 # Additional EFT fittings for edge cases
 FREIGHTER_FITTING = """[Charon, Hauling]
@@ -334,7 +329,9 @@ Nanofiber Internal Structure II
         rec = get_travel_recommendation(fitting)
 
         assert rec.recommended_profile == "shortest"
-        assert any("evade" in t.lower() or "fast" in t.lower() or "small" in t.lower() for t in rec.tips)
+        assert any(
+            "evade" in t.lower() or "fast" in t.lower() or "small" in t.lower() for t in rec.tips
+        )
 
 
 class TestListShipsEdgeCases:

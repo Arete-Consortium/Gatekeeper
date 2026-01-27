@@ -1,16 +1,11 @@
 """Unit tests for map_visualization service functions."""
 
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 from backend.app.services.map_visualization import (
     ConnectionType,
     RegionMapData,
     RouteVisualization,
-    SecurityLevel,
-    SystemConnection,
-    SystemNode,
     ThreatLevel,
     get_constellation_map,
     get_region_map,
@@ -31,10 +26,10 @@ class MockSystem:
         constellation: str = "Test Constellation",
         region_id: int = 10000001,
     ):
-        self.system_id = system_id
+        self.id = system_id
         self.security = security
-        self.region = region
-        self.constellation = constellation
+        self.region_name = region
+        self.constellation_name = constellation
         self.region_id = region_id
         self.name = name
 
