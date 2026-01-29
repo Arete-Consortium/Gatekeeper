@@ -161,8 +161,8 @@ class TestListSharesEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 0
-        assert data["routes"] == []
+        assert data["pagination"]["total_count"] == 0
+        assert data["items"] == []
 
     def test_list_shares(self, test_client, sample_route_data):
         """Test listing shares."""
@@ -175,7 +175,7 @@ class TestListSharesEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 3
+        assert data["pagination"]["total_count"] == 3
 
     def test_list_shares_by_creator(self, test_client, sample_route_data):
         """Test listing shares filtered by creator."""
@@ -196,18 +196,19 @@ class TestListSharesEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 2
+        assert data["pagination"]["total_count"] == 2
 
-    def test_list_shares_with_limit(self, test_client, sample_route_data):
-        """Test listing shares with limit."""
+    def test_list_shares_with_page_size(self, test_client, sample_route_data):
+        """Test listing shares with page_size."""
         for _ in range(10):
             test_client.post("/api/v1/share/", json={"route_data": sample_route_data})
 
-        response = test_client.get("/api/v1/share/?limit=5")
+        response = test_client.get("/api/v1/share/?page_size=5")
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["routes"]) == 5
+        assert len(data["items"]) == 5
+        assert data["pagination"]["page_size"] == 5
 
 
 class TestExportEndpoints:

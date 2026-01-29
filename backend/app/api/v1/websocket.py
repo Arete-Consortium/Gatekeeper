@@ -53,6 +53,13 @@ async def killfeed_websocket(websocket: WebSocket) -> None:
 
     try:
         await connection_manager.connect(client_id, websocket)
+        logger.info(
+            "WebSocket client connected",
+            extra={
+                "client_id": client_id,
+                "active_connections": connection_manager.connection_count,
+            },
+        )
 
         # Send welcome message
         await websocket.send_json(
@@ -71,6 +78,7 @@ async def killfeed_websocket(websocket: WebSocket) -> None:
                 await handle_client_message(client_id, data, websocket)
             except ValueError:
                 # Invalid JSON
+                logger.warning("WebSocket received invalid JSON", extra={"client_id": client_id})
                 await websocket.send_json(
                     {
                         "type": "error",
@@ -110,6 +118,14 @@ async def handle_client_message(
         )
 
         if success:
+            logger.debug(
+                "WebSocket subscription updated",
+                extra={
+                    "client_id": client_id,
+                    "systems_count": len(systems) if systems else 0,
+                    "regions_count": len(regions) if regions else 0,
+                },
+            )
             await websocket.send_json(
                 {
                     "type": "subscribed",
@@ -122,6 +138,7 @@ async def handle_client_message(
                 }
             )
         else:
+            logger.warning("WebSocket subscription update failed", extra={"client_id": client_id})
             await websocket.send_json(
                 {
                     "type": "error",

@@ -5,9 +5,15 @@ Provides endpoints for managing user annotations on systems.
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ...core.pagination import (
+    PaginationMeta,
+    PaginationParams,
+    get_pagination_params,
+    paginate,
+)
 from ...services.system_notes import (
     NoteType,
     SystemNote,
@@ -123,8 +129,8 @@ class RouteNotesResponse(BaseModel):
 class SearchNotesResponse(BaseModel):
     """Response for note search."""
 
-    total: int
-    notes: list[SystemNoteResponse]
+    items: list[SystemNoteResponse]
+    pagination: PaginationMeta
 
 
 class NoteTypesResponse(BaseModel):
@@ -379,15 +385,15 @@ async def get_route_notes(system_names: list[str]) -> RouteNotesResponse:
     "/search",
     response_model=SearchNotesResponse,
     summary="Search notes",
-    description="Search notes by content.",
+    description="Search notes by content with pagination.",
 )
 async def search_notes(
     query: str = Query(..., min_length=2, description="Search query"),
     note_type: str | None = Query(None, description="Filter by type"),
-    limit: int = Query(50, ge=1, le=100, description="Max results"),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ) -> SearchNotesResponse:
     """
-    Search notes by content.
+    Search notes by content with pagination.
 
     Searches in content, system name, and tags.
     """
@@ -402,12 +408,13 @@ async def search_notes(
             ) from None
 
     store = get_notes_store()
-    notes = store.search_notes(query, note_type=note_type_enum, limit=limit)
+    # Get all matching notes (high limit to get all for pagination)
+    all_notes = store.search_notes(query, note_type=note_type_enum, limit=1000)
+    note_responses = [SystemNoteResponse.from_note(n) for n in all_notes]
 
-    return SearchNotesResponse(
-        total=len(notes),
-        notes=[SystemNoteResponse.from_note(n) for n in notes],
-    )
+    items, meta = paginate(note_responses, pagination.page, pagination.page_size)
+
+    return SearchNotesResponse(items=items, pagination=meta)
 
 
 @router.delete(

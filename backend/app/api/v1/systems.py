@@ -1,10 +1,11 @@
 """Systems API v1 endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from ...core.pagination import PaginationParams, get_pagination_params, paginate
 from ...models.risk import SHIP_PROFILES, RiskReport
-from ...models.system import SystemSummary
+from ...models.system import SystemListResponse, SystemSummary
 from ...services.data_loader import get_neighbors, load_universe
 from ...services.risk_engine import compute_risk_async
 
@@ -31,25 +32,58 @@ class ShipProfileListResponse(BaseModel):
 
 @router.get(
     "/",
-    response_model=list[SystemSummary],
+    response_model=SystemListResponse,
     summary="List all systems",
-    description="Returns a list of all systems in the EVE universe with basic information.",
+    description="Returns a paginated list of all systems in the EVE universe with basic information.",
 )
-def list_systems() -> list[SystemSummary]:
-    """Get all systems in the universe."""
+def list_systems(
+    pagination: PaginationParams = Depends(get_pagination_params),
+    category: str | None = Query(
+        None, description="Filter by category (highsec, lowsec, nullsec, wh)"
+    ),
+    region_name: str | None = Query(None, description="Filter by region name"),
+    search: str | None = Query(
+        None, min_length=2, description="Search by system name (partial match)"
+    ),
+) -> SystemListResponse:
+    """Get all systems in the universe with pagination.
+
+    Supports filtering by category, region, and search by name.
+    """
     universe = load_universe()
-    return [
-        SystemSummary(
-            name=sys.name,
-            security=sys.security,
-            category=sys.category,
-            region_id=sys.region_id,
-            region_name=sys.region_name,
-            constellation_id=sys.constellation_id,
-            constellation_name=sys.constellation_name,
+
+    # Build list and apply filters
+    all_systems = []
+    for sys in universe.systems.values():
+        # Apply category filter
+        if category and sys.category != category:
+            continue
+        # Apply region filter
+        if region_name and sys.region_name.lower() != region_name.lower():
+            continue
+        # Apply search filter
+        if search and search.lower() not in sys.name.lower():
+            continue
+
+        all_systems.append(
+            SystemSummary(
+                name=sys.name,
+                security=sys.security,
+                category=sys.category,
+                region_id=sys.region_id,
+                region_name=sys.region_name,
+                constellation_id=sys.constellation_id,
+                constellation_name=sys.constellation_name,
+            )
         )
-        for sys in universe.systems.values()
-    ]
+
+    # Sort by name for consistent ordering
+    all_systems.sort(key=lambda s: s.name)
+
+    # Apply pagination
+    items, meta = paginate(all_systems, pagination.page, pagination.page_size)
+
+    return SystemListResponse(items=items, pagination=meta)
 
 
 @router.get(

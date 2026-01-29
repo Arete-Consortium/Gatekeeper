@@ -10,30 +10,31 @@ class TestRouteHistoryEndpoint:
         assert response.status_code == 200
 
         data = response.json()
-        assert "routes" in data
-        assert "total" in data
-        assert isinstance(data["routes"], list)
+        assert "items" in data
+        assert "pagination" in data
+        assert isinstance(data["items"], list)
 
-    def test_route_history_with_limit(self, test_client):
-        """Test route history with custom limit."""
-        response = test_client.get("/api/v1/route/history?limit=5")
+    def test_route_history_with_page_size(self, test_client):
+        """Test route history with custom page_size."""
+        response = test_client.get("/api/v1/route/history?page_size=5")
         assert response.status_code == 200
 
         data = response.json()
-        assert len(data["routes"]) <= 5
+        assert data["pagination"]["page_size"] == 5
+        assert len(data["items"]) <= 5
 
     def test_route_calculation_adds_to_history(self, test_client):
         """Test that calculating a route adds it to history."""
         # Get initial history count
         initial_response = test_client.get("/api/v1/route/history")
-        initial_total = initial_response.json()["total"]
+        initial_total = initial_response.json()["pagination"]["total_count"]
 
         # Calculate a route
         test_client.get("/api/v1/route/?from=Jita&to=Perimeter&profile=safer")
 
         # Check history increased
         after_response = test_client.get("/api/v1/route/history")
-        after_total = after_response.json()["total"]
+        after_total = after_response.json()["pagination"]["total_count"]
 
         assert after_total >= initial_total  # May not increase if route fails
 
@@ -45,8 +46,8 @@ class TestRouteHistoryEndpoint:
         response = test_client.get("/api/v1/route/history")
         data = response.json()
 
-        if data["routes"]:  # If there are entries
-            entry = data["routes"][0]
+        if data["items"]:  # If there are entries
+            entry = data["items"][0]
             assert "from_system" in entry
             assert "to_system" in entry
             assert "profile" in entry
@@ -62,8 +63,8 @@ class TestRouteHistoryEndpoint:
         response = test_client.get("/api/v1/route/history")
         data = response.json()
 
-        if len(data["routes"]) >= 2:
+        if len(data["items"]) >= 2:
             # Most recent should be first
-            first_ts = data["routes"][0]["calculated_at"]
-            second_ts = data["routes"][1]["calculated_at"]
+            first_ts = data["items"][0]["calculated_at"]
+            second_ts = data["items"][1]["calculated_at"]
             assert first_ts >= second_ts

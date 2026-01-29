@@ -294,25 +294,73 @@ class MCPServer:
 
     async def _handle_tool_call(self, req_id: Any, params: dict) -> dict:
         """Handle tools/call request."""
-        tool_name = params.get("name", "")
+        tool_name = params.get("name")
         arguments = params.get("arguments", {})
+
+        # Validate tool_name is provided
+        if tool_name is None or tool_name == "":
+            return self._error_response(
+                req_id, -32602, "Missing required parameter: 'name' (tool name)"
+            )
+
+        # Validate tool_name is a string
+        if not isinstance(tool_name, str):
+            return self._error_response(
+                req_id, -32602, f"Invalid type for 'name': expected string, got {type(tool_name).__name__}"
+            )
 
         if tool_name not in self.tools:
             return self._error_response(req_id, -32602, f"Unknown tool: {tool_name}")
 
+        # Validate arguments is a dict
+        if arguments is not None and not isinstance(arguments, dict):
+            return self._error_response(
+                req_id, -32602, f"Invalid type for 'arguments': expected object, got {type(arguments).__name__}"
+            )
+
+        arguments = arguments or {}
+
         try:
             result = await self._execute_tool(tool_name, arguments)
+
+            # Ensure result is JSON serializable
+            try:
+                result_text = json.dumps(result, indent=2, default=str)
+            except (TypeError, ValueError) as json_err:
+                return self._success_response(
+                    req_id,
+                    {
+                        "content": [{"type": "text", "text": f"Error: Failed to serialize result: {str(json_err)}"}],
+                        "isError": True,
+                    },
+                )
+
             return self._success_response(
                 req_id,
                 {
-                    "content": [{"type": "text", "text": json.dumps(result, indent=2)}],
+                    "content": [{"type": "text", "text": result_text}],
+                },
+            )
+        except TypeError as e:
+            # Likely a missing required argument
+            return self._success_response(
+                req_id,
+                {
+                    "content": [{"type": "text", "text": json.dumps({
+                        "error": f"Invalid arguments: {str(e)}",
+                        "hint": "Check that all required parameters are provided with correct types",
+                    }, indent=2)}],
+                    "isError": True,
                 },
             )
         except Exception as e:
             return self._success_response(
                 req_id,
                 {
-                    "content": [{"type": "text", "text": f"Error: {str(e)}"}],
+                    "content": [{"type": "text", "text": json.dumps({
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    }, indent=2)}],
                     "isError": True,
                 },
             )

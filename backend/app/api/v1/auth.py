@@ -16,6 +16,7 @@ Security Features:
 - Client fingerprinting (optional)
 """
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -34,6 +35,8 @@ from ...services.jwt_service import (
     validate_jwt,
 )
 from ...services.token_store import TokenStore, get_token_store
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -229,6 +232,7 @@ async def login(
     }
     auth_url = f"https://login.eveonline.com/v2/oauth/authorize?{urlencode(params)}"
 
+    logger.info("Login initiated", extra={"scopes_requested": len(scope_list)})
     return LoginResponse(auth_url=auth_url, state=state)
 
 
@@ -261,6 +265,7 @@ async def callback(
     """
     # Validate state
     if not validate_state(state):
+        logger.warning("OAuth callback failed: invalid state")
         raise HTTPException(
             status_code=400,
             detail="Invalid or expired state parameter",
@@ -287,6 +292,10 @@ async def callback(
         )
 
         if token_response.status_code != 200:
+            logger.warning(
+                "OAuth token exchange failed",
+                extra={"status_code": token_response.status_code},
+            )
             raise HTTPException(
                 status_code=400,
                 detail=f"Token exchange failed: {token_response.text}",
@@ -301,6 +310,7 @@ async def callback(
         )
 
         if verify_response.status_code != 200:
+            logger.warning("OAuth token verification failed")
             raise HTTPException(
                 status_code=400,
                 detail="Token verification failed",
@@ -322,6 +332,10 @@ async def callback(
         scopes=verify_data.get("Scopes", "").split(),
     )
 
+    logger.info(
+        "OAuth callback successful",
+        extra={"character_id": character_id, "character_name": verify_data["CharacterName"]},
+    )
     return CharacterInfo(
         character_id=character_id,
         character_name=verify_data["CharacterName"],
@@ -369,6 +383,10 @@ async def refresh_token(
 
         if response.status_code != 200:
             # Token may be revoked, remove it
+            logger.warning(
+                "Token refresh failed",
+                extra={"character_id": character_id, "status_code": response.status_code},
+            )
             await token_store.remove_token(character_id)
             raise HTTPException(
                 status_code=401,
@@ -388,6 +406,7 @@ async def refresh_token(
         scopes=stored["scopes"],
     )
 
+    logger.info("Token refreshed", extra={"character_id": character_id})
     return TokenResponse(
         access_token=token_data["access_token"],
         expires_at=expires_at,
@@ -483,6 +502,7 @@ async def logout(
             detail="No token found for character",
         )
 
+    logger.info("Character logged out", extra={"character_id": character_id})
     return {"status": "logged_out", "character_id": str(character_id)}
 
 
@@ -496,6 +516,7 @@ async def clear_all_tokens(
     Use with caution - this logs out all characters.
     """
     count = await token_store.clear_all()
+    logger.warning("All tokens cleared", extra={"tokens_removed": count})
     return {"status": "cleared", "tokens_removed": str(count)}
 
 
@@ -556,6 +577,10 @@ async def issue_jwt_token(
     # Check if ESI token needs refresh
     needs_refresh = should_refresh_esi_token(stored["expires_at"])
 
+    logger.info(
+        "JWT token issued",
+        extra={"character_id": stored["character_id"], "character_name": stored["character_name"]},
+    )
     return JWTTokenResponse(
         access_token=jwt_token.access_token,
         token_type=jwt_token.token_type,
@@ -646,6 +671,7 @@ async def revoke_jwt_token(
     # Revoke the token
     revoke_token(payload.jti, payload.exp)
 
+    logger.info("JWT token revoked", extra={"jti": payload.jti, "character_id": payload.sub})
     return {"status": "revoked", "jti": payload.jti}
 
 

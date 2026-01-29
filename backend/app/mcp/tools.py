@@ -1,5 +1,6 @@
 """MCP Tool implementations for EVE Gatekeeper."""
 
+import re
 from typing import Any
 
 from ..services.fitting import (
@@ -31,6 +32,286 @@ from ..services.webhooks import (
 )
 
 
+# =============================================================================
+# Input Validation Helpers
+# =============================================================================
+
+class ValidationError(Exception):
+    """Raised when input validation fails."""
+
+    def __init__(self, message: str, hint: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.hint = hint
+
+
+def _validate_string(value: Any, name: str, required: bool = True) -> str | None:
+    """Validate a string input.
+
+    Args:
+        value: The value to validate
+        name: Parameter name for error messages
+        required: Whether the parameter is required
+
+    Returns:
+        Validated string or None if not required and empty
+
+    Raises:
+        ValidationError: If validation fails
+    """
+    if value is None:
+        if required:
+            raise ValidationError(
+                f"Missing required parameter: {name}",
+                hint=f"Please provide a value for '{name}'",
+            )
+        return None
+
+    if not isinstance(value, str):
+        raise ValidationError(
+            f"Invalid type for '{name}': expected string, got {type(value).__name__}",
+            hint=f"'{name}' must be a text value",
+        )
+
+    stripped = value.strip()
+    if not stripped:
+        if required:
+            raise ValidationError(
+                f"Empty value for required parameter: {name}",
+                hint=f"'{name}' cannot be empty or whitespace-only",
+            )
+        return None
+
+    return stripped
+
+
+def _validate_system_name(value: Any, name: str = "system_name") -> str:
+    """Validate a system name input."""
+    result = _validate_string(value, name, required=True)
+    if result is None:
+        raise ValidationError(f"System name is required", hint="Provide a valid system name")
+    # System names shouldn't be excessively long
+    if len(result) > 100:
+        raise ValidationError(
+            f"System name too long: {len(result)} characters",
+            hint="System names are typically short (e.g., 'Jita', 'HED-GP')",
+        )
+    return result
+
+
+def _validate_region_name(value: Any, name: str = "region_name") -> str:
+    """Validate a region name input."""
+    result = _validate_string(value, name, required=True)
+    if result is None:
+        raise ValidationError(f"Region name is required", hint="Provide a valid region name")
+    if len(result) > 100:
+        raise ValidationError(
+            f"Region name too long: {len(result)} characters",
+            hint="Region names are typically short (e.g., 'The Forge', 'Domain')",
+        )
+    return result
+
+
+def _validate_ship_name(value: Any, name: str = "ship_name") -> str:
+    """Validate a ship name input."""
+    result = _validate_string(value, name, required=True)
+    if result is None:
+        raise ValidationError(f"Ship name is required", hint="Provide a valid ship name")
+    if len(result) > 100:
+        raise ValidationError(
+            f"Ship name too long: {len(result)} characters",
+            hint="Ship names are typically short (e.g., 'Caracal', 'Archon')",
+        )
+    return result
+
+
+def _validate_eft_text(value: Any, name: str = "eft_text") -> str:
+    """Validate EFT fitting text input."""
+    result = _validate_string(value, name, required=True)
+    if result is None:
+        raise ValidationError(
+            f"EFT text is required",
+            hint="EFT format should start with [ShipName, FitName]",
+        )
+    # Basic sanity check - EFT should start with [
+    if not result.startswith("["):
+        raise ValidationError(
+            "Invalid EFT format: must start with '['",
+            hint="EFT format should start with [ShipName, FitName]",
+        )
+    return result
+
+
+def _validate_integer(
+    value: Any,
+    name: str,
+    min_val: int | None = None,
+    max_val: int | None = None,
+    default: int | None = None,
+) -> int:
+    """Validate an integer input with optional bounds.
+
+    Args:
+        value: The value to validate
+        name: Parameter name for error messages
+        min_val: Minimum allowed value (inclusive)
+        max_val: Maximum allowed value (inclusive)
+        default: Default value if None provided
+
+    Returns:
+        Validated integer, clamped to bounds if provided
+
+    Raises:
+        ValidationError: If validation fails and no default provided
+    """
+    if value is None:
+        if default is not None:
+            return default
+        raise ValidationError(
+            f"Missing required parameter: {name}",
+            hint=f"Please provide an integer value for '{name}'",
+        )
+
+    # Handle numeric types
+    if isinstance(value, bool):
+        raise ValidationError(
+            f"Invalid type for '{name}': expected integer, got boolean",
+            hint=f"'{name}' must be a number, not true/false",
+        )
+
+    if isinstance(value, float):
+        value = int(value)
+    elif not isinstance(value, int):
+        raise ValidationError(
+            f"Invalid type for '{name}': expected integer, got {type(value).__name__}",
+            hint=f"'{name}' must be a whole number",
+        )
+
+    # Clamp to bounds
+    if min_val is not None and value < min_val:
+        value = min_val
+    if max_val is not None and value > max_val:
+        value = max_val
+
+    return value
+
+
+def _validate_float(
+    value: Any,
+    name: str,
+    min_val: float | None = None,
+    max_val: float | None = None,
+    default: float | None = None,
+) -> float | None:
+    """Validate a float input with optional bounds."""
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        raise ValidationError(
+            f"Invalid type for '{name}': expected number, got boolean",
+            hint=f"'{name}' must be a number",
+        )
+
+    if isinstance(value, (int, float)):
+        result = float(value)
+    else:
+        raise ValidationError(
+            f"Invalid type for '{name}': expected number, got {type(value).__name__}",
+            hint=f"'{name}' must be a number",
+        )
+
+    if min_val is not None and result < min_val:
+        raise ValidationError(
+            f"Value for '{name}' too small: {result} < {min_val}",
+            hint=f"'{name}' must be at least {min_val}",
+        )
+    if max_val is not None and result > max_val:
+        raise ValidationError(
+            f"Value for '{name}' too large: {result} > {max_val}",
+            hint=f"'{name}' must be at most {max_val}",
+        )
+
+    return result
+
+
+def _validate_string_list(value: Any, name: str, max_items: int = 100) -> list[str]:
+    """Validate a list of strings.
+
+    Returns empty list if value is None.
+    """
+    if value is None:
+        return []
+
+    if not isinstance(value, list):
+        raise ValidationError(
+            f"Invalid type for '{name}': expected list, got {type(value).__name__}",
+            hint=f"'{name}' must be a list of strings",
+        )
+
+    if len(value) > max_items:
+        raise ValidationError(
+            f"Too many items in '{name}': {len(value)} > {max_items}",
+            hint=f"'{name}' can have at most {max_items} items",
+        )
+
+    result = []
+    for i, item in enumerate(value):
+        if not isinstance(item, str):
+            raise ValidationError(
+                f"Invalid item type in '{name}' at index {i}: expected string",
+                hint=f"All items in '{name}' must be strings",
+            )
+        stripped = item.strip()
+        if stripped:
+            result.append(stripped)
+
+    return result
+
+
+def _validate_webhook_url(value: Any, name: str = "webhook_url") -> str:
+    """Validate a webhook URL.
+
+    Checks for basic URL format and common webhook patterns.
+    """
+    result = _validate_string(value, name, required=True)
+    if result is None:
+        raise ValidationError(
+            "Webhook URL is required",
+            hint="Provide a Discord or Slack webhook URL",
+        )
+
+    # Basic URL validation
+    url_pattern = re.compile(
+        r"^https?://"  # http:// or https://
+        r"[a-zA-Z0-9]"  # Must start with alphanumeric
+        r"[a-zA-Z0-9\-._~:/?#\[\]@!$&'()*+,;=%]*$"  # Valid URL characters
+    )
+
+    if not url_pattern.match(result):
+        raise ValidationError(
+            f"Invalid URL format: {result[:50]}{'...' if len(result) > 50 else ''}",
+            hint="URL must start with http:// or https://",
+        )
+
+    # Warn about very long URLs
+    if len(result) > 500:
+        raise ValidationError(
+            "URL too long",
+            hint="Webhook URLs are typically shorter than 500 characters",
+        )
+
+    return result
+
+
+def _validation_error_to_dict(error: ValidationError) -> dict[str, Any]:
+    """Convert a ValidationError to a response dict."""
+    result: dict[str, Any] = {"error": error.message}
+    if error.hint:
+        result["hint"] = error.hint
+    return result
+
+
 def calculate_route(
     origin: str,
     destination: str,
@@ -44,14 +325,33 @@ def calculate_route(
     Note: This is a simplified implementation. Full routing requires
     the universe graph to be loaded.
     """
-    avoid_systems = avoid_systems or []
+    # Input validation
+    try:
+        validated_origin = _validate_system_name(origin, "origin")
+        validated_destination = _validate_system_name(destination, "destination")
+        validated_avoid = _validate_string_list(avoid_systems, "avoid_systems", max_items=50)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    # Validate profile
+    valid_profiles = ["shortest", "safer", "paranoid"]
+    if profile not in valid_profiles:
+        return {
+            "error": f"Invalid profile: {profile}",
+            "hint": f"Valid profiles are: {', '.join(valid_profiles)}",
+            "valid_profiles": valid_profiles,
+        }
+
+    # Validate use_thera is boolean
+    if not isinstance(use_thera, bool):
+        use_thera = bool(use_thera)
 
     try:
         route = compute_route(
-            from_system=origin,
-            to_system=destination,
+            from_system=validated_origin,
+            to_system=validated_destination,
             profile=profile,
-            avoid=set(avoid_systems) if avoid_systems else None,
+            avoid=set(validated_avoid) if validated_avoid else None,
             use_thera=use_thera,
         )
         return route.model_dump()
@@ -65,7 +365,22 @@ async def get_thera_connections(max_ship_size: str | None = None) -> dict[str, A
     Returns current Thera connections that can be used as shortcuts.
     Optionally filter by max_ship_size (e.g., 'frigate', 'battleship').
     """
-    connections = get_active_thera()
+    # Validate max_ship_size if provided
+    if max_ship_size is not None:
+        try:
+            max_ship_size = _validate_string(max_ship_size, "max_ship_size", required=False)
+        except ValidationError as e:
+            return _validation_error_to_dict(e)
+
+    try:
+        connections = get_active_thera()
+    except Exception as e:
+        return {
+            "error": f"Failed to fetch Thera connections: {str(e)}",
+            "hint": "EVE-Scout API may be temporarily unavailable",
+            "connections": [],
+            "total": 0,
+        }
 
     if max_ship_size:
         connections = [c for c in connections if c.max_ship_size.lower() == max_ship_size.lower()]
@@ -88,21 +403,41 @@ async def get_thera_connections(max_ship_size: str | None = None) -> dict[str, A
 
 async def get_thera_status() -> dict[str, Any]:
     """Check Thera connection cache status and EVE-Scout API health."""
-    cache_age = get_thera_cache_age()
-    last_error = get_thera_last_error()
-    connections = get_active_thera()
+    try:
+        cache_age = get_thera_cache_age()
+        last_error = get_thera_last_error()
+        connections = get_active_thera()
 
-    return {
-        "cache_age": cache_age,
-        "connection_count": len(connections),
-        "api_healthy": last_error is None,
-        "last_error": last_error,
-    }
+        return {
+            "cache_age": cache_age,
+            "connection_count": len(connections),
+            "api_healthy": last_error is None,
+            "last_error": last_error,
+        }
+    except Exception as e:
+        return {
+            "cache_age": None,
+            "connection_count": 0,
+            "api_healthy": False,
+            "last_error": f"Failed to get Thera status: {str(e)}",
+        }
 
 
 def parse_fitting(eft_text: str) -> dict[str, Any]:
     """Parse an EFT format fitting."""
-    fitting = parse_eft_fitting(eft_text)
+    # Input validation
+    try:
+        validated_text = _validate_eft_text(eft_text, "eft_text")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        fitting = parse_eft_fitting(validated_text)
+    except Exception as e:
+        return {
+            "error": f"Failed to parse fitting: {str(e)}",
+            "hint": "EFT format should start with [ShipName, FitName]",
+        }
 
     if not fitting:
         return {
@@ -130,7 +465,19 @@ def parse_fitting(eft_text: str) -> dict[str, Any]:
 
 def analyze_fitting(eft_text: str) -> dict[str, Any]:
     """Parse a fitting and provide travel recommendations."""
-    fitting = parse_eft_fitting(eft_text)
+    # Input validation
+    try:
+        validated_text = _validate_eft_text(eft_text, "eft_text")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        fitting = parse_eft_fitting(validated_text)
+    except Exception as e:
+        return {
+            "error": f"Failed to parse fitting: {str(e)}",
+            "hint": "EFT format should start with [ShipName, FitName]",
+        }
 
     if not fitting:
         return {
@@ -138,7 +485,16 @@ def analyze_fitting(eft_text: str) -> dict[str, Any]:
             "hint": "EFT format should start with [ShipName, FitName]",
         }
 
-    recommendation = get_travel_recommendation(fitting)
+    try:
+        recommendation = get_travel_recommendation(fitting)
+    except Exception as e:
+        return {
+            "error": f"Failed to analyze fitting: {str(e)}",
+            "fitting": {
+                "ship_name": fitting.ship_name,
+                "ship_category": fitting.ship_category.value,
+            },
+        }
 
     return {
         "fitting": {
@@ -161,11 +517,23 @@ def analyze_fitting(eft_text: str) -> dict[str, Any]:
 
 def get_ship_info(ship_name: str) -> dict[str, Any]:
     """Get information about a ship type."""
-    info = _get_ship_info(ship_name)
+    # Input validation
+    try:
+        validated_name = _validate_ship_name(ship_name, "ship_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        info = _get_ship_info(validated_name)
+    except Exception as e:
+        return {
+            "error": f"Failed to get ship info: {str(e)}",
+            "hint": "Check the ship name spelling",
+        }
 
     if not info:
         return {
-            "error": f"Ship not found: {ship_name}",
+            "error": f"Ship not found: {validated_name}",
             "hint": "Check the ship name spelling",
         }
 
@@ -173,7 +541,7 @@ def get_ship_info(ship_name: str) -> dict[str, Any]:
     jump: JumpCapability = info["jump"]
 
     return {
-        "ship_name": ship_name,
+        "ship_name": validated_name,
         "category": category.value,
         "jump_capability": jump.value,
         "can_jump": jump != JumpCapability.none,
@@ -188,11 +556,17 @@ def check_system_threat(system_name: str) -> dict[str, Any]:
     Note: This is a simplified implementation. Full threat data requires
     the live kill feed.
     """
+    # Input validation
     try:
-        report = compute_risk(system_name)
+        validated_name = _validate_system_name(system_name, "system_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        report = compute_risk(validated_name)
         color = risk_to_color(report.score)
         return {
-            "system_name": system_name,
+            "system_name": validated_name,
             "system_id": report.system_id,
             "security": report.security,
             "risk_score": report.score,
@@ -202,16 +576,36 @@ def check_system_threat(system_name: str) -> dict[str, Any]:
             "breakdown": report.breakdown.model_dump(),
         }
     except ValueError as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "hint": "Check the system name spelling",
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to compute system threat: {str(e)}",
+            "hint": "An unexpected error occurred",
+        }
 
 
 def get_region_info(region_name: str) -> dict[str, Any]:
     """Get information about a region."""
-    data = get_region_map(region_name)
+    # Input validation
+    try:
+        validated_name = _validate_region_name(region_name, "region_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        data = get_region_map(validated_name)
+    except Exception as e:
+        return {
+            "error": f"Failed to get region info: {str(e)}",
+            "hint": "Check the region name spelling (e.g., 'The Forge', 'Domain')",
+        }
 
     if not data:
         return {
-            "error": f"Region not found: {region_name}",
+            "error": f"Region not found: {validated_name}",
             "hint": "Check the region name spelling (e.g., 'The Forge', 'Domain')",
         }
 
@@ -235,13 +629,29 @@ def get_region_info(region_name: str) -> dict[str, Any]:
 
 def get_jump_range(center_system: str, max_jumps: int = 5) -> dict[str, Any]:
     """Get all systems within jump range."""
-    max_jumps = min(max(max_jumps, 1), 20)  # Clamp to 1-20
+    # Input validation
+    try:
+        validated_system = _validate_system_name(center_system, "center_system")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
 
-    result = get_systems_in_range(center_system, max_jumps, include_connections=False)
+    # Validate and clamp max_jumps
+    try:
+        validated_jumps = _validate_integer(max_jumps, "max_jumps", min_val=1, max_val=20, default=5)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        result = get_systems_in_range(validated_system, validated_jumps, include_connections=False)
+    except Exception as e:
+        return {
+            "error": f"Failed to get systems in range: {str(e)}",
+            "hint": "Check the system name spelling",
+        }
 
     if not result:
         return {
-            "error": f"System not found: {center_system}",
+            "error": f"System not found: {validated_system}",
             "hint": "Check the system name spelling",
         }
 
@@ -254,8 +664,8 @@ def get_jump_range(center_system: str, max_jumps: int = 5) -> dict[str, Any]:
         by_security[level].append(s.system_name)
 
     return {
-        "center_system": center_system,
-        "max_jumps": max_jumps,
+        "center_system": validated_system,
+        "max_jumps": validated_jumps,
         "total_systems": len(systems),
         "systems_by_security": by_security,
     }
@@ -270,38 +680,75 @@ async def create_alert_subscription(
     """Create a kill alert subscription."""
     import secrets
 
+    # Input validation
+    try:
+        validated_url = _validate_webhook_url(webhook_url, "webhook_url")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        validated_systems = _validate_string_list(systems, "systems", max_items=100)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    # Validate min_value if provided
+    if min_value is not None:
+        try:
+            validated_min_value = _validate_float(min_value, "min_value", min_val=0.0)
+        except ValidationError as e:
+            return _validation_error_to_dict(e)
+    else:
+        validated_min_value = None
+
+    # Validate webhook_type
     try:
         wh_type = WebhookType(webhook_type)
     except ValueError:
+        valid_types = [t.value for t in WebhookType]
         return {
             "error": f"Invalid webhook type: {webhook_type}",
-            "valid_types": ["discord", "slack"],
+            "hint": f"Valid types are: {', '.join(valid_types)}",
+            "valid_types": valid_types,
         }
 
     sub_id = secrets.token_urlsafe(8)
 
-    subscription = WebhookSubscription(
-        id=sub_id,
-        webhook_url=webhook_url,
-        webhook_type=wh_type,
-        systems=systems or [],
-        min_value=min_value,
-    )
+    try:
+        subscription = WebhookSubscription(
+            id=sub_id,
+            webhook_url=validated_url,
+            webhook_type=wh_type,
+            systems=validated_systems or [],
+            min_value=validated_min_value,
+        )
 
-    add_subscription(subscription)
+        add_subscription(subscription)
+    except Exception as e:
+        return {
+            "error": f"Failed to create subscription: {str(e)}",
+            "hint": "An unexpected error occurred",
+        }
 
     return {
         "status": "created",
         "subscription_id": sub_id,
         "webhook_type": webhook_type,
-        "systems": systems or ["all"],
-        "min_value": min_value,
+        "systems": validated_systems or ["all"],
+        "min_value": validated_min_value,
     }
 
 
 async def list_alert_subscriptions() -> dict[str, Any]:
     """List all alert subscriptions."""
-    subs = list_subscriptions()
+    try:
+        subs = list_subscriptions()
+    except Exception as e:
+        return {
+            "error": f"Failed to list subscriptions: {str(e)}",
+            "hint": "An unexpected error occurred",
+            "total": 0,
+            "subscriptions": [],
+        }
 
     return {
         "total": len(subs),

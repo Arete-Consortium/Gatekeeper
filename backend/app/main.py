@@ -1,5 +1,6 @@
 """EVE Gatekeeper API - Main Application."""
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -22,6 +23,8 @@ from .middleware.security import RequestSizeLimitMiddleware
 
 # Configure structured logging
 configure_logging()
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -110,16 +113,25 @@ async def startup_event() -> None:
     _startup_time = datetime.now(UTC)
     set_start_time(_startup_time)
 
+    logger.info(
+        "Application starting",
+        extra={"version": settings.API_VERSION, "project": settings.PROJECT_NAME},
+    )
+
     # Start zKillboard listener for real-time kill feed
     from .services.zkill_listener import get_zkill_listener
 
     listener = get_zkill_listener()
     await listener.start()
 
+    logger.info("Application startup complete")
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Cleanup on application shutdown."""
+    logger.info("Application shutting down")
+
     # Stop zKillboard listener
     from .services.zkill_listener import get_zkill_listener
 
@@ -130,6 +142,8 @@ async def shutdown_event() -> None:
     from .db.database import close_db
 
     await close_db()
+
+    logger.info("Application shutdown complete")
 
 
 @app.get("/health", tags=["health"])
@@ -149,8 +163,10 @@ async def health_check() -> dict[str, Any]:
         universe = load_universe()
         if not universe.systems:
             database_status = "warning"
-    except Exception:
+            logger.warning("Health check: database returned no systems")
+    except Exception as e:
         database_status = "error"
+        logger.error("Health check: database error", extra={"error": str(e)})
 
     # Check cache status (actual connectivity)
     cache_status = "memory"

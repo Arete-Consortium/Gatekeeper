@@ -4,9 +4,15 @@ from collections import deque
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ...core.pagination import (
+    PaginationMeta,
+    PaginationParams,
+    get_pagination_params,
+    paginate,
+)
 from ...models.route import (
     BulkRouteRequest,
     BulkRouteResponse,
@@ -44,8 +50,8 @@ class RouteHistoryEntry(BaseModel):
 class RouteHistoryResponse(BaseModel):
     """Response for route history."""
 
-    total: int
-    routes: list[RouteHistoryEntry]
+    items: list[RouteHistoryEntry]
+    pagination: PaginationMeta
 
 
 def _add_to_history(route: RouteResponse) -> None:
@@ -159,14 +165,15 @@ def calculate_route(
     "/history",
     response_model=RouteHistoryResponse,
     summary="Get recent route history",
-    description="Returns the most recently calculated routes (up to 100).",
+    description="Returns the most recently calculated routes with pagination.",
 )
 def get_history(
-    limit: int = Query(20, ge=1, le=100, description="Maximum routes to return"),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ) -> RouteHistoryResponse:
-    """Get recently calculated routes."""
-    history = list(_route_history)[:limit]
-    return RouteHistoryResponse(total=len(_route_history), routes=history)
+    """Get recently calculated routes with pagination."""
+    history = list(_route_history)
+    items, meta = paginate(history, pagination.page, pagination.page_size)
+    return RouteHistoryResponse(items=items, pagination=meta)
 
 
 @router.get(

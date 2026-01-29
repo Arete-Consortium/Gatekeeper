@@ -5,6 +5,7 @@ and IP-based rate limiting for unauthenticated requests.
 """
 
 import json
+import logging
 
 from fastapi import FastAPI, Request, Response
 from slowapi import Limiter
@@ -14,6 +15,8 @@ from slowapi.util import get_remote_address
 
 from ..core.config import settings
 from ..services.jwt_service import validate_jwt
+
+logger = logging.getLogger(__name__)
 
 
 def extract_character_id_from_request(request: Request) -> int | None:
@@ -118,6 +121,16 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
         limit = settings.RATE_LIMIT_PER_MINUTE
         user_type = "anonymous"
 
+    logger.warning(
+        "Rate limit exceeded",
+        extra={
+            "identifier": identifier,
+            "user_type": user_type,
+            "limit": limit,
+            "path": request.url.path,
+        },
+    )
+
     response_body = json.dumps(
         {
             "error": "Rate limit exceeded",
@@ -142,6 +155,7 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
 def setup_rate_limiting(app: FastAPI) -> None:
     """Configure rate limiting for the FastAPI application."""
     if not settings.RATE_LIMIT_ENABLED:
+        logger.debug("Rate limiting disabled")
         return
 
     # Add the limiter to app state
@@ -152,3 +166,12 @@ def setup_rate_limiting(app: FastAPI) -> None:
 
     # Add exception handler for rate limit exceeded
     app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+    logger.info(
+        "Rate limiting enabled",
+        extra={
+            "default_limit": settings.RATE_LIMIT_PER_MINUTE,
+            "user_limit": settings.RATE_LIMIT_PER_MINUTE_USER,
+            "apikey_limit": settings.RATE_LIMIT_PER_MINUTE_APIKEY,
+        },
+    )

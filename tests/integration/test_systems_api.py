@@ -5,20 +5,22 @@ class TestSystemsListEndpoint:
     """Tests for /api/v1/systems/ endpoint."""
 
     def test_list_systems(self, test_client):
-        """Test listing all systems."""
+        """Test listing all systems with pagination."""
         response = test_client.get("/api/v1/systems/")
         assert response.status_code == 200
 
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) >= 3  # At least Jita, Perimeter, Niarja
+        assert "items" in data
+        assert "pagination" in data
+        assert isinstance(data["items"], list)
+        assert data["pagination"]["total_count"] >= 3  # At least Jita, Perimeter, Niarja
 
     def test_list_systems_has_required_fields(self, test_client):
         """Test that systems have required fields."""
         response = test_client.get("/api/v1/systems/")
         data = response.json()
 
-        for system in data:
+        for system in data["items"]:
             assert "name" in system
             assert "security" in system
             assert "category" in system

@@ -6,9 +6,15 @@ Enables sharing routes via short tokens and exporting in various formats.
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ...core.pagination import (
+    PaginationMeta,
+    PaginationParams,
+    get_pagination_params,
+    paginate,
+)
 from ...services.route_sharing import (
     SharedRoute,
     export_to_dotlan_url,
@@ -99,8 +105,8 @@ class SharedRouteFullResponse(SharedRouteResponse):
 class SharedRoutesListResponse(BaseModel):
     """Response for listing shared routes."""
 
-    total: int
-    routes: list[SharedRouteResponse]
+    items: list[SharedRouteResponse]
+    pagination: PaginationMeta
 
 
 class ExportResponse(BaseModel):
@@ -202,24 +208,25 @@ async def delete_share(token: str) -> dict[str, str]:
     "/",
     response_model=SharedRoutesListResponse,
     summary="List shared routes",
-    description="List shared routes, optionally filtered by creator.",
+    description="List shared routes with pagination, optionally filtered by creator.",
 )
 async def list_shares(
+    pagination: PaginationParams = Depends(get_pagination_params),
     creator: str | None = Query(None, description="Filter by creator name"),
-    limit: int = Query(50, ge=1, le=100, description="Max routes to return"),
 ) -> SharedRoutesListResponse:
     """
-    List shared routes.
+    List shared routes with pagination.
 
     Optionally filter by creator name.
     """
     store = get_share_store()
-    routes = store.list_shares(creator_name=creator, limit=limit)
+    # Get all routes (the store returns all matching routes)
+    all_routes = store.list_shares(creator_name=creator, limit=1000)  # High limit to get all
+    route_responses = [SharedRouteResponse.from_shared(r) for r in all_routes]
 
-    return SharedRoutesListResponse(
-        total=len(routes),
-        routes=[SharedRouteResponse.from_shared(r) for r in routes],
-    )
+    items, meta = paginate(route_responses, pagination.page, pagination.page_size)
+
+    return SharedRoutesListResponse(items=items, pagination=meta)
 
 
 # =============================================================================

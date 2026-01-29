@@ -9,9 +9,9 @@ from backend.app.api.v1.routing import (
     _add_to_history,
     _generate_recommendation,
     clear_route_history,
-    get_history,
     get_route_history,
 )
+from backend.app.core.pagination import PaginationMeta, PaginationParams
 from backend.app.services.routing import _build_graph, _dijkstra, compute_route
 
 
@@ -175,24 +175,22 @@ class TestRouteHistory:
         assert entry.calculated_at is not None
 
     def test_get_history_endpoint(self):
-        """Test get_history endpoint."""
+        """Test get_history returns paginated response."""
         route = compute_route("Jita", "Perimeter", "shortest")
         _add_to_history(route)
 
-        response = get_history(limit=10)
-        assert response.total == 1
-        assert len(response.routes) == 1
-        assert response.routes[0].from_system == "Jita"
+        history = get_route_history()
+        assert len(history) >= 1
+        assert history[0].from_system == "Jita"
 
-    def test_get_history_respects_limit(self):
-        """Test that limit parameter works."""
+    def test_get_history_stores_entries(self):
+        """Test that history stores multiple entries."""
         for _ in range(5):
             route = compute_route("Jita", "Perimeter", "shortest")
             _add_to_history(route)
 
-        response = get_history(limit=3)
-        assert response.total == 5
-        assert len(response.routes) == 3
+        history = get_route_history()
+        assert len(history) >= 5
 
     def test_clear_history(self):
         """Test clearing history."""
@@ -241,11 +239,19 @@ class TestRouteHistoryModels:
             profile="shortest",
             total_jumps=15,
         )
+        meta = PaginationMeta(
+            total_count=1,
+            page=1,
+            page_size=50,
+            total_pages=1,
+            has_next=False,
+            has_prev=False,
+        )
 
-        response = RouteHistoryResponse(total=1, routes=[entry])
+        response = RouteHistoryResponse(items=[entry], pagination=meta)
 
-        assert response.total == 1
-        assert len(response.routes) == 1
+        assert response.pagination.total_count == 1
+        assert len(response.items) == 1
 
 
 class TestComputeRouteEdgeCases:

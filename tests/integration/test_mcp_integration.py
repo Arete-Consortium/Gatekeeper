@@ -1259,3 +1259,417 @@ class TestEdgeCases:
         )
         data = _parse_content(resp)
         assert data["total_jumps"] > 20  # Should be a long route
+
+
+# ---------------------------------------------------------------------------
+# Input Validation Edge Cases (new tests for error handling)
+# ---------------------------------------------------------------------------
+class TestInputValidationEdgeCases:
+    """Tests for input validation and edge case error handling."""
+
+    # --- Null/None Input Tests ---
+    @pytest.mark.asyncio
+    async def test_route_with_null_origin(self, server):
+        """Route with None origin should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin=None, destination="Amarr")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+        assert "origin" in data["error"].lower() or "missing" in data["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_route_with_null_destination(self, server):
+        """Route with None destination should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="Jita", destination=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_system_threat_with_null_name(self, server):
+        """System threat with None name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_system_threat", system_name=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_ship_info_with_null_name(self, server):
+        """Ship info with None name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_ship_info", ship_name=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_region_map_with_null_name(self, server):
+        """Region map with None name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_region_map", region_name=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_jump_range_with_null_system(self, server):
+        """Jump range with None system should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_jump_range", center_system=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_parse_fitting_with_null_text(self, server):
+        """Parse fitting with None text should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_parse_fitting", eft_text=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_create_alert_with_null_url(self, server):
+        """Create alert with None URL should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_create_alert", webhook_url=None)
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Empty String Input Tests ---
+    @pytest.mark.asyncio
+    async def test_route_with_empty_origin(self, server):
+        """Route with empty origin should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="", destination="Amarr")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_system_threat_with_empty_name(self, server):
+        """System threat with empty name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_system_threat", system_name="")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_ship_info_with_empty_name(self, server):
+        """Ship info with empty name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_ship_info", ship_name="")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_parse_fitting_with_empty_text(self, server):
+        """Parse fitting with empty text should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_parse_fitting", eft_text="")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Whitespace-Only Input Tests ---
+    @pytest.mark.asyncio
+    async def test_route_with_whitespace_origin(self, server):
+        """Route with whitespace-only origin should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="   ", destination="Amarr")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_system_threat_with_whitespace_name(self, server):
+        """System threat with whitespace-only name should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_system_threat", system_name="   \t  ")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Type Mismatch Tests ---
+    @pytest.mark.asyncio
+    async def test_route_with_integer_origin(self, server):
+        """Route with integer origin should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin=12345, destination="Amarr")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_jump_range_with_string_max_jumps(self, server):
+        """Jump range handles string max_jumps gracefully."""
+        resp = await server.handle_request(
+            _call("gatekeeper_jump_range", center_system="Jita", max_jumps="five")
+        )
+        data = _parse_content(resp)
+        # Should return error for invalid type
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_jump_range_with_boolean_max_jumps(self, server):
+        """Jump range handles boolean max_jumps gracefully."""
+        resp = await server.handle_request(
+            _call("gatekeeper_jump_range", center_system="Jita", max_jumps=True)
+        )
+        data = _parse_content(resp)
+        # Should return error for boolean input
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_route_with_list_origin(self, server):
+        """Route with list origin should return validation error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin=["Jita"], destination="Amarr")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Boundary Value Tests ---
+    @pytest.mark.asyncio
+    async def test_jump_range_with_negative_jumps(self, server):
+        """Jump range with negative max_jumps should clamp to 1."""
+        resp = await server.handle_request(
+            _call("gatekeeper_jump_range", center_system="Jita", max_jumps=-5)
+        )
+        data = _parse_content(resp)
+        # Should clamp to 1, not error
+        assert "error" not in data
+        assert data["max_jumps"] == 1
+
+    @pytest.mark.asyncio
+    async def test_jump_range_with_very_large_jumps(self, server):
+        """Jump range with very large max_jumps should clamp to 20."""
+        resp = await server.handle_request(
+            _call("gatekeeper_jump_range", center_system="Jita", max_jumps=1000)
+        )
+        data = _parse_content(resp)
+        # Should clamp to 20, not error
+        assert "error" not in data
+        assert data["max_jumps"] == 20
+
+    @pytest.mark.asyncio
+    async def test_create_alert_with_negative_min_value(self, server):
+        """Create alert with negative min_value should return error."""
+        resp = await server.handle_request(
+            _call(
+                "gatekeeper_create_alert",
+                webhook_url="https://discord.com/api/webhooks/1/a",
+                min_value=-100,
+            )
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Invalid URL Format Tests ---
+    @pytest.mark.asyncio
+    async def test_create_alert_with_invalid_url(self, server):
+        """Create alert with invalid URL format should return error."""
+        resp = await server.handle_request(
+            _call(
+                "gatekeeper_create_alert",
+                webhook_url="not-a-url",
+            )
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_create_alert_with_javascript_url(self, server):
+        """Create alert with javascript: URL should return error."""
+        resp = await server.handle_request(
+            _call(
+                "gatekeeper_create_alert",
+                webhook_url="javascript:alert('xss')",
+            )
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_create_alert_with_ftp_url(self, server):
+        """Create alert with ftp:// URL should return error."""
+        resp = await server.handle_request(
+            _call(
+                "gatekeeper_create_alert",
+                webhook_url="ftp://example.com/file",
+            )
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- Invalid Profile Tests ---
+    @pytest.mark.asyncio
+    async def test_route_with_invalid_profile(self, server):
+        """Route with invalid profile should return error with valid options."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="Jita", destination="Amarr", profile="invalid_profile")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+        # Should provide valid profiles in response
+        assert "valid_profiles" in data or "hint" in data
+
+    # --- Avoid Systems Edge Cases ---
+    @pytest.mark.asyncio
+    async def test_route_with_non_string_avoid_items(self, server):
+        """Route with non-string items in avoid_systems should error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="Jita", destination="Amarr", avoid_systems=[123, 456])
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_route_with_mixed_avoid_items(self, server):
+        """Route with mixed types in avoid_systems should error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_route", origin="Jita", destination="Amarr", avoid_systems=["Niarja", 123])
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+    # --- EFT Parsing Edge Cases ---
+    @pytest.mark.asyncio
+    async def test_parse_fitting_without_opening_bracket(self, server):
+        """Fitting without opening bracket should return clear error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_parse_fitting", eft_text="Caracal, Test Fit]")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+        assert "hint" in data
+
+    @pytest.mark.asyncio
+    async def test_parse_fitting_with_only_whitespace(self, server):
+        """Fitting with only whitespace should return error."""
+        resp = await server.handle_request(
+            _call("gatekeeper_parse_fitting", eft_text="   \n\t   ")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+
+
+# ---------------------------------------------------------------------------
+# Server-Level Error Handling Tests
+# ---------------------------------------------------------------------------
+class TestServerErrorHandling:
+    """Tests for server-level error handling."""
+
+    @pytest.mark.asyncio
+    async def test_tool_call_without_name(self, server):
+        """Tool call without name should return error."""
+        resp = await server.handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"arguments": {}},
+        })
+        assert "error" in resp
+        assert resp["error"]["code"] == -32602
+
+    @pytest.mark.asyncio
+    async def test_tool_call_with_empty_name(self, server):
+        """Tool call with empty name should return error."""
+        resp = await server.handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "", "arguments": {}},
+        })
+        assert "error" in resp
+        assert resp["error"]["code"] == -32602
+
+    @pytest.mark.asyncio
+    async def test_tool_call_with_numeric_name(self, server):
+        """Tool call with numeric name should return error."""
+        resp = await server.handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": 12345, "arguments": {}},
+        })
+        assert "error" in resp
+        assert resp["error"]["code"] == -32602
+
+    @pytest.mark.asyncio
+    async def test_tool_call_with_list_arguments(self, server):
+        """Tool call with list arguments should return error."""
+        resp = await server.handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "gatekeeper_ship_info", "arguments": ["Caracal"]},
+        })
+        assert "error" in resp
+        assert resp["error"]["code"] == -32602
+
+    @pytest.mark.asyncio
+    async def test_tool_call_with_null_arguments(self, server):
+        """Tool call with null arguments should work (use empty dict)."""
+        resp = await server.handle_request({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {"name": "gatekeeper_list_alerts", "arguments": None},
+        })
+        # Should succeed for list_alerts which has no required args
+        assert "result" in resp
+        data = json.loads(resp["result"]["content"][0]["text"])
+        assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_error_responses_include_hint_when_available(self, server):
+        """Error responses should include hint when validation fails."""
+        resp = await server.handle_request(
+            _call("gatekeeper_ship_info", ship_name="")
+        )
+        data = _parse_content(resp)
+        assert "error" in data
+        assert "hint" in data
+
+    @pytest.mark.asyncio
+    async def test_all_validation_errors_return_valid_json(self, server):
+        """All validation error cases return valid JSON responses."""
+        validation_error_calls = [
+            _call("gatekeeper_route", origin=None, destination="Amarr"),
+            _call("gatekeeper_route", origin="", destination="Amarr"),
+            _call("gatekeeper_route", origin="   ", destination="Amarr"),
+            _call("gatekeeper_system_threat", system_name=None),
+            _call("gatekeeper_system_threat", system_name=""),
+            _call("gatekeeper_ship_info", ship_name=None),
+            _call("gatekeeper_ship_info", ship_name=""),
+            _call("gatekeeper_region_map", region_name=None),
+            _call("gatekeeper_jump_range", center_system=None),
+            _call("gatekeeper_parse_fitting", eft_text=None),
+            _call("gatekeeper_parse_fitting", eft_text=""),
+            _call("gatekeeper_create_alert", webhook_url=None),
+            _call("gatekeeper_create_alert", webhook_url="not-a-url"),
+        ]
+
+        for req in validation_error_calls:
+            tool = req["params"]["name"]
+            resp = await server.handle_request(req)
+            # Should always be valid JSON-RPC
+            assert resp["jsonrpc"] == "2.0", f"Bad jsonrpc for {tool}"
+            assert "result" in resp, f"Missing result for {tool}"
+            content = resp["result"]["content"]
+            assert len(content) > 0, f"Empty content for {tool}"
+            # Content should be parseable JSON
+            try:
+                parsed = json.loads(content[0]["text"])
+                assert isinstance(parsed, dict), f"Expected dict for {tool}"
+                assert "error" in parsed, f"Expected error in response for {tool}"
+            except json.JSONDecodeError:
+                pytest.fail(f"Failed to parse JSON for {tool}: {content[0]['text']}")

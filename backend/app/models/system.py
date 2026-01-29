@@ -47,3 +47,18 @@ class SystemSummary(BaseModel):
     region_name: str = ""
     constellation_id: int = 0
     constellation_name: str = ""
+
+
+class SystemListResponse(BaseModel):
+    """Paginated response for system list."""
+
+    items: list[SystemSummary]
+    pagination: "PaginationMeta"
+
+    model_config = {"from_attributes": True}
+
+
+# Avoid circular import - import at end
+from ..core.pagination import PaginationMeta  # noqa: E402
+
+SystemListResponse.model_rebuild()

@@ -9,6 +9,7 @@ Provides persistent storage for EVE SSO tokens with support for:
 """
 
 import json
+import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +17,8 @@ from typing import Any
 
 from ..core.config import settings
 from .jwt_service import decrypt_token, encrypt_token, should_refresh_esi_token
+
+logger = logging.getLogger(__name__)
 
 
 class TokenStore(ABC):
@@ -120,6 +123,14 @@ class MemoryTokenStore(TokenStore):
             "character_name": character_name,
             "scopes": scopes,
         }
+        logger.info(
+            "Token stored",
+            extra={
+                "character_id": character_id,
+                "character_name": character_name,
+                "store_type": "memory",
+            },
+        )
 
     async def get_token(self, character_id: int) -> dict[str, Any] | None:
         stored = self._tokens.get(character_id)
@@ -136,6 +147,9 @@ class MemoryTokenStore(TokenStore):
     async def remove_token(self, character_id: int) -> bool:
         if character_id in self._tokens:
             del self._tokens[character_id]
+            logger.info(
+                "Token removed", extra={"character_id": character_id, "store_type": "memory"}
+            )
             return True
         return False
 
@@ -153,6 +167,7 @@ class MemoryTokenStore(TokenStore):
     async def clear_all(self) -> int:
         count = len(self._tokens)
         self._tokens.clear()
+        logger.info("All tokens cleared", extra={"tokens_removed": count, "store_type": "memory"})
         return count
 
 
@@ -181,7 +196,15 @@ class FileTokenStore(TokenStore):
                         token["expires_at"] = datetime.fromisoformat(token["expires_at"])
                         # Tokens are stored encrypted, keep them that way in memory
                         self._tokens[int(char_id)] = token
-            except (json.JSONDecodeError, KeyError):
+                logger.info(
+                    "Tokens loaded from file",
+                    extra={"path": str(self._path), "token_count": len(self._tokens)},
+                )
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(
+                    "Failed to load tokens from file",
+                    extra={"path": str(self._path), "error": str(e)},
+                )
                 self._tokens = {}
 
     def _save(self) -> None:
@@ -226,6 +249,14 @@ class FileTokenStore(TokenStore):
             "scopes": scopes,
         }
         self._save()
+        logger.info(
+            "Token stored",
+            extra={
+                "character_id": character_id,
+                "character_name": character_name,
+                "store_type": "file",
+            },
+        )
 
     async def get_token(self, character_id: int) -> dict[str, Any] | None:
         stored = self._tokens.get(character_id)
@@ -300,6 +331,14 @@ class RedisTokenStore(TokenStore):
         await self._redis.hset(key, mapping=data)
         # Add to character list
         await self._redis.sadd(f"{self._prefix}characters", character_id)
+        logger.info(
+            "Token stored",
+            extra={
+                "character_id": character_id,
+                "character_name": character_name,
+                "store_type": "redis",
+            },
+        )
 
     async def get_token(self, character_id: int) -> dict[str, Any] | None:
         key = f"{self._prefix}{character_id}"
@@ -321,6 +360,10 @@ class RedisTokenStore(TokenStore):
         key = f"{self._prefix}{character_id}"
         deleted = await self._redis.delete(key)
         await self._redis.srem(f"{self._prefix}characters", character_id)
+        if deleted > 0:
+            logger.info(
+                "Token removed", extra={"character_id": character_id, "store_type": "redis"}
+            )
         return bool(deleted > 0)
 
     async def list_characters(self) -> list[dict[str, Any]]:

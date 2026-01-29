@@ -83,8 +83,10 @@ class MemoryCacheService(CacheService):
         for cache in self._caches.values():
             if key in cache:
                 self._hits += 1
+                logger.debug("Cache hit", extra={"key": key, "cache_type": "memory"})
                 return str(cache[key])
         self._misses += 1
+        logger.debug("Cache miss", extra={"key": key, "cache_type": "memory"})
         return None
 
     async def set(self, key: str, value: str, ttl: int = 300) -> bool:
@@ -112,8 +114,10 @@ class MemoryCacheService(CacheService):
 
     async def clear(self) -> bool:
         """Clear all caches."""
+        total_entries = sum(len(cache) for cache in self._caches.values())
         for cache in self._caches.values():
             cache.clear()
+        logger.info("Memory cache cleared", extra={"entries_cleared": total_entries})
         return True
 
     def get_stats(self) -> dict[str, Any]:
@@ -150,12 +154,14 @@ class RedisCacheService(CacheService):
             value = await self._redis.get(key)
             if value is not None:
                 self._hits += 1
+                logger.debug("Cache hit", extra={"key": key, "cache_type": "redis"})
                 return str(value)
             else:
                 self._misses += 1
+                logger.debug("Cache miss", extra={"key": key, "cache_type": "redis"})
             return None
         except Exception as e:
-            logger.warning(f"Redis get failed for key {key}: {e}")
+            logger.warning("Redis get failed", extra={"key": key, "error": str(e)})
             self._misses += 1
             return None
 
@@ -163,18 +169,22 @@ class RedisCacheService(CacheService):
         """Set value in Redis with TTL."""
         try:
             await self._redis.setex(key, ttl, value)
+            logger.debug("Cache set", extra={"key": key, "ttl": ttl, "cache_type": "redis"})
             return True
         except Exception as e:
-            logger.warning(f"Redis set failed for key {key}: {e}")
+            logger.warning("Redis set failed", extra={"key": key, "ttl": ttl, "error": str(e)})
             return False
 
     async def delete(self, key: str) -> bool:
         """Delete key from Redis."""
         try:
             result = await self._redis.delete(key)
-            return int(result) > 0
+            deleted = int(result) > 0
+            if deleted:
+                logger.debug("Cache key deleted", extra={"key": key, "cache_type": "redis"})
+            return deleted
         except Exception as e:
-            logger.warning(f"Redis delete failed for key {key}: {e}")
+            logger.warning("Redis delete failed", extra={"key": key, "error": str(e)})
             return False
 
     async def exists(self, key: str) -> bool:
@@ -182,16 +192,17 @@ class RedisCacheService(CacheService):
         try:
             return int(await self._redis.exists(key)) > 0
         except Exception as e:
-            logger.warning(f"Redis exists check failed for key {key}: {e}")
+            logger.warning("Redis exists check failed", extra={"key": key, "error": str(e)})
             return False
 
     async def clear(self) -> bool:
         """Clear all keys (use with caution in production)."""
         try:
             await self._redis.flushdb()
+            logger.info("Redis cache cleared")
             return True
         except Exception as e:
-            logger.warning(f"Redis clear failed: {e}")
+            logger.warning("Redis clear failed", extra={"error": str(e)})
             return False
 
     async def ping(self) -> bool:

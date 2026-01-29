@@ -1,6 +1,7 @@
 """ESI Client with rate limiting, caching, and OAuth support."""
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
@@ -15,6 +16,8 @@ from tenacity import (
 )
 
 from backend.app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # ESI Configuration
 ESI_BASE_URL = settings.ESI_BASE_URL
@@ -107,7 +110,20 @@ class ESIClient:
         reset = response.headers.get("x-esi-error-limit-reset")
 
         if remain is not None:
-            self._error_limit_remain = int(remain)
+            new_remain = int(remain)
+            # Log warning if approaching error limit
+            if (
+                new_remain < ERROR_LIMIT_REMAIN_THRESHOLD
+                and self._error_limit_remain >= ERROR_LIMIT_REMAIN_THRESHOLD
+            ):
+                logger.warning(
+                    "ESI error limit approaching threshold",
+                    extra={
+                        "error_limit_remain": new_remain,
+                        "threshold": ERROR_LIMIT_REMAIN_THRESHOLD,
+                    },
+                )
+            self._error_limit_remain = new_remain
         if reset is not None:
             self._error_limit_reset = datetime.utcnow() + timedelta(seconds=int(reset))
 
@@ -117,7 +133,15 @@ class ESIClient:
             if self._error_limit_reset:
                 wait_seconds = (self._error_limit_reset - datetime.utcnow()).total_seconds()
                 if wait_seconds > 0:
-                    await asyncio.sleep(min(wait_seconds, 60))
+                    actual_wait = min(wait_seconds, 60)
+                    logger.info(
+                        "ESI rate limit backoff",
+                        extra={
+                            "wait_seconds": actual_wait,
+                            "error_limit_remain": self._error_limit_remain,
+                        },
+                    )
+                    await asyncio.sleep(actual_wait)
 
     @retry(
         retry=retry_if_exception_type((ESIServerError, httpx.TimeoutException)),
@@ -157,27 +181,46 @@ class ESIClient:
                 await self._ensure_token_valid()
                 headers["Authorization"] = f"Bearer {self._token.access_token}"
 
+            logger.debug(
+                "ESI request", extra={"endpoint": endpoint, "authenticated": authenticated}
+            )
             response = await self.client.get(endpoint, params=request_params, headers=headers)
             self._update_error_limits(response)
 
             # Handle errors
             if response.status_code == 420:
+                logger.error(
+                    "ESI error limit exceeded",
+                    extra={"endpoint": endpoint, "status_code": 420},
+                )
                 raise ESIRateLimitError(
                     "ESI error limit exceeded",
                     status_code=420,
                 )
             if response.status_code == 401:
+                logger.warning(
+                    "ESI authentication failed",
+                    extra={"endpoint": endpoint, "status_code": 401},
+                )
                 raise ESIAuthError(
                     "Authentication required or token expired",
                     status_code=401,
                 )
             if response.status_code >= 500:
+                logger.error(
+                    "ESI server error",
+                    extra={"endpoint": endpoint, "status_code": response.status_code},
+                )
                 raise ESIServerError(
                     f"ESI server error: {response.status_code}",
                     status_code=response.status_code,
                 )
 
             response.raise_for_status()
+            logger.debug(
+                "ESI request successful",
+                extra={"endpoint": endpoint, "status_code": response.status_code},
+            )
 
             # Extract cache headers
             cache_headers = {
@@ -309,6 +352,13 @@ class ESIClient:
             scopes=verify_data.get("Scopes", "").split(" "),
         )
 
+        logger.info(
+            "ESI token exchanged successfully",
+            extra={
+                "character_id": self._token.character_id,
+                "character_name": self._token.character_name,
+            },
+        )
         return self._token
 
     async def refresh_token(
@@ -348,6 +398,10 @@ class ESIClient:
             seconds=token_data["expires_in"] - 60
         )
 
+        logger.info(
+            "ESI token refreshed successfully",
+            extra={"character_id": self._token.character_id},
+        )
         return self._token
 
     async def _ensure_token_valid(self) -> None:

@@ -348,7 +348,8 @@ class TestSearchNotesEndpoint:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total"] == 2
+        assert data["pagination"]["total_count"] == 2
+        assert len(data["items"]) == 2
 
     def test_search_requires_query(self, test_client):
         """Test that search requires query parameter."""
