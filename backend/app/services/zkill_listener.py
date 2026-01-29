@@ -1,4 +1,8 @@
-"""zKillboard RedisQ listener for real-time kill feed."""
+"""zKillboard RedisQ listener for real-time kill feed.
+
+Uses HTTP long-polling (not WebSocket) but benefits from the same
+reconnection patterns and health monitoring.
+"""
 
 import asyncio
 import logging
@@ -11,30 +15,66 @@ import httpx
 from ..core.config import settings
 from .connection_manager import connection_manager
 from .risk_engine import compute_risk
+from .websocket_reconnection import (
+    ConnectionHealth,
+    ConnectionState,
+    ReconnectionConfig,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class ZKillListener:
-    """Listens to zKillboard RedisQ for real-time kill data."""
+    """Listens to zKillboard RedisQ for real-time kill data.
+
+    Uses HTTP long-polling with robust reconnection logic:
+    - Exponential backoff on connection failures
+    - Configurable retry delays from settings
+    - Connection health monitoring
+    - Automatic reconnection on disconnect
+    - Optional maximum retry attempts
+    """
 
     def __init__(
         self,
         queue_id: str | None = None,
         on_kill: Callable[[dict[str, Any]], None] | None = None,
+        config: ReconnectionConfig | None = None,
     ):
+        """Initialize the zKillboard listener.
+
+        Args:
+            queue_id: Unique queue ID for RedisQ (default: 'eve-gatekeeper')
+            on_kill: Optional callback for each kill received
+            config: Reconnection configuration (uses settings if not provided)
+        """
         self.queue_id = queue_id or "eve-gatekeeper"
         self.on_kill = on_kill
         self._running = False
         self._task: asyncio.Task | None = None
-        self._reconnect_delay = 1  # Start with 1 second
-        self._max_reconnect_delay = 60  # Max 60 seconds
         self._client: httpx.AsyncClient | None = None
+
+        # Reconnection configuration
+        self.config = config or ReconnectionConfig()
+
+        # Connection health tracking
+        self.health = ConnectionHealth()
+        self._state = ConnectionState.DISCONNECTED
 
     @property
     def is_running(self) -> bool:
         """Check if the listener is running."""
         return self._running
+
+    @property
+    def state(self) -> ConnectionState:
+        """Get the current connection state."""
+        return self._state
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if currently connected (actively polling)."""
+        return self._state == ConnectionState.CONNECTED
 
     async def start(self) -> None:
         """Start the listener."""
@@ -43,6 +83,7 @@ class ZKillListener:
             return
 
         self._running = True
+        self._state = ConnectionState.CONNECTING
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout=35.0),  # RedisQ timeout is 30s
             headers={"User-Agent": settings.ZKILL_USER_AGENT},
@@ -63,6 +104,7 @@ class ZKillListener:
         if self._client:
             await self._client.aclose()
             self._client = None
+        self._state = ConnectionState.DISCONNECTED
         logger.info("ZKill listener stopped")
 
     async def _listen_loop(self) -> None:
@@ -70,33 +112,75 @@ class ZKillListener:
         while self._running:
             try:
                 await self._fetch_kills()
-                # Reset reconnect delay on successful fetch
-                self._reconnect_delay = 1
+                # Successful fetch - record connection and reset retry counter
+                if self._state != ConnectionState.CONNECTED:
+                    self._state = ConnectionState.CONNECTED
+                    self.health.record_connection()
+                    logger.info("ZKill listener connected to RedisQ")
+                self.health.record_message()
+                self.health.reset_retry_counter()
             except asyncio.CancelledError:
                 break
             except httpx.TimeoutException:
                 # Timeout is normal - RedisQ returns after 30s with no data
-                logger.debug("RedisQ timeout (normal), reconnecting...")
+                # Still counts as healthy connection
+                if self._state != ConnectionState.CONNECTED:
+                    self._state = ConnectionState.CONNECTED
+                    self.health.record_connection()
+                self.health.reset_retry_counter()
+                logger.debug("RedisQ timeout (normal), continuing...")
             except httpx.HTTPStatusError as e:
                 logger.error(f"HTTP error from zKillboard: {e.response.status_code}")
-                await self._handle_reconnect()
+                self.health.record_disconnection()
+                self._state = ConnectionState.RECONNECTING
+                should_continue = await self._handle_reconnect()
+                if not should_continue:
+                    break
             except Exception as e:
                 logger.exception(f"Error in ZKill listener: {e}")
-                await self._handle_reconnect()
+                self.health.record_disconnection()
+                self._state = ConnectionState.RECONNECTING
+                should_continue = await self._handle_reconnect()
+                if not should_continue:
+                    break
 
-    async def _handle_reconnect(self) -> None:
-        """Handle reconnection with exponential backoff."""
+    async def _handle_reconnect(self) -> bool:
+        """Handle reconnection with exponential backoff.
+
+        Returns:
+            True if should continue trying, False if max retries exceeded
+        """
         if not self._running:
-            return
+            return False
 
-        logger.info(f"Reconnecting in {self._reconnect_delay} seconds...")
-        await asyncio.sleep(self._reconnect_delay)
+        self.health.record_failed_attempt()
 
-        # Exponential backoff
-        self._reconnect_delay = min(
-            self._reconnect_delay * 2,
-            self._max_reconnect_delay,
+        # Check if max attempts exceeded
+        if self._should_give_up():
+            logger.error(
+                f"ZKill listener: Max retry attempts ({self.config.max_attempts}) exceeded. Giving up."
+            )
+            self._state = ConnectionState.FAILED
+            self._running = False
+            return False
+
+        # Calculate delay using exponential backoff
+        delay = self.config.calculate_delay(self.health.current_retry_attempt - 1)
+
+        logger.info(
+            f"ZKill listener: Reconnecting in {delay:.1f}s "
+            f"(attempt {self.health.current_retry_attempt}"
+            f"{f'/{self.config.max_attempts}' if self.config.max_attempts > 0 else ''})"
         )
+
+        await asyncio.sleep(delay)
+        return True
+
+    def _should_give_up(self) -> bool:
+        """Check if we should stop trying to reconnect."""
+        if self.config.max_attempts <= 0:
+            return False  # Unlimited retries
+        return self.health.current_retry_attempt >= self.config.max_attempts
 
     async def _fetch_kills(self) -> None:
         """Fetch kills from RedisQ."""
@@ -190,6 +274,23 @@ class ZKillListener:
 
         except Exception as e:
             logger.exception(f"Error processing kill: {e}")
+
+    def get_health_status(self) -> dict[str, Any]:
+        """Get the current health status of the listener."""
+        return {
+            "name": "zkill_listener",
+            "state": self._state.value,
+            "is_connected": self.is_connected,
+            "is_running": self.is_running,
+            "queue_id": self.queue_id,
+            "config": {
+                "initial_delay": self.config.initial_delay,
+                "max_delay": self.config.max_delay,
+                "multiplier": self.config.multiplier,
+                "max_attempts": self.config.max_attempts,
+            },
+            "health": self.health.to_dict(),
+        }
 
 
 # Global listener instance

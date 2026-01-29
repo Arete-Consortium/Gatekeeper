@@ -5,6 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from backend.app.services.websocket_reconnection import (
+    ConnectionState,
+    ReconnectionConfig,
+)
 from backend.app.services.zkill_listener import ZKillListener
 
 
@@ -33,6 +37,19 @@ class TestZKillListenerInit:
         assert listener.is_running is False
         assert listener._task is None
         assert listener._client is None
+        assert listener.state == ConnectionState.DISCONNECTED
+
+    def test_custom_config(self):
+        """Test custom reconnection config."""
+        config = ReconnectionConfig(
+            initial_delay=2.0,
+            max_delay=120.0,
+            max_attempts=10,
+        )
+        listener = ZKillListener(config=config)
+        assert listener.config.initial_delay == 2.0
+        assert listener.config.max_delay == 120.0
+        assert listener.config.max_attempts == 10
 
 
 class TestZKillListenerLifecycle:
@@ -50,6 +67,7 @@ class TestZKillListenerLifecycle:
             assert listener.is_running is True
             assert listener._client is not None
             assert listener._task is not None
+            assert listener.state == ConnectionState.CONNECTING
 
             # Clean up
             await listener.stop()
@@ -81,6 +99,7 @@ class TestZKillListenerLifecycle:
             assert listener.is_running is False
             assert listener._task is None
             assert listener._client is None
+            assert listener.state == ConnectionState.DISCONNECTED
 
     @pytest.mark.asyncio
     async def test_stop_when_not_running(self):
@@ -96,15 +115,111 @@ class TestZKillListenerLifecycle:
 class TestZKillListenerReconnect:
     """Tests for reconnection logic."""
 
-    def test_initial_reconnect_delay(self):
-        """Test initial reconnect delay is 1 second."""
+    def test_uses_reconnection_config(self):
+        """Test that listener uses ReconnectionConfig."""
         listener = ZKillListener()
-        assert listener._reconnect_delay == 1
+        assert isinstance(listener.config, ReconnectionConfig)
 
-    def test_max_reconnect_delay(self):
-        """Test max reconnect delay is set."""
+    def test_has_health_tracking(self):
+        """Test that listener has health tracking."""
         listener = ZKillListener()
-        assert listener._max_reconnect_delay == 60
+        assert listener.health is not None
+        assert listener.health.total_connections == 0
+
+    @pytest.mark.asyncio
+    async def test_reconnect_exponential_backoff(self):
+        """Test that reconnect delay uses exponential backoff."""
+        config = ReconnectionConfig(
+            initial_delay=1.0,
+            max_delay=60.0,
+            multiplier=2.0,
+        )
+        listener = ZKillListener(config=config)
+        listener._running = True
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            # First reconnect: 1s delay
+            await listener._handle_reconnect()
+            mock_sleep.assert_called_with(1.0)
+            assert listener.health.current_retry_attempt == 1
+
+            # Second reconnect: 2s delay
+            await listener._handle_reconnect()
+            mock_sleep.assert_called_with(2.0)
+            assert listener.health.current_retry_attempt == 2
+
+            # Third reconnect: 4s delay
+            await listener._handle_reconnect()
+            mock_sleep.assert_called_with(4.0)
+            assert listener.health.current_retry_attempt == 3
+
+    @pytest.mark.asyncio
+    async def test_reconnect_max_delay(self):
+        """Test that reconnect delay caps at max."""
+        config = ReconnectionConfig(
+            initial_delay=1.0,
+            max_delay=10.0,
+            multiplier=2.0,
+        )
+        listener = ZKillListener(config=config)
+        listener._running = True
+        # Set high attempt count to exceed max delay
+        listener.health.current_retry_attempt = 4  # Would be 16s, capped at 10
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await listener._handle_reconnect()
+            mock_sleep.assert_called_with(10.0)
+
+    @pytest.mark.asyncio
+    async def test_reconnect_max_attempts_exceeded(self):
+        """Test that reconnection stops after max attempts."""
+        config = ReconnectionConfig(
+            initial_delay=0.1,
+            max_attempts=3,
+        )
+        listener = ZKillListener(config=config)
+        listener._running = True
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            # Exhaust attempts
+            result1 = await listener._handle_reconnect()
+            assert result1 is True
+            result2 = await listener._handle_reconnect()
+            assert result2 is True
+            result3 = await listener._handle_reconnect()
+            assert result3 is False  # Max reached
+
+            assert listener.state == ConnectionState.FAILED
+            assert listener._running is False
+
+    @pytest.mark.asyncio
+    async def test_reconnect_unlimited_when_zero_attempts(self):
+        """Test unlimited retries when max_attempts is 0."""
+        config = ReconnectionConfig(
+            initial_delay=0.1,
+            max_attempts=0,  # Unlimited
+        )
+        listener = ZKillListener(config=config)
+        listener._running = True
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            # Should keep returning True
+            for _ in range(10):
+                result = await listener._handle_reconnect()
+                assert result is True
+
+            assert listener._running is True  # Still running
+
+    @pytest.mark.asyncio
+    async def test_reconnect_skipped_when_not_running(self):
+        """Test that reconnect is skipped when listener is stopped."""
+        listener = ZKillListener()
+        listener._running = False
+
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            result = await listener._handle_reconnect()
+            mock_sleep.assert_not_called()
+            assert result is False
 
 
 class TestZKillListenerCallback:
@@ -135,57 +250,6 @@ class TestZKillListenerCallback:
         # Should not crash if we check the callback
         if listener.on_kill:
             listener.on_kill({})
-
-
-class TestHandleReconnect:
-    """Tests for reconnection backoff logic."""
-
-    @pytest.mark.asyncio
-    async def test_reconnect_exponential_backoff(self):
-        """Test that reconnect delay doubles each time."""
-        listener = ZKillListener()
-        listener._running = True
-
-        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            # First reconnect: 1s delay, then doubles to 2
-            await listener._handle_reconnect()
-            mock_sleep.assert_called_with(1)
-            assert listener._reconnect_delay == 2
-
-            # Second reconnect: 2s delay, then doubles to 4
-            await listener._handle_reconnect()
-            mock_sleep.assert_called_with(2)
-            assert listener._reconnect_delay == 4
-
-            # Third reconnect: 4s delay, then doubles to 8
-            await listener._handle_reconnect()
-            mock_sleep.assert_called_with(4)
-            assert listener._reconnect_delay == 8
-
-    @pytest.mark.asyncio
-    async def test_reconnect_max_delay(self):
-        """Test that reconnect delay caps at max."""
-        listener = ZKillListener()
-        listener._running = True
-        listener._reconnect_delay = 32
-
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            await listener._handle_reconnect()
-            assert listener._reconnect_delay == 60  # Max is 60
-
-            # Should stay at max
-            await listener._handle_reconnect()
-            assert listener._reconnect_delay == 60
-
-    @pytest.mark.asyncio
-    async def test_reconnect_skipped_when_not_running(self):
-        """Test that reconnect is skipped when listener is stopped."""
-        listener = ZKillListener()
-        listener._running = False
-
-        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
-            await listener._handle_reconnect()
-            mock_sleep.assert_not_called()
 
 
 class TestFetchKills:
@@ -461,7 +525,7 @@ class TestListenLoop:
         """Test that reconnect delay resets after successful fetch."""
         listener = ZKillListener()
         listener._running = True
-        listener._reconnect_delay = 32  # Set high
+        listener.health.current_retry_attempt = 5
 
         call_count = 0
 
@@ -474,7 +538,7 @@ class TestListenLoop:
         with patch.object(listener, "_fetch_kills", side_effect=fake_fetch):
             await listener._listen_loop()
 
-        assert listener._reconnect_delay == 1  # Reset to 1
+        assert listener.health.current_retry_attempt == 0  # Reset on success
 
     @pytest.mark.asyncio
     async def test_listen_loop_handles_timeout(self):
@@ -498,13 +562,15 @@ class TestListenLoop:
 
         # Should have been called twice (timeout then success)
         assert call_count == 2
+        assert listener.state == ConnectionState.CONNECTED
 
     @pytest.mark.asyncio
     async def test_listen_loop_handles_http_error(self):
         """Test that HTTP errors trigger reconnect."""
         import httpx
 
-        listener = ZKillListener()
+        config = ReconnectionConfig(initial_delay=0.01)
+        listener = ZKillListener(config=config)
         listener._running = True
 
         call_count = 0
@@ -518,17 +584,17 @@ class TestListenLoop:
                 raise httpx.HTTPStatusError("Error", request=MagicMock(), response=response)
             listener._running = False
 
-        with (
-            patch.object(listener, "_fetch_kills", side_effect=fake_fetch),
-            patch.object(listener, "_handle_reconnect", new_callable=AsyncMock) as mock_reconnect,
-        ):
+        with patch.object(listener, "_fetch_kills", side_effect=fake_fetch):
             await listener._listen_loop()
-            mock_reconnect.assert_called_once()
+
+        assert call_count == 2
+        assert listener.health.total_disconnections == 1
 
     @pytest.mark.asyncio
     async def test_listen_loop_handles_generic_exception(self):
         """Test that generic exceptions trigger reconnect."""
-        listener = ZKillListener()
+        config = ReconnectionConfig(initial_delay=0.01)
+        listener = ZKillListener(config=config)
         listener._running = True
 
         call_count = 0
@@ -540,12 +606,10 @@ class TestListenLoop:
                 raise ValueError("Something went wrong")
             listener._running = False
 
-        with (
-            patch.object(listener, "_fetch_kills", side_effect=fake_fetch),
-            patch.object(listener, "_handle_reconnect", new_callable=AsyncMock) as mock_reconnect,
-        ):
+        with patch.object(listener, "_fetch_kills", side_effect=fake_fetch):
             await listener._listen_loop()
-            mock_reconnect.assert_called_once()
+
+        assert call_count == 2
 
     @pytest.mark.asyncio
     async def test_listen_loop_exits_on_cancel(self):
@@ -585,3 +649,52 @@ class TestGetZKillListener:
         listener1 = zkill_listener.get_zkill_listener()
         listener2 = zkill_listener.get_zkill_listener()
         assert listener1 is listener2
+
+
+class TestHealthStatus:
+    """Tests for health status reporting."""
+
+    def test_get_health_status(self):
+        """Test health status dictionary."""
+        config = ReconnectionConfig(
+            initial_delay=2.0,
+            max_delay=120.0,
+            multiplier=1.5,
+            max_attempts=10,
+        )
+        listener = ZKillListener(queue_id="test-queue", config=config)
+
+        status = listener.get_health_status()
+
+        assert status["name"] == "zkill_listener"
+        assert status["state"] == "disconnected"
+        assert status["is_connected"] is False
+        assert status["is_running"] is False
+        assert status["queue_id"] == "test-queue"
+        assert status["config"]["initial_delay"] == 2.0
+        assert status["config"]["max_delay"] == 120.0
+        assert status["config"]["multiplier"] == 1.5
+        assert status["config"]["max_attempts"] == 10
+        assert "health" in status
+        assert status["health"]["total_connections"] == 0
+
+    @pytest.mark.asyncio
+    async def test_health_status_after_connection(self):
+        """Test health status after connection."""
+        listener = ZKillListener()
+
+        with patch.object(listener, "_listen_loop", new_callable=AsyncMock):
+            await listener.start()
+
+        # Simulate connected state
+        listener._state = ConnectionState.CONNECTED
+        listener.health.record_connection()
+
+        status = listener.get_health_status()
+
+        assert status["state"] == "connected"
+        assert status["is_connected"] is True
+        assert status["is_running"] is True
+        assert status["health"]["total_connections"] == 1
+
+        await listener.stop()

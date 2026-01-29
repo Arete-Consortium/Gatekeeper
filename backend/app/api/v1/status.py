@@ -103,6 +103,31 @@ def format_uptime(seconds: float) -> str:
 
 
 @router.get(
+    "/websocket-health",
+    summary="Get WebSocket connection health",
+    description="Returns health status for WebSocket connections including zKillboard listener.",
+)
+async def get_websocket_health() -> dict[str, Any]:
+    """
+    Get health status for WebSocket connections.
+
+    This endpoint provides detailed health information about WebSocket connections:
+    - zKillboard listener status (connection state, retry attempts, uptime)
+    - Active client connections
+    - Connection statistics and metrics
+    """
+    from ...services.connection_manager import connection_manager
+    from ...services.zkill_listener import get_zkill_listener
+
+    zkill_listener = get_zkill_listener()
+
+    return {
+        "zkill_listener": zkill_listener.get_health_status(),
+        "client_connections": connection_manager.get_stats(),
+    }
+
+
+@router.get(
     "/version",
     summary="Get version info for website",
     description="Returns comprehensive version and project info for website display.",

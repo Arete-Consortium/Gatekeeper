@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     ZKILL_USER_AGENT: str = "EVE_Gatekeeper/1.0"
     ZKILL_REDISQ_URL: str = "https://redisq.zkillboard.com/listen.php"
 
+    # WebSocket Reconnection
+    WS_INITIAL_RETRY_DELAY: float = 1.0  # Initial delay in seconds
+    WS_MAX_RETRY_DELAY: float = 60.0  # Maximum delay between retries
+    WS_RETRY_MULTIPLIER: float = 2.0  # Exponential backoff multiplier
+    WS_MAX_RETRY_ATTEMPTS: int = 0  # 0 = unlimited retries
+    WS_HEALTH_CHECK_INTERVAL: float = 30.0  # Health check ping interval in seconds
+    WS_CONNECTION_TIMEOUT: float = 10.0  # Connection timeout in seconds
+
     # Redis Cache
     REDIS_URL: str | None = None
 
@@ -53,7 +61,9 @@ class Settings(BaseSettings):
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_PER_MINUTE: int = 100
+    RATE_LIMIT_PER_MINUTE: int = 100  # Default for unauthenticated (IP-based)
+    RATE_LIMIT_PER_MINUTE_USER: int = 200  # Per authenticated user (character_id)
+    RATE_LIMIT_PER_MINUTE_APIKEY: int = 300  # Per API key
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
