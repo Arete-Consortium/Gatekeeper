@@ -248,7 +248,7 @@ def get_jump_range(center_system: str, max_jumps: int = 5) -> dict[str, Any]:
     systems, _ = result
 
     # Group by security level
-    by_security = {"high_sec": [], "low_sec": [], "null_sec": []}
+    by_security: dict[str, list[str]] = {"high_sec": [], "low_sec": [], "null_sec": []}
     for s in systems:
         level = get_security_level(s.security_status).value
         by_security[level].append(s.system_name)

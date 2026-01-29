@@ -6,6 +6,7 @@ with security status coloring, threat overlays, and connection types.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import cast
 
 from .data_loader import load_universe
 
@@ -303,7 +304,7 @@ def get_region_map(region_name: str) -> RegionMapData | None:
     for gate in universe.gates:
         if gate.from_system in region_systems and gate.to_system in region_systems:
             # Avoid duplicate connections (A->B and B->A)
-            key = tuple(sorted([gate.from_system, gate.to_system]))
+            key = cast(tuple[str, str], tuple(sorted([gate.from_system, gate.to_system])))
             if key not in seen_connections:
                 seen_connections.add(key)
                 from_sys = universe.systems[gate.from_system]
@@ -321,9 +322,9 @@ def get_region_map(region_name: str) -> RegionMapData | None:
     # Get region ID from first system (they should all be the same)
     region_id = 0
     for system_name in region_systems:
-        system = universe.systems.get(system_name)
-        if system and system.region_id:
-            region_id = system.region_id
+        sys_info = universe.systems.get(system_name)
+        if sys_info and sys_info.region_id:
+            region_id = sys_info.region_id
             break
 
     return RegionMapData(
@@ -401,7 +402,7 @@ def get_systems_in_range(
         for system_name in visited:
             for neighbor in adjacency.get(system_name, []):
                 if neighbor in visited:
-                    key = tuple(sorted([system_name, neighbor]))
+                    key = cast(tuple[str, str], tuple(sorted([system_name, neighbor])))
                     if key not in seen:
                         seen.add(key)
                         from_sys = universe.systems[system_name]
@@ -462,7 +463,7 @@ def get_constellation_map(constellation_name: str) -> RegionMapData | None:
 
     for gate in universe.gates:
         if gate.from_system in const_systems and gate.to_system in const_systems:
-            key = tuple(sorted([gate.from_system, gate.to_system]))
+            key = cast(tuple[str, str], tuple(sorted([gate.from_system, gate.to_system])))
             if key not in seen_connections:
                 seen_connections.add(key)
                 from_sys = universe.systems[gate.from_system]

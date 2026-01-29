@@ -84,16 +84,16 @@ def _build_graph(
     # Add Pochven filament connections
     if use_pochven and is_pochven_enabled():
         pochven_connections = get_active_pochven()
-        for conn in pochven_connections:
-            if conn.from_system in avoid or conn.to_system in avoid:
+        for pconn in pochven_connections:
+            if pconn.from_system in avoid or pconn.to_system in avoid:
                 continue
-            if conn.from_system in graph and conn.to_system in graph:
+            if pconn.from_system in graph and pconn.to_system in graph:
                 # Weight 1: direct filament connection
-                graph[conn.from_system][conn.to_system] = 1.0
-                edge_types[(conn.from_system, conn.to_system)] = EDGE_POCHVEN
-                if conn.bidirectional:
-                    graph[conn.to_system][conn.from_system] = 1.0
-                    edge_types[(conn.to_system, conn.from_system)] = EDGE_POCHVEN
+                graph[pconn.from_system][pconn.to_system] = 1.0
+                edge_types[(pconn.from_system, pconn.to_system)] = EDGE_POCHVEN
+                if pconn.bidirectional:
+                    graph[pconn.to_system][pconn.from_system] = 1.0
+                    edge_types[(pconn.to_system, pconn.from_system)] = EDGE_POCHVEN
 
     return graph, edge_types
 
