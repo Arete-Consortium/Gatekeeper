@@ -96,3 +96,72 @@ def format_uptime(seconds: float) -> str:
     parts.append(f"{secs}s")
 
     return " ".join(parts)
+
+
+@router.get(
+    "/version",
+    summary="Get version info for website",
+    description="Returns comprehensive version and project info for website display.",
+)
+async def get_version() -> dict[str, Any]:
+    """
+    Get comprehensive version information for website display.
+
+    This endpoint returns all version information across components,
+    feature lists, and metadata suitable for an About page or footer.
+    """
+    return {
+        "name": settings.PROJECT_NAME,
+        "version": "1.2.0",
+        "tagline": "EVE Online navigation, routing, and intel visualization platform",
+        "description": (
+            "A comprehensive toolkit for EVE Online pilots featuring real-time map "
+            "visualization, risk-aware routing, capital jump planning, and live kill "
+            "feed streaming."
+        ),
+        "author": "AreteDriver",
+        "license": "MIT",
+        "repository": "https://github.com/AreteDriver/EVE_Gatekeeper",
+        "components": {
+            "api": {
+                "name": "EVE Gatekeeper API",
+                "version": settings.API_VERSION,
+                "framework": "FastAPI",
+                "python": ">=3.11",
+            },
+            "desktop": {
+                "name": "EVE Gatekeeper Desktop",
+                "version": "1.3.0",
+                "framework": "Electron",
+                "platforms": ["Windows", "macOS", "Linux"],
+            },
+            "mobile": {
+                "name": "EVE Gatekeeper Mobile",
+                "version": "1.0.0",
+                "framework": "React Native (Expo)",
+                "platforms": ["iOS", "Android", "Web"],
+            },
+        },
+        "features": [
+            "Risk-aware pathfinding with multiple safety profiles",
+            "Real-time kill feed via zKillboard WebSocket",
+            "Capital jump route planning",
+            "Ansiblex jump bridge management",
+            "Ship-type risk profiles (hauler, frigate, cruiser, etc.)",
+            "Discord and Slack webhook alerts",
+            "EVE Online ESI API integration",
+            "Interactive map visualization",
+        ],
+        "links": {
+            "documentation": "/docs",
+            "api": "/api/v1",
+            "health": "/health",
+            "status": "/api/v1/status",
+        },
+        "tech_stack": {
+            "backend": ["FastAPI", "Python 3.11+", "SQLite/PostgreSQL", "Redis"],
+            "frontend": ["React Native", "Expo", "TypeScript"],
+            "desktop": ["Electron"],
+            "deployment": ["Docker", "Docker Compose"],
+        },
+    }
