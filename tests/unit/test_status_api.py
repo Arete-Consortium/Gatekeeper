@@ -8,6 +8,7 @@ import pytest
 from backend.app.api.v1.status import (
     format_uptime,
     get_status,
+    get_version,
     set_start_time,
 )
 
@@ -159,3 +160,58 @@ class TestGetStatus:
         assert "uptime_formatted" in result
         assert "1h" in result["uptime_formatted"]
         assert "5m" in result["uptime_formatted"]
+
+
+class TestGetVersion:
+    """Tests for get_version endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_version_returns_expected_fields(self):
+        """Test that get_version returns all expected fields."""
+        with patch("backend.app.api.v1.status.settings") as mock_settings:
+            mock_settings.PROJECT_NAME = "EVE Gatekeeper"
+            mock_settings.API_VERSION = "1.0.0"
+
+            result = await get_version()
+
+        assert result["name"] == "EVE Gatekeeper"
+        assert result["version"] == "1.2.0"
+        assert "tagline" in result
+        assert "description" in result
+        assert "author" in result
+        assert "license" in result
+        assert "repository" in result
+        assert "components" in result
+        assert "features" in result
+        assert "links" in result
+        assert "tech_stack" in result
+
+    @pytest.mark.asyncio
+    async def test_get_version_components(self):
+        """Test that components contain expected data."""
+        with patch("backend.app.api.v1.status.settings") as mock_settings:
+            mock_settings.PROJECT_NAME = "EVE Gatekeeper"
+            mock_settings.API_VERSION = "1.0.0"
+
+            result = await get_version()
+
+        components = result["components"]
+        assert "api" in components
+        assert "desktop" in components
+        assert "mobile" in components
+        assert components["api"]["version"] == "1.0.0"
+        assert components["desktop"]["version"] == "1.3.0"
+        assert components["mobile"]["version"] == "1.0.0"
+
+    @pytest.mark.asyncio
+    async def test_get_version_features_list(self):
+        """Test that features list is populated."""
+        with patch("backend.app.api.v1.status.settings") as mock_settings:
+            mock_settings.PROJECT_NAME = "EVE Gatekeeper"
+            mock_settings.API_VERSION = "1.0.0"
+
+            result = await get_version()
+
+        assert isinstance(result["features"], list)
+        assert len(result["features"]) > 0
+        assert any("pathfinding" in f.lower() for f in result["features"])

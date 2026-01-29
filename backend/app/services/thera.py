@@ -1,6 +1,7 @@
 """Thera wormhole connection service via EVE-Scout API."""
 
 import time
+from typing import cast
 
 import httpx
 
@@ -11,7 +12,7 @@ EVE_SCOUT_URL = "https://api.eve-scout.com/v2/public/signatures"
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
 # In-memory cache
-_cache: dict[str, object] = {
+_cache: dict[str, list[TheraConnection] | float | str | None] = {
     "connections": [],
     "timestamp": 0.0,
     "last_error": None,
@@ -32,10 +33,10 @@ def fetch_thera_connections() -> list[TheraConnection]:
     Results are cached for CACHE_TTL_SECONDS.
     """
     now = time.time()
-    cache_age = now - float(_cache["timestamp"])
+    cache_age = now - cast(float, _cache["timestamp"])
 
     if cache_age < CACHE_TTL_SECONDS and _cache["connections"]:
-        return list(_cache["connections"])  # type: ignore[arg-type]
+        return list(cast(list[TheraConnection], _cache["connections"]))
 
     try:
         resp = httpx.get(EVE_SCOUT_URL, timeout=10.0)
@@ -52,7 +53,7 @@ def fetch_thera_connections() -> list[TheraConnection]:
         _cache["last_error"] = str(e)
         # Return stale cache if available
         if _cache["connections"]:
-            return list(_cache["connections"])  # type: ignore[arg-type]
+            return list(cast(list[TheraConnection], _cache["connections"]))
         return []
 
 
@@ -84,7 +85,7 @@ def get_active_thera() -> list[TheraConnection]:
 
 def get_thera_cache_age() -> float | None:
     """Return cache age in seconds, or None if never fetched."""
-    ts = float(_cache["timestamp"])
+    ts = cast(float, _cache["timestamp"])
     if ts == 0.0:
         return None
     return time.time() - ts
@@ -92,4 +93,4 @@ def get_thera_cache_age() -> float | None:
 
 def get_thera_last_error() -> str | None:
     """Return the last error message, if any."""
-    return _cache["last_error"]  # type: ignore[return-value]
+    return cast(str | None, _cache["last_error"])

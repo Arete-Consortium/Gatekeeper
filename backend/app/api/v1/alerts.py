@@ -273,7 +273,7 @@ async def get_alert_stats() -> dict:
     """Get statistics about alert subscriptions."""
     subs = list_subscriptions()
     enabled = sum(1 for s in subs if s.enabled)
-    by_type = {}
+    by_type: dict[str, int] = {}
     for s in subs:
         by_type[s.webhook_type.value] = by_type.get(s.webhook_type.value, 0) + 1
 
