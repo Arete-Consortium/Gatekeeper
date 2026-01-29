@@ -385,7 +385,8 @@ async def run_server() -> None:
         if request is None:
             break
         response = await server.handle_request(request)
-        write_message(response)
+        if response is not None:
+            write_message(response)
 
 
 def main() -> None:

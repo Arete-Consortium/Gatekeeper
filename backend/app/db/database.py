@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
@@ -54,7 +55,7 @@ def get_engine() -> AsyncEngine:
         )
 
         # Engine configuration
-        engine_kwargs = {
+        engine_kwargs: dict[str, Any] = {
             "echo": settings.DEBUG,
             "pool_pre_ping": True,  # Check connection validity
         }
