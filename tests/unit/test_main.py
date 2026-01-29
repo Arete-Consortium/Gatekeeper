@@ -63,8 +63,17 @@ class TestHealthCheck:
         mock_universe = MagicMock()
         mock_universe.systems = {"Jita": MagicMock()}
 
+        # Mock cache with working ping
         mock_cache = MagicMock()
-        mock_cache._redis = MagicMock()  # Has _redis attribute = redis cache
+        mock_cache._redis = MagicMock()
+
+        async def mock_ping():
+            return True
+
+        mock_cache.ping = mock_ping
+
+        async def mock_get_cache():
+            return mock_cache
 
         with (
             patch("backend.app.main.settings", mock_settings),
@@ -72,7 +81,7 @@ class TestHealthCheck:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch("backend.app.services.cache.get_cache_sync", return_value=mock_cache),
+            patch("backend.app.services.cache.get_cache", mock_get_cache),
         ):
             result = await health_check()
 
@@ -89,8 +98,11 @@ class TestHealthCheck:
         mock_universe = MagicMock()
         mock_universe.systems = {"Jita": MagicMock()}
 
-        # Cache without _redis attribute (memory cache)
-        mock_cache = MagicMock(spec=[])  # No _redis
+        # Cache without _redis or ping (memory cache)
+        mock_cache = MagicMock(spec=[])
+
+        async def mock_get_cache():
+            return mock_cache
 
         with (
             patch("backend.app.main.settings", mock_settings),
@@ -98,7 +110,7 @@ class TestHealthCheck:
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch("backend.app.services.cache.get_cache_sync", return_value=mock_cache),
+            patch("backend.app.services.cache.get_cache", mock_get_cache),
         ):
             result = await health_check()
 
@@ -106,7 +118,7 @@ class TestHealthCheck:
 
     @pytest.mark.asyncio
     async def test_health_check_redis_exception(self, mock_settings):
-        """Test health check defaults to memory when get_cache_sync raises."""
+        """Test health check defaults to memory when get_cache raises."""
         from backend.app.main import health_check
 
         mock_settings.REDIS_URL = "redis://localhost:6379"
@@ -114,16 +126,16 @@ class TestHealthCheck:
         mock_universe = MagicMock()
         mock_universe.systems = {"Jita": MagicMock()}
 
+        async def mock_get_cache_error():
+            raise Exception("Redis connection failed")
+
         with (
             patch("backend.app.main.settings", mock_settings),
             patch(
                 "backend.app.services.data_loader.load_universe",
                 return_value=mock_universe,
             ),
-            patch(
-                "backend.app.services.cache.get_cache_sync",
-                side_effect=Exception("Redis connection failed"),
-            ),
+            patch("backend.app.services.cache.get_cache", mock_get_cache_error),
         ):
             result = await health_check()
 

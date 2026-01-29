@@ -118,8 +118,8 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 1. ~~**zkill_client.py stub**: `fetch_system_stats()` at line 4-10 returns empty `ZKillStats()` - needs real HTTP implementation~~ **FIXED**
 2. ~~**SECRET_KEY**: Hardcoded default "change-me-in-production" in `backend/app/core/config.py:61`~~ **FIXED** - Validation added
 3. ~~**CORS**: `allow_credentials=True` + `allow_methods=["*"]` may be overly permissive in `backend/app/main.py:60-63`~~ **FIXED** - Explicit methods/headers
-4. **ESI status**: Health check returns "unknown" - `backend/app/main.py:159-161`
-5. **Redis check**: Only verifies config exists, not actual connectivity - `backend/app/api/v1/status.py:51-55`
+4. ~~**ESI status**: Health check returns "unknown" - `backend/app/main.py:159-161`~~ **FIXED** - Actual HTTP check
+5. ~~**Redis check**: Only verifies config exists, not actual connectivity - `backend/app/api/v1/status.py:51-55`~~ **FIXED** - Uses ping()
 6. **Print statements**: ~30+ instances in `backend/starmap/ingest_sde.py` should use structured logging
 
 ### References

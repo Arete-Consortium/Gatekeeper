@@ -1,7 +1,7 @@
 """Unit tests for status API endpoints."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -115,8 +115,20 @@ class TestGetStatus:
         assert result["checks"]["systems_loaded"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_status_redis_configured(self):
-        """Test status when Redis is configured."""
+    async def test_get_status_redis_connected(self):
+        """Test status when Redis is configured and connected."""
+        # Mock cache with working ping
+        mock_cache = MagicMock()
+        mock_cache._redis = MagicMock()
+
+        async def mock_ping():
+            return True
+
+        mock_cache.ping = mock_ping
+
+        async def mock_get_cache():
+            return mock_cache
+
         with patch("backend.app.api.v1.status.settings") as mock_settings:
             mock_settings.API_VERSION = "1.0.0"
             mock_settings.PROJECT_NAME = "Test"
@@ -127,12 +139,15 @@ class TestGetStatus:
             mock_settings.API_KEY_ENABLED = False
             mock_settings.METRICS_ENABLED = False
 
-            with patch("backend.app.services.data_loader.load_universe") as mock_universe:
+            with (
+                patch("backend.app.services.data_loader.load_universe") as mock_universe,
+                patch("backend.app.services.cache.get_cache", mock_get_cache),
+            ):
                 mock_universe.return_value.systems = {}
 
                 result = await get_status()
 
-        assert result["checks"]["cache"] == "redis_configured"
+        assert result["checks"]["cache"] == "redis"
 
     @pytest.mark.asyncio
     async def test_get_status_uptime_formatted(self):

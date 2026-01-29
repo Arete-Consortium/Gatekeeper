@@ -152,19 +152,37 @@ async def health_check() -> dict[str, Any]:
     except Exception:
         database_status = "error"
 
-    # Check cache status
+    # Check cache status (actual connectivity)
     cache_status = "memory"
     if settings.REDIS_URL:
         try:
-            from .services.cache import get_cache_sync
+            from .services.cache import get_cache
 
-            cache = get_cache_sync()
-            cache_status = "redis" if hasattr(cache, "_redis") else "memory"
+            cache = await get_cache()
+            if hasattr(cache, "ping") and await cache.ping():
+                cache_status = "redis"
+            elif hasattr(cache, "_redis"):
+                cache_status = "redis_degraded"
+            else:
+                cache_status = "memory"
         except Exception:
             cache_status = "memory"
 
     # Check ESI connectivity
     esi_status = "unknown"
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{settings.ESI_BASE_URL}/status/")
+            if response.status_code == 200:
+                esi_status = "ok"
+            else:
+                esi_status = "degraded"
+    except httpx.TimeoutException:
+        esi_status = "timeout"
+    except Exception:
+        esi_status = "error"
 
     # Overall status
     overall_status = "healthy"

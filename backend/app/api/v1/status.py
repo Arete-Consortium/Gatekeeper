@@ -45,12 +45,16 @@ async def get_status() -> dict[str, Any]:
         database_status = "error"
         system_count = 0
 
-    # Check cache status
-    cache_status = "ok"
+    # Check cache status (actual connectivity)
+    cache_status = "memory"
     try:
-        if settings.REDIS_URL:
-            # Redis configured but may not be connected yet
-            cache_status = "redis_configured"
+        from ...services.cache import get_cache
+
+        cache = await get_cache()
+        if hasattr(cache, "ping") and await cache.ping():
+            cache_status = "redis"
+        elif hasattr(cache, "_redis"):
+            cache_status = "redis_degraded"
         else:
             cache_status = "memory"
     except Exception:
