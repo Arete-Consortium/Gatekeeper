@@ -17,21 +17,10 @@ import {
 } from 'react-native';
 import { GatekeeperAPI } from '../services/GatekeeperAPI';
 import { THEME } from '../config';
-
-interface Subscription {
-  id: string;
-  name: string | null;
-  webhook_type: string;
-  systems: string[];
-  regions: number[];
-  min_value: number | null;
-  include_pods: boolean;
-  ship_types: string[];
-  enabled: boolean;
-}
+import { AlertSubscription } from '../types';
 
 export const AlertsScreen: React.FC = () => {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<AlertSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);

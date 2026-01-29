@@ -133,10 +133,25 @@ describe('Desktop App Configuration', () => {
     it('should have IPC communication methods', () => {
       expect(preloadJsContent).toContain('send');
       expect(preloadJsContent).toContain('receive');
+      expect(preloadJsContent).toContain('invoke');
     });
 
     it('should validate IPC channels', () => {
-      expect(preloadJsContent).toContain('validChannels');
+      expect(preloadJsContent).toContain('SEND_CHANNELS');
+      expect(preloadJsContent).toContain('RECEIVE_CHANNELS');
+      expect(preloadJsContent).toContain('INVOKE_CHANNELS');
+    });
+
+    it('should have notification helper', () => {
+      expect(preloadJsContent).toContain('showNotification');
+    });
+
+    it('should have kill alert helper', () => {
+      expect(preloadJsContent).toContain('sendKillAlert');
+    });
+
+    it('should have navigation listener', () => {
+      expect(preloadJsContent).toContain('onNavigate');
     });
   });
 
@@ -153,6 +168,10 @@ describe('Desktop App Configuration', () => {
     beforeAll(() => {
       const mainJsPath = path.join(__dirname, '..', 'src', 'main.js');
       mainJsContent = fs.readFileSync(mainJsPath, 'utf8');
+    });
+
+    it('should have Navigate menu', () => {
+      expect(mainJsContent).toContain("label: 'Navigate'");
     });
 
     it('should have Edit menu', () => {
@@ -174,6 +193,88 @@ describe('Desktop App Configuration', () => {
     it('should have external links in Help menu', () => {
       expect(mainJsContent).toContain('zkillboard.com');
       expect(mainJsContent).toContain('github.com/AreteDriver/EVE_Gatekeeper');
+    });
+
+    it('should have keyboard shortcuts', () => {
+      expect(mainJsContent).toContain('CmdOrCtrl+1');
+      expect(mainJsContent).toContain('CmdOrCtrl+2');
+      expect(mainJsContent).toContain('CmdOrCtrl+3');
+      expect(mainJsContent).toContain('CmdOrCtrl+4');
+    });
+  });
+
+  describe('System Tray', () => {
+    let mainJsContent;
+
+    beforeAll(() => {
+      const mainJsPath = path.join(__dirname, '..', 'src', 'main.js');
+      mainJsContent = fs.readFileSync(mainJsPath, 'utf8');
+    });
+
+    it('should import Tray module', () => {
+      expect(mainJsContent).toContain('Tray');
+    });
+
+    it('should define createTray function', () => {
+      expect(mainJsContent).toContain('function createTray()');
+    });
+
+    it('should have tray context menu', () => {
+      expect(mainJsContent).toContain('tray.setContextMenu');
+    });
+
+    it('should handle tray double-click', () => {
+      expect(mainJsContent).toContain("tray.on('double-click'");
+    });
+  });
+
+  describe('Native Notifications', () => {
+    let mainJsContent;
+
+    beforeAll(() => {
+      const mainJsPath = path.join(__dirname, '..', 'src', 'main.js');
+      mainJsContent = fs.readFileSync(mainJsPath, 'utf8');
+    });
+
+    it('should import Notification module', () => {
+      expect(mainJsContent).toContain('Notification');
+    });
+
+    it('should define showNotification function', () => {
+      expect(mainJsContent).toContain('function showNotification');
+    });
+
+    it('should check notification support', () => {
+      expect(mainJsContent).toContain('Notification.isSupported()');
+    });
+  });
+
+  describe('IPC Handlers', () => {
+    let mainJsContent;
+
+    beforeAll(() => {
+      const mainJsPath = path.join(__dirname, '..', 'src', 'main.js');
+      mainJsContent = fs.readFileSync(mainJsPath, 'utf8');
+    });
+
+    it('should import ipcMain', () => {
+      expect(mainJsContent).toContain('ipcMain');
+    });
+
+    it('should register IPC handlers', () => {
+      expect(mainJsContent).toContain('function registerIpcHandlers()');
+    });
+
+    it('should handle show-notification channel', () => {
+      expect(mainJsContent).toContain("ipcMain.on('show-notification'");
+    });
+
+    it('should handle kill-alert channel', () => {
+      expect(mainJsContent).toContain("ipcMain.on('kill-alert'");
+    });
+
+    it('should handle window state requests', () => {
+      expect(mainJsContent).toContain("ipcMain.handle('get-window-state'");
     });
   });
 });

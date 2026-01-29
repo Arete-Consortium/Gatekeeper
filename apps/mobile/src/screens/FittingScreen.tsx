@@ -16,40 +16,12 @@ import {
 } from 'react-native';
 import { GatekeeperAPI } from '../services/GatekeeperAPI';
 import { THEME } from '../config';
-
-interface ParsedFitting {
-  ship_name: string;
-  ship_category: string;
-  jump_capability: string;
-  modules: string[];
-  is_covert_capable: boolean;
-  is_cloak_capable: boolean;
-  has_warp_stabs: boolean;
-  is_bubble_immune: boolean;
-  has_align_mods: boolean;
-  has_warp_speed_mods: boolean;
-}
-
-interface TravelRecommendation {
-  can_use_gates: boolean;
-  can_use_jump_bridges: boolean;
-  can_jump: boolean;
-  can_bridge_others: boolean;
-  can_covert_bridge: boolean;
-  recommended_profile: string;
-  warnings: string[];
-  tips: string[];
-}
-
-interface AnalysisResult {
-  fitting: ParsedFitting;
-  travel: TravelRecommendation;
-}
+import { FittingAnalysisResponse } from '../types';
 
 export const FittingScreen: React.FC = () => {
   const [eftText, setEftText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<FittingAnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const analyzeFitting = async () => {
