@@ -6,15 +6,17 @@ It fetches regions, constellations, systems, and stargates,
 then computes derived data like 2D projections and graph connections.
 
 Usage:
-    python -m scripts.ingest_sde [--reset] [--skip-stargates]
+    python -m scripts.ingest_sde [--reset] [--skip-stargates] [--verbose]
 
 Options:
     --reset          Drop and recreate all tables before ingestion
     --skip-stargates Skip stargate fetching (faster for testing)
+    --verbose, -v    Enable verbose (DEBUG) logging
 """
 
 import argparse
 import asyncio
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +30,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend.starmap.sde.schema import create_tables, get_db_path, reset_database
+
+logger = logging.getLogger(__name__)
 
 # ESI Configuration
 ESI_BASE_URL = "https://esi.evetech.net/latest"
@@ -104,7 +108,7 @@ def classify_security(security_status: float, is_wormhole: bool = False) -> str:
 
 async def fetch_all_regions(client: ESIClient) -> list[int]:
     """Fetch list of all region IDs."""
-    print("Fetching region list...")
+    logger.info("Fetching region list...")
     result: list[int] = await client.get("/universe/regions/")
     return result
 
@@ -135,10 +139,10 @@ async def fetch_stargate_details(client: ESIClient, stargate_id: int) -> dict[st
 
 async def ingest_regions(db: aiosqlite.Connection, client: ESIClient) -> dict[int, dict[str, Any]]:
     """Fetch and insert all regions."""
-    print("\n=== Ingesting Regions ===")
+    logger.info("Ingesting Regions")
 
     region_ids = await fetch_all_regions(client)
-    print(f"Found {len(region_ids)} regions")
+    logger.info("Found %d regions", len(region_ids))
 
     regions = {}
     tasks = [fetch_region_details(client, rid) for rid in region_ids]
@@ -147,7 +151,7 @@ async def ingest_regions(db: aiosqlite.Connection, client: ESIClient) -> dict[in
     insert_count = 0
     for rid, result in zip(region_ids, results, strict=False):
         if isinstance(result, BaseException):
-            print(f"  Error fetching region {rid}: {result}")
+            logger.warning("Error fetching region %d: %s", rid, result)
             continue
 
         regions[rid] = result
@@ -177,10 +181,10 @@ async def ingest_regions(db: aiosqlite.Connection, client: ESIClient) -> dict[in
         insert_count += 1
 
         if insert_count % 20 == 0:
-            print(f"  Inserted {insert_count} regions...")
+            logger.debug("Inserted %d regions...", insert_count)
 
     await db.commit()
-    print(f"Inserted {insert_count} regions")
+    logger.info("Inserted %d regions", insert_count)
     return regions
 
 
@@ -190,14 +194,14 @@ async def ingest_constellations(
     regions: dict[int, dict[str, Any]],
 ) -> dict[int, dict[str, Any]]:
     """Fetch and insert all constellations."""
-    print("\n=== Ingesting Constellations ===")
+    logger.info("Ingesting Constellations")
 
     # Collect all constellation IDs from regions
     constellation_ids = []
     for region_data in regions.values():
         constellation_ids.extend(region_data.get("constellations", []))
 
-    print(f"Found {len(constellation_ids)} constellations")
+    logger.info("Found %d constellations", len(constellation_ids))
 
     constellations = {}
     # Batch fetch constellations
@@ -207,7 +211,7 @@ async def ingest_constellations(
     insert_count = 0
     for cid, result in zip(constellation_ids, results, strict=False):
         if isinstance(result, BaseException):
-            print(f"  Error fetching constellation {cid}: {result}")
+            logger.warning("Error fetching constellation %d: %s", cid, result)
             continue
 
         constellations[cid] = result
@@ -236,10 +240,10 @@ async def ingest_constellations(
         insert_count += 1
 
         if insert_count % 100 == 0:
-            print(f"  Inserted {insert_count} constellations...")
+            logger.debug("Inserted %d constellations...", insert_count)
 
     await db.commit()
-    print(f"Inserted {insert_count} constellations")
+    logger.info("Inserted %d constellations", insert_count)
     return constellations
 
 
@@ -249,7 +253,7 @@ async def ingest_systems(
     constellations: dict[int, dict[str, Any]],
 ) -> dict[int, dict[str, Any]]:
     """Fetch and insert all solar systems."""
-    print("\n=== Ingesting Solar Systems ===")
+    logger.info("Ingesting Solar Systems")
 
     # Collect all system IDs from constellations
     system_ids = []
@@ -259,7 +263,7 @@ async def ingest_systems(
             system_ids.append(sid)
             constellation_map[sid] = const_data["constellation_id"]
 
-    print(f"Found {len(system_ids)} solar systems")
+    logger.info("Found %d solar systems", len(system_ids))
 
     systems = {}
     # Batch fetch in chunks to avoid memory issues
@@ -273,7 +277,7 @@ async def ingest_systems(
 
         for sid, result in zip(chunk, results, strict=False):
             if isinstance(result, BaseException):
-                print(f"  Error fetching system {sid}: {result}")
+                logger.warning("Error fetching system %d: %s", sid, result)
                 continue
 
             systems[sid] = result
@@ -330,10 +334,10 @@ async def ingest_systems(
             )
             insert_count += 1
 
-        print(f"  Inserted {insert_count} / {len(system_ids)} systems...")
+        logger.debug("Inserted %d / %d systems...", insert_count, len(system_ids))
         await db.commit()
 
-    print(f"Inserted {insert_count} solar systems")
+    logger.info("Inserted %d solar systems", insert_count)
     return systems
 
 
@@ -343,14 +347,14 @@ async def ingest_stargates(
     systems: dict[int, dict[str, Any]],
 ) -> None:
     """Fetch and insert all stargates and build connection graph."""
-    print("\n=== Ingesting Stargates ===")
+    logger.info("Ingesting Stargates")
 
     # Collect all stargate IDs from systems
     stargate_ids = []
     for system_data in systems.values():
         stargate_ids.extend(system_data.get("stargates", []))
 
-    print(f"Found {len(stargate_ids)} stargates")
+    logger.info("Found %d stargates", len(stargate_ids))
 
     # Batch fetch stargates
     chunk_size = 500
@@ -399,13 +403,13 @@ async def ingest_stargates(
                 connections.add((from_sys, to_sys))
                 connections.add((to_sys, from_sys))
 
-        print(f"  Inserted {insert_count} / {len(stargate_ids)} stargates...")
+        logger.debug("Inserted %d / %d stargates...", insert_count, len(stargate_ids))
         await db.commit()
 
-    print(f"Inserted {insert_count} stargates")
+    logger.info("Inserted %d stargates", insert_count)
 
     # Insert connections
-    print(f"\nBuilding connection graph with {len(connections)} edges...")
+    logger.info("Building connection graph with %d edges...", len(connections))
 
     # Precompute security weights
     cursor = await db.execute("SELECT system_id, security_status FROM solar_systems")
@@ -431,12 +435,12 @@ async def ingest_stargates(
         )
 
     await db.commit()
-    print("Built connection graph")
+    logger.info("Built connection graph")
 
 
 async def update_region_ids(db: aiosqlite.Connection) -> None:
     """Update region_id in solar_systems from constellation data."""
-    print("\nUpdating region IDs in solar systems...")
+    logger.info("Updating region IDs in solar systems...")
 
     await db.execute(
         """
@@ -454,7 +458,7 @@ async def update_region_ids(db: aiosqlite.Connection) -> None:
 
 async def compute_statistics(db: aiosqlite.Connection) -> None:
     """Compute and display ingestion statistics."""
-    print("\n=== Ingestion Statistics ===")
+    logger.info("Ingestion Statistics")
 
     queries = [
         ("Regions", "SELECT COUNT(*) FROM regions"),
@@ -472,19 +476,18 @@ async def compute_statistics(db: aiosqlite.Connection) -> None:
         cursor = await db.execute(query)
         row = await cursor.fetchone()
         count = row[0] if row else 0
-        print(f"  {label}: {count:,}")
+        logger.info("  %s: %s", label, f"{count:,}")
 
 
 async def main_async(reset: bool = False, skip_stargates: bool = False) -> None:
     """Main ingestion routine."""
-    print("EVE Starmap - SDE Ingestion")
-    print("=" * 50)
+    logger.info("EVE Starmap - SDE Ingestion")
 
     db_path = get_db_path()
-    print(f"Database: {db_path}")
+    logger.info("Database: %s", db_path)
 
     if reset:
-        print("\nResetting database...")
+        logger.info("Resetting database...")
         await reset_database(db_path)
     else:
         await create_tables(db_path)
@@ -503,13 +506,12 @@ async def main_async(reset: bool = False, skip_stargates: bool = False) -> None:
             if not skip_stargates:
                 await ingest_stargates(db, client, systems)
             else:
-                print("\nSkipping stargate ingestion")
+                logger.info("Skipping stargate ingestion")
 
             await update_region_ids(db)
             await compute_statistics(db)
 
-    print("\n" + "=" * 50)
-    print("Ingestion complete!")
+    logger.info("Ingestion complete!")
 
 
 def main() -> None:
@@ -525,8 +527,23 @@ def main() -> None:
         action="store_true",
         help="Skip stargate ingestion (faster for testing)",
     )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose (DEBUG) logging",
+    )
 
     args = parser.parse_args()
+
+    # Configure logging for CLI
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s | %(levelname)-8s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
     asyncio.run(main_async(reset=args.reset, skip_stargates=args.skip_stargates))
 
 

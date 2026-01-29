@@ -51,7 +51,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [ ] Add cache hit/miss rate metrics
 
 ### Logging
-- [ ] Replace print() with structured logging in ingest_sde.py
+- [x] Replace print() with structured logging in ingest_sde.py
 
 ### Configuration
 - [ ] Make ESI concurrency limit configurable via env var
@@ -99,7 +99,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Auth | 2 | 0 |
 | Performance | 3 | 0 |
 | Monitoring | 5 | 0 |
-| Logging | 1 | 0 |
+| Logging | 0 | 1 |
 | Config | 3 | 0 |
 | Data | 2 | 0 |
 | Cache | 2 | 0 |
@@ -107,7 +107,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Features | 3 | 0 |
 | Dependencies | 2 | 0 |
 | Ops | 1 | 0 |
-| **Total** | **30** | **10** |
+| **Total** | **29** | **11** |
 
 ---
 
@@ -120,7 +120,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 3. ~~**CORS**: `allow_credentials=True` + `allow_methods=["*"]` may be overly permissive in `backend/app/main.py:60-63`~~ **FIXED** - Explicit methods/headers
 4. ~~**ESI status**: Health check returns "unknown" - `backend/app/main.py:159-161`~~ **FIXED** - Actual HTTP check
 5. ~~**Redis check**: Only verifies config exists, not actual connectivity - `backend/app/api/v1/status.py:51-55`~~ **FIXED** - Uses ping()
-6. **Print statements**: ~30+ instances in `backend/starmap/ingest_sde.py` should use structured logging
+6. ~~**Print statements**: ~30+ instances in `backend/starmap/ingest_sde.py` should use structured logging~~ **FIXED** - Converted to logging module
 
 ### References
 
