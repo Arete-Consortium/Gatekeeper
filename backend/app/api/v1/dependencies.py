@@ -6,8 +6,9 @@ Provides dependency injection for:
 - Scope verification
 """
 
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -65,7 +66,9 @@ async def get_current_character(
     )
 
 
-def require_scopes(*required_scopes: str):
+def require_scopes(
+    *required_scopes: str,
+) -> Callable[..., Coroutine[Any, Any, AuthenticatedCharacter]]:
     """
     Dependency factory to require specific ESI scopes.
 

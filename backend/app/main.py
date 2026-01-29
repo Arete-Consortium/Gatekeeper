@@ -97,7 +97,7 @@ _startup_time: datetime = datetime.now(UTC)
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     """Initialize application on startup."""
     global _startup_time
     _startup_time = datetime.now(UTC)
@@ -111,7 +111,7 @@ async def startup_event():
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     """Cleanup on application shutdown."""
     # Stop zKillboard listener
     from .services.zkill_listener import get_zkill_listener
