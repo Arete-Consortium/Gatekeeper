@@ -2,7 +2,9 @@
 
 import logging
 import sys
+from collections.abc import Awaitable, Callable
 from datetime import UTC
+from typing import Any
 
 import structlog
 from structlog.types import EventDict, Processor
@@ -106,10 +108,12 @@ def get_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
 class LoggingMiddleware:
     """Middleware to add request context to logs."""
 
-    def __init__(self, app):
+    def __init__(self, app: Callable[..., Awaitable[Any]]) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self, scope: dict[str, Any], receive: Callable[..., Any], send: Callable[..., Any]
+    ) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return

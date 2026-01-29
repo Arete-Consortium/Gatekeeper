@@ -16,6 +16,11 @@ import {
   RouteHistoryResponse,
   SystemStats,
   HotSystem,
+  FittingAnalysisResponse,
+  AlertSubscription,
+  AlertSubscriptionListResponse,
+  CreateAlertSubscriptionRequest,
+  TestAlertResponse,
 } from '../types';
 
 class GatekeeperAPIService {
@@ -223,6 +228,61 @@ class GatekeeperAPIService {
 
     await Promise.all(promises);
     return riskMap;
+  }
+
+  // ==================== Fitting Analysis ====================
+
+  /**
+   * Analyze a ship fitting for travel recommendations
+   */
+  async analyzeFitting(eftText: string): Promise<FittingAnalysisResponse> {
+    const response = await this.client.post('/fitting/analyze', {
+      eft_text: eftText,
+    });
+    return response.data;
+  }
+
+  // ==================== Alert Subscriptions ====================
+
+  /**
+   * List all alert subscriptions
+   */
+  async listAlertSubscriptions(): Promise<AlertSubscriptionListResponse> {
+    const response = await this.client.get('/alerts/subscriptions');
+    return response.data;
+  }
+
+  /**
+   * Create a new alert subscription
+   */
+  async createAlertSubscription(
+    data: CreateAlertSubscriptionRequest
+  ): Promise<AlertSubscription> {
+    const response = await this.client.post('/alerts/subscriptions', data);
+    return response.data;
+  }
+
+  /**
+   * Delete an alert subscription
+   */
+  async deleteAlertSubscription(subscriptionId: string): Promise<void> {
+    await this.client.delete(`/alerts/subscriptions/${subscriptionId}`);
+  }
+
+  /**
+   * Send a test alert to verify webhook configuration
+   */
+  async sendTestAlert(
+    systemName: string = 'Jita',
+    shipType: string = 'Caracal',
+    totalValue: number = 100000000
+  ): Promise<TestAlertResponse> {
+    const response = await this.client.post('/alerts/test', {
+      system_name: systemName,
+      ship_type: shipType,
+      total_value: totalValue,
+    });
+    return response.data;
   }
 
   // ==================== Utility ====================

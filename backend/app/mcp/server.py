@@ -360,7 +360,7 @@ class MCPServer:
         }
 
 
-async def run_server():
+async def run_server() -> None:
     """Run the MCP server with stdio transport."""
     server = MCPServer()
 
@@ -374,7 +374,7 @@ async def run_server():
         except json.JSONDecodeError:
             return None
 
-    def write_message(message: dict):
+    def write_message(message: dict) -> None:
         """Write a JSON-RPC message to stdout."""
         if message is not None:
             sys.stdout.write(json.dumps(message) + "\n")
@@ -385,10 +385,11 @@ async def run_server():
         if request is None:
             break
         response = await server.handle_request(request)
-        write_message(response)
+        if response is not None:
+            write_message(response)
 
 
-def main():
+def main() -> None:
     """Entry point for the MCP server."""
     asyncio.run(run_server())
 

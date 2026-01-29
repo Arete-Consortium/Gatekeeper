@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.websocket("/ws/killfeed")
-async def killfeed_websocket(websocket: WebSocket):
+async def killfeed_websocket(websocket: WebSocket) -> None:
     """
     WebSocket endpoint for real-time kill feed.
 

@@ -189,3 +189,73 @@ export interface HotSystem {
   recent_kills: number;
   recent_pods: number;
 }
+
+// Fitting analysis types
+export interface ParsedFitting {
+  ship_name: string;
+  ship_category: string;
+  jump_capability: string;
+  modules: string[];
+  cargo: string[];
+  drones: string[];
+  charges: string[];
+  is_covert_capable: boolean;
+  is_cloak_capable: boolean;
+  has_warp_stabs: boolean;
+  is_bubble_immune: boolean;
+  has_align_mods: boolean;
+  has_warp_speed_mods: boolean;
+}
+
+export interface TravelRecommendation {
+  ship_name: string;
+  category: string;
+  can_use_gates: boolean;
+  can_use_jump_bridges: boolean;
+  can_jump: boolean;
+  can_bridge_others: boolean;
+  can_covert_bridge: boolean;
+  recommended_profile: string;
+  warnings: string[];
+  tips: string[];
+}
+
+export interface FittingAnalysisResponse {
+  fitting: ParsedFitting;
+  travel: TravelRecommendation;
+}
+
+// Alert subscription types
+export interface AlertSubscription {
+  id: string;
+  name: string | null;
+  webhook_type: 'discord' | 'slack';
+  systems: string[];
+  regions: number[];
+  min_value: number | null;
+  include_pods: boolean;
+  ship_types: string[];
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface AlertSubscriptionListResponse {
+  total: number;
+  subscriptions: AlertSubscription[];
+}
+
+export interface CreateAlertSubscriptionRequest {
+  webhook_url: string;
+  webhook_type: 'discord' | 'slack';
+  name?: string;
+  systems?: string[];
+  regions?: number[];
+  min_value?: number;
+  include_pods?: boolean;
+  ship_types?: string[];
+}
+
+export interface TestAlertResponse {
+  sent_count: number;
+  message: string;
+}

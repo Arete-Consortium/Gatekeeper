@@ -2,9 +2,15 @@
 
 import logging
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 from ..core.config import settings
@@ -39,7 +45,7 @@ def get_database_url() -> str:
 _engine = None
 
 
-def get_engine():
+def get_engine() -> AsyncEngine:
     """Get or create the database engine."""
     global _engine
     if _engine is None:
@@ -49,7 +55,7 @@ def get_engine():
         )
 
         # Engine configuration
-        engine_kwargs = {
+        engine_kwargs: dict[str, Any] = {
             "echo": settings.DEBUG,
             "pool_pre_ping": True,  # Check connection validity
         }
@@ -82,7 +88,7 @@ def get_engine():
 _session_factory = None
 
 
-def get_session_factory():
+def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Get or create the session factory."""
     global _session_factory
     if _session_factory is None:
