@@ -29,15 +29,16 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from backend.app.core.config import settings
 from backend.starmap.sde.schema import create_tables, get_db_path, reset_database
 
 logger = logging.getLogger(__name__)
 
-# ESI Configuration
-ESI_BASE_URL = "https://esi.evetech.net/latest"
+# ESI Configuration - use settings with defaults
+ESI_BASE_URL = settings.ESI_BASE_URL
 ESI_DATASOURCE = "tranquility"
-CONCURRENCY_LIMIT = 20  # Max concurrent requests
-REQUEST_TIMEOUT = 30.0
+CONCURRENCY_LIMIT = settings.ESI_CONCURRENCY_LIMIT
+REQUEST_TIMEOUT = settings.ESI_TIMEOUT
 
 
 class ESIClient:

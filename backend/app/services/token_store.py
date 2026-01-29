@@ -4,19 +4,37 @@ Provides persistent storage for EVE SSO tokens with support for:
 - In-memory storage (development)
 - File-based storage (single instance)
 - Redis storage (production/multi-instance)
+- Token encryption at rest
+- Proactive token refresh tracking
 """
 
 import json
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from ..core.config import settings
+from .jwt_service import decrypt_token, encrypt_token, should_refresh_esi_token
 
 
 class TokenStore(ABC):
     """Abstract base class for token storage."""
+
+    # Whether to encrypt tokens at rest
+    encrypt_tokens: bool = True
+
+    def _encrypt(self, token: str) -> str:
+        """Encrypt a token if encryption is enabled."""
+        if self.encrypt_tokens:
+            return encrypt_token(token)
+        return token
+
+    def _decrypt(self, token: str) -> str:
+        """Decrypt a token if encryption is enabled."""
+        if self.encrypt_tokens:
+            return decrypt_token(token)
+        return token
 
     @abstractmethod
     async def store_token(
@@ -51,12 +69,39 @@ class TokenStore(ABC):
         """Clear all tokens. Returns count of removed tokens."""
         pass
 
+    async def get_tokens_needing_refresh(self) -> list[dict[str, Any]]:
+        """Get all tokens that need proactive refresh.
+
+        Returns tokens expiring within ESI_REFRESH_THRESHOLD_SECONDS.
+        """
+        characters = await self.list_characters()
+        return [char for char in characters if should_refresh_esi_token(char["expires_at"])]
+
+    async def is_token_valid(self, character_id: int) -> bool:
+        """Check if a token exists and is not expired.
+
+        Args:
+            character_id: Character ID to check
+
+        Returns:
+            True if token exists and is valid
+        """
+        token = await self.get_token(character_id)
+        if not token:
+            return False
+        return datetime.now(UTC) < token["expires_at"]
+
 
 class MemoryTokenStore(TokenStore):
-    """In-memory token storage for development."""
+    """In-memory token storage for development.
 
-    def __init__(self) -> None:
+    Note: Encryption is disabled for memory store since tokens
+    are already protected in process memory.
+    """
+
+    def __init__(self, encrypt: bool = False) -> None:
         self._tokens: dict[int, dict[str, Any]] = {}
+        self.encrypt_tokens = encrypt
 
     async def store_token(
         self,
@@ -69,15 +114,24 @@ class MemoryTokenStore(TokenStore):
     ) -> None:
         self._tokens[character_id] = {
             "character_id": character_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            "access_token": self._encrypt(access_token) if self.encrypt_tokens else access_token,
+            "refresh_token": self._encrypt(refresh_token) if self.encrypt_tokens else refresh_token,
             "expires_at": expires_at,
             "character_name": character_name,
             "scopes": scopes,
         }
 
     async def get_token(self, character_id: int) -> dict[str, Any] | None:
-        return self._tokens.get(character_id)
+        stored = self._tokens.get(character_id)
+        if not stored:
+            return None
+
+        # Return decrypted copy
+        result = stored.copy()
+        if self.encrypt_tokens:
+            result["access_token"] = self._decrypt(stored["access_token"])
+            result["refresh_token"] = self._decrypt(stored["refresh_token"])
+        return result
 
     async def remove_token(self, character_id: int) -> bool:
         if character_id in self._tokens:
@@ -86,7 +140,15 @@ class MemoryTokenStore(TokenStore):
         return False
 
     async def list_characters(self) -> list[dict[str, Any]]:
-        return list(self._tokens.values())
+        # Return decrypted copies
+        result = []
+        for stored in self._tokens.values():
+            char = stored.copy()
+            if self.encrypt_tokens:
+                char["access_token"] = self._decrypt(stored["access_token"])
+                char["refresh_token"] = self._decrypt(stored["refresh_token"])
+            result.append(char)
+        return result
 
     async def clear_all(self) -> int:
         count = len(self._tokens)
@@ -95,16 +157,20 @@ class MemoryTokenStore(TokenStore):
 
 
 class FileTokenStore(TokenStore):
-    """File-based token storage for single-instance deployments."""
+    """File-based token storage for single-instance deployments.
 
-    def __init__(self, path: Path | None = None) -> None:
+    Tokens are encrypted before writing to disk for security.
+    """
+
+    def __init__(self, path: Path | None = None, encrypt: bool = True) -> None:
         self._path = path or Path.home() / ".config" / "eve-gatekeeper" / "tokens.json"
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._tokens: dict[int, dict[str, Any]] = {}
+        self.encrypt_tokens = encrypt
         self._load()
 
     def _load(self) -> None:
-        """Load tokens from file."""
+        """Load tokens from file (stored encrypted)."""
         if self._path.exists():
             try:
                 with self._path.open() as f:
@@ -113,20 +179,33 @@ class FileTokenStore(TokenStore):
                     for char_id, token in data.items():
                         token["character_id"] = int(char_id)
                         token["expires_at"] = datetime.fromisoformat(token["expires_at"])
+                        # Tokens are stored encrypted, keep them that way in memory
                         self._tokens[int(char_id)] = token
             except (json.JSONDecodeError, KeyError):
                 self._tokens = {}
 
     def _save(self) -> None:
-        """Save tokens to file."""
+        """Save tokens to file (encrypted)."""
+        import os
+
         data = {}
         for char_id, token in self._tokens.items():
             data[str(char_id)] = {
                 **token,
                 "expires_at": token["expires_at"].isoformat(),
             }
-        with self._path.open("w") as f:
+
+        # Write atomically to prevent corruption
+        temp_path = self._path.with_suffix(".tmp")
+        with temp_path.open("w") as f:
             json.dump(data, f, indent=2)
+        os.replace(temp_path, self._path)
+
+        # Set restrictive permissions (owner read/write only)
+        try:
+            os.chmod(self._path, 0o600)
+        except OSError:
+            pass  # May fail on Windows
 
     async def store_token(
         self,
@@ -137,10 +216,11 @@ class FileTokenStore(TokenStore):
         character_name: str,
         scopes: list[str],
     ) -> None:
+        # Encrypt tokens before storing
         self._tokens[character_id] = {
             "character_id": character_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            "access_token": self._encrypt(access_token),
+            "refresh_token": self._encrypt(refresh_token),
             "expires_at": expires_at,
             "character_name": character_name,
             "scopes": scopes,
@@ -148,7 +228,16 @@ class FileTokenStore(TokenStore):
         self._save()
 
     async def get_token(self, character_id: int) -> dict[str, Any] | None:
-        return self._tokens.get(character_id)
+        stored = self._tokens.get(character_id)
+        if not stored:
+            return None
+
+        # Return decrypted copy
+        return {
+            **stored,
+            "access_token": self._decrypt(stored["access_token"]),
+            "refresh_token": self._decrypt(stored["refresh_token"]),
+        }
 
     async def remove_token(self, character_id: int) -> bool:
         if character_id in self._tokens:
@@ -158,7 +247,17 @@ class FileTokenStore(TokenStore):
         return False
 
     async def list_characters(self) -> list[dict[str, Any]]:
-        return list(self._tokens.values())
+        # Return decrypted copies
+        result = []
+        for stored in self._tokens.values():
+            result.append(
+                {
+                    **stored,
+                    "access_token": self._decrypt(stored["access_token"]),
+                    "refresh_token": self._decrypt(stored["refresh_token"]),
+                }
+            )
+        return result
 
     async def clear_all(self) -> int:
         count = len(self._tokens)
@@ -168,13 +267,17 @@ class FileTokenStore(TokenStore):
 
 
 class RedisTokenStore(TokenStore):
-    """Redis-based token storage for production/multi-instance."""
+    """Redis-based token storage for production/multi-instance.
 
-    def __init__(self, redis_url: str) -> None:
+    Tokens are encrypted before storing in Redis for defense-in-depth.
+    """
+
+    def __init__(self, redis_url: str, encrypt: bool = True) -> None:
         import redis.asyncio as redis
 
         self._redis = redis.from_url(redis_url)
         self._prefix = "eve_gatekeeper:token:"
+        self.encrypt_tokens = encrypt
 
     async def store_token(
         self,
@@ -188,8 +291,8 @@ class RedisTokenStore(TokenStore):
         key = f"{self._prefix}{character_id}"
         data = {
             "character_id": character_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            "access_token": self._encrypt(access_token),
+            "refresh_token": self._encrypt(refresh_token),
             "expires_at": expires_at.isoformat(),
             "character_name": character_name,
             "scopes": json.dumps(scopes),
@@ -204,10 +307,11 @@ class RedisTokenStore(TokenStore):
         if not data:
             return None
 
+        # Decrypt tokens when retrieving
         return {
             "character_id": int(data[b"character_id"]),
-            "access_token": data[b"access_token"].decode(),
-            "refresh_token": data[b"refresh_token"].decode(),
+            "access_token": self._decrypt(data[b"access_token"].decode()),
+            "refresh_token": self._decrypt(data[b"refresh_token"].decode()),
             "expires_at": datetime.fromisoformat(data[b"expires_at"].decode()),
             "character_name": data[b"character_name"].decode(),
             "scopes": json.loads(data[b"scopes"].decode()),

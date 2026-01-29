@@ -1,18 +1,24 @@
 """FastAPI Dependencies for Authentication and Authorization.
 
 Provides dependency injection for:
-- Current authenticated character
+- Current authenticated character (via query param or JWT)
 - ESI client with valid token
 - Scope verification
+- Bearer token extraction
 """
 
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from ...services.jwt_service import (
+    generate_client_fingerprint,
+    is_token_revoked,
+    validate_jwt,
+)
 from ...services.token_store import TokenStore, get_token_store
 
 
@@ -24,14 +30,89 @@ class AuthenticatedCharacter(BaseModel):
     access_token: str
     scopes: list[str]
     expires_at: datetime
+    auth_method: str = "query"  # "query" or "bearer"
+
+
+async def get_character_from_bearer(
+    request: Request,
+    authorization: str | None = Header(None),
+    user_agent: str | None = Header(None),
+    token_store: TokenStore = Depends(get_token_store),
+) -> AuthenticatedCharacter | None:
+    """
+    Extract character from JWT Bearer token.
+
+    Returns None if no valid Bearer token is present.
+    """
+    if not authorization:
+        return None
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+
+    token = parts[1]
+
+    # Generate fingerprint for validation
+    client_ip = None
+    if request and request.client:
+        client_ip = request.client.host
+    fingerprint = generate_client_fingerprint(user_agent, client_ip)
+
+    # Validate JWT
+    payload, error = validate_jwt(token, verify_fingerprint=fingerprint)
+    if error:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid Bearer token: {error}",
+        )
+
+    # Check revocation
+    if is_token_revoked(payload.jti):
+        raise HTTPException(
+            status_code=401,
+            detail="Token has been revoked",
+        )
+
+    # Get ESI token for the character
+    stored = await token_store.get_token(payload.sub)
+    if not stored:
+        raise HTTPException(
+            status_code=401,
+            detail="ESI token not found. Please re-authenticate.",
+        )
+
+    if datetime.now(UTC) >= stored["expires_at"]:
+        raise HTTPException(
+            status_code=401,
+            detail="ESI token expired. Please refresh via /api/v1/auth/refresh",
+        )
+
+    return AuthenticatedCharacter(
+        character_id=stored["character_id"],
+        character_name=stored["character_name"],
+        access_token=stored["access_token"],
+        scopes=stored["scopes"],
+        expires_at=stored["expires_at"],
+        auth_method="bearer",
+    )
 
 
 async def get_current_character(
-    character_id: int = Query(..., description="Character ID for authenticated request"),
+    request: Request,
+    character_id: int | None = Query(None, description="Character ID for authenticated request"),
+    authorization: str | None = Header(None),
+    user_agent: str | None = Header(None),
     token_store: TokenStore = Depends(get_token_store),
 ) -> AuthenticatedCharacter:
     """
     Dependency to get the current authenticated character.
+
+    Supports two authentication methods:
+    1. JWT Bearer token in Authorization header (preferred)
+    2. character_id query parameter (legacy)
+
+    Bearer tokens are validated for signature, expiration, and client fingerprint.
 
     Validates the token is present and not expired.
     Raises 401 if not authenticated or token expired.
@@ -43,6 +124,24 @@ async def get_current_character(
         ):
             # character.character_id, character.access_token available
     """
+    # Try Bearer token first
+    if authorization:
+        bearer_char = await get_character_from_bearer(
+            request=request,
+            authorization=authorization,
+            user_agent=user_agent,
+            token_store=token_store,
+        )
+        if bearer_char:
+            return bearer_char
+
+    # Fall back to query parameter
+    if character_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Use Bearer token or character_id query parameter.",
+        )
+
     stored = await token_store.get_token(character_id)
 
     if not stored:
@@ -63,6 +162,7 @@ async def get_current_character(
         access_token=stored["access_token"],
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
+        auth_method="query",
     )
 
 
@@ -97,15 +197,20 @@ def require_scopes(
 
 
 async def get_optional_character(
+    request: Request,
     character_id: int | None = Query(None, description="Optional character ID"),
+    authorization: str | None = Header(None),
+    user_agent: str | None = Header(None),
     token_store: TokenStore = Depends(get_token_store),
 ) -> AuthenticatedCharacter | None:
     """
     Dependency to optionally get authenticated character.
 
-    Returns None if no character_id provided or token invalid.
+    Returns None if no authentication provided or token invalid.
     Does not raise exceptions - useful for routes that work
     differently when authenticated vs anonymous.
+
+    Supports both Bearer token and query parameter authentication.
 
     Usage:
         @router.get("/route")
@@ -117,6 +222,21 @@ async def get_optional_character(
             else:
                 # Anonymous access
     """
+    # Try Bearer token first (don't raise on error, just return None)
+    if authorization:
+        try:
+            bearer_char = await get_character_from_bearer(
+                request=request,
+                authorization=authorization,
+                user_agent=user_agent,
+                token_store=token_store,
+            )
+            if bearer_char:
+                return bearer_char
+        except HTTPException:
+            pass  # Silently fail for optional auth
+
+    # Fall back to query parameter
     if character_id is None:
         return None
 
@@ -133,6 +253,7 @@ async def get_optional_character(
         access_token=stored["access_token"],
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
+        auth_method="query",
     )
 
 

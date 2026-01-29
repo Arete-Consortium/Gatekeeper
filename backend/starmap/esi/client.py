@@ -14,14 +14,16 @@ from tenacity import (
     wait_exponential,
 )
 
+from backend.app.core.config import settings
+
 # ESI Configuration
-ESI_BASE_URL = "https://esi.evetech.net/latest"
+ESI_BASE_URL = settings.ESI_BASE_URL
 ESI_OAUTH_URL = "https://login.eveonline.com/v2/oauth"
 ESI_DATASOURCE = "tranquility"
 
-# Rate limiting
-DEFAULT_CONCURRENCY = 20
-DEFAULT_TIMEOUT = 30.0
+# Rate limiting - use settings with fallback defaults
+DEFAULT_CONCURRENCY = settings.ESI_CONCURRENCY_LIMIT
+DEFAULT_TIMEOUT = settings.ESI_TIMEOUT
 ERROR_LIMIT_REMAIN_THRESHOLD = 20  # Slow down when this many errors remain
 
 

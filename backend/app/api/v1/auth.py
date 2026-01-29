@@ -6,16 +6,33 @@ Implements EVE SSO authentication flow:
 3. /auth/refresh - Refreshes expired tokens
 4. /auth/me - Returns authenticated character info
 5. /auth/logout - Clears session
+6. /auth/token - Issue JWT session token
+7. /auth/verify - Verify JWT token
+
+Security Features:
+- JWT session tokens for stateless API authentication
+- Encrypted token storage at rest
+- Proactive token refresh
+- Client fingerprinting (optional)
 """
 
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from ...core.config import settings
+from ...services.jwt_service import (
+    cleanup_revoked_tokens,
+    generate_client_fingerprint,
+    generate_jwt,
+    is_token_revoked,
+    revoke_token,
+    should_refresh_esi_token,
+    validate_jwt,
+)
 from ...services.token_store import TokenStore, get_token_store
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -34,6 +51,7 @@ class CharacterInfo(BaseModel):
     scopes: list[str]
     expires_at: datetime
     authenticated: bool = True
+    needs_refresh: bool = False
 
 
 class AuthStatus(BaseModel):
@@ -58,35 +76,99 @@ class LoginResponse(BaseModel):
     state: str
 
 
+class JWTTokenResponse(BaseModel):
+    """JWT session token response."""
+
+    access_token: str
+    token_type: str = "Bearer"
+    expires_at: datetime
+    character_id: int
+    character_name: str
+    refresh_recommended: bool = False
+
+
+class TokenVerification(BaseModel):
+    """JWT token verification result."""
+
+    valid: bool
+    character_id: int | None = None
+    character_name: str | None = None
+    expires_at: datetime | None = None
+    error: str | None = None
+
+
 # =============================================================================
 # OAuth State Management
 # =============================================================================
+
+# State configuration
+OAUTH_STATE_TTL_MINUTES = 10
+OAUTH_STATE_MAX_ENTRIES = 10000  # Prevent memory exhaustion
 
 # In-memory state storage (use Redis in production)
 _oauth_states: dict[str, datetime] = {}
 
 
-def generate_state() -> str:
-    """Generate a secure random state parameter."""
+def generate_state(ttl_minutes: int = OAUTH_STATE_TTL_MINUTES) -> str:
+    """Generate a secure random state parameter.
+
+    Args:
+        ttl_minutes: State validity in minutes
+
+    Returns:
+        Secure random state token
+    """
+    # Enforce max entries to prevent memory exhaustion
+    if len(_oauth_states) >= OAUTH_STATE_MAX_ENTRIES:
+        cleanup_expired_states()
+        # If still over limit, remove oldest entries
+        if len(_oauth_states) >= OAUTH_STATE_MAX_ENTRIES:
+            sorted_states = sorted(_oauth_states.items(), key=lambda x: x[1])
+            for state, _ in sorted_states[: len(sorted_states) // 2]:
+                _oauth_states.pop(state, None)
+
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = datetime.now(UTC) + timedelta(minutes=10)
+    _oauth_states[state] = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
     return state
 
 
 def validate_state(state: str) -> bool:
-    """Validate and consume OAuth state."""
+    """Validate and consume OAuth state.
+
+    State tokens are single-use to prevent replay attacks.
+
+    Args:
+        state: State token to validate
+
+    Returns:
+        True if state is valid and not expired
+    """
     if state not in _oauth_states:
         return False
     expires = _oauth_states.pop(state)
     return datetime.now(UTC) < expires
 
 
-def cleanup_expired_states() -> None:
-    """Remove expired state tokens."""
+def cleanup_expired_states() -> int:
+    """Remove expired state tokens.
+
+    Returns:
+        Number of expired states removed
+    """
     now = datetime.now(UTC)
     expired = [s for s, exp in _oauth_states.items() if now >= exp]
     for s in expired:
         _oauth_states.pop(s, None)
+    return len(expired)
+
+
+def get_state_count() -> int:
+    """Get current number of pending OAuth states.
+
+    Returns:
+        Number of active state tokens
+    """
+    return len(_oauth_states)
 
 
 # =============================================================================
@@ -322,14 +404,19 @@ async def get_current_user(
     Get current authentication status for a character.
 
     Returns character info if authenticated, or authenticated=False otherwise.
+    The needs_refresh flag indicates if the token should be proactively refreshed.
     """
     stored = await token_store.get_token(character_id)
 
     if not stored:
         return AuthStatus(authenticated=False)
 
+    now = datetime.now(UTC)
+    is_expired = now >= stored["expires_at"]
+    needs_refresh = not is_expired and should_refresh_esi_token(stored["expires_at"])
+
     # Check if token is expired
-    if datetime.now(UTC) >= stored["expires_at"]:
+    if is_expired:
         return AuthStatus(
             authenticated=False,
             character=CharacterInfo(
@@ -338,6 +425,7 @@ async def get_current_user(
                 scopes=stored["scopes"],
                 expires_at=stored["expires_at"],
                 authenticated=False,
+                needs_refresh=True,
             ),
         )
 
@@ -348,6 +436,7 @@ async def get_current_user(
             character_name=stored["character_name"],
             scopes=stored["scopes"],
             expires_at=stored["expires_at"],
+            needs_refresh=needs_refresh,
         ),
     )
 
@@ -360,6 +449,7 @@ async def list_characters(
     List all authenticated characters.
 
     Returns a list of all characters that have valid stored tokens.
+    The needs_refresh flag indicates which tokens should be proactively refreshed.
     """
     characters = await token_store.list_characters()
     now = datetime.now(UTC)
@@ -371,6 +461,7 @@ async def list_characters(
             scopes=char["scopes"],
             expires_at=char["expires_at"],
             authenticated=now < char["expires_at"],
+            needs_refresh=should_refresh_esi_token(char["expires_at"]),
         )
         for char in characters
     ]
@@ -406,3 +497,203 @@ async def clear_all_tokens(
     """
     count = await token_store.clear_all()
     return {"status": "cleared", "tokens_removed": str(count)}
+
+
+# =============================================================================
+# JWT Session Token Endpoints
+# =============================================================================
+
+
+@router.post("/token", response_model=JWTTokenResponse)
+async def issue_jwt_token(
+    character_id: int = Query(..., description="Character ID to issue token for"),
+    token_store: TokenStore = Depends(get_token_store),
+    request: Request = None,
+    user_agent: str | None = Header(None),
+) -> JWTTokenResponse:
+    """
+    Issue a JWT session token for API authentication.
+
+    This endpoint issues a stateless JWT that can be used with Bearer authentication
+    instead of passing character_id in query parameters. The JWT is bound to the
+    client fingerprint for additional security.
+
+    The returned token should be included in requests as:
+        Authorization: Bearer <token>
+
+    Returns:
+        JWT token with expiration info
+    """
+    stored = await token_store.get_token(character_id)
+
+    if not stored:
+        raise HTTPException(
+            status_code=404,
+            detail="No ESI token found for character. Please authenticate via /auth/login first.",
+        )
+
+    now = datetime.now(UTC)
+    if now >= stored["expires_at"]:
+        raise HTTPException(
+            status_code=401,
+            detail="ESI token expired. Please refresh via /auth/refresh first.",
+        )
+
+    # Generate client fingerprint for token binding
+    client_ip = None
+    if request:
+        client_ip = request.client.host if request.client else None
+    fingerprint = generate_client_fingerprint(user_agent, client_ip)
+
+    # Generate JWT
+    jwt_token = generate_jwt(
+        character_id=stored["character_id"],
+        character_name=stored["character_name"],
+        scopes=stored["scopes"],
+        fingerprint=fingerprint,
+    )
+
+    # Check if ESI token needs refresh
+    needs_refresh = should_refresh_esi_token(stored["expires_at"])
+
+    return JWTTokenResponse(
+        access_token=jwt_token.access_token,
+        token_type=jwt_token.token_type,
+        expires_at=jwt_token.expires_at,
+        character_id=jwt_token.character_id,
+        character_name=jwt_token.character_name,
+        refresh_recommended=needs_refresh,
+    )
+
+
+@router.post("/token/verify", response_model=TokenVerification)
+async def verify_jwt_token(
+    request: Request,
+    authorization: str | None = Header(None),
+    user_agent: str | None = Header(None),
+) -> TokenVerification:
+    """
+    Verify a JWT session token.
+
+    Validates the token signature, expiration, and optionally the client fingerprint.
+
+    The token should be provided in the Authorization header as:
+        Authorization: Bearer <token>
+
+    Returns:
+        Token verification result with character info if valid
+    """
+    if not authorization:
+        return TokenVerification(valid=False, error="No Authorization header provided")
+
+    # Parse Bearer token
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return TokenVerification(valid=False, error="Invalid Authorization header format")
+
+    token = parts[1]
+
+    # Generate fingerprint for verification
+    client_ip = None
+    if request:
+        client_ip = request.client.host if request.client else None
+    fingerprint = generate_client_fingerprint(user_agent, client_ip)
+
+    # Validate token
+    payload, error = validate_jwt(token, verify_fingerprint=fingerprint)
+
+    if error:
+        return TokenVerification(valid=False, error=error)
+
+    # Check revocation
+    if is_token_revoked(payload.jti):
+        return TokenVerification(valid=False, error="Token has been revoked")
+
+    return TokenVerification(
+        valid=True,
+        character_id=payload.sub,
+        character_name=payload.name,
+        expires_at=payload.exp,
+    )
+
+
+@router.post("/token/revoke")
+async def revoke_jwt_token(
+    authorization: str = Header(..., description="Bearer token to revoke"),
+) -> dict[str, str]:
+    """
+    Revoke a JWT session token.
+
+    Adds the token to the revocation list, preventing future use.
+    The token remains in the revocation list until it would naturally expire.
+
+    Returns:
+        Revocation status
+    """
+    # Parse Bearer token
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=400, detail="Invalid Authorization header format")
+
+    token = parts[1]
+
+    # Validate token to get jti and expiration
+    payload, error = validate_jwt(token)
+
+    if error:
+        raise HTTPException(status_code=400, detail=f"Invalid token: {error}")
+
+    # Revoke the token
+    revoke_token(payload.jti, payload.exp)
+
+    return {"status": "revoked", "jti": payload.jti}
+
+
+@router.get("/tokens/needing-refresh")
+async def get_tokens_needing_refresh(
+    token_store: TokenStore = Depends(get_token_store),
+) -> list[CharacterInfo]:
+    """
+    List characters whose ESI tokens need proactive refresh.
+
+    This endpoint returns characters whose tokens are approaching expiration
+    and should be refreshed proactively to maintain uninterrupted service.
+
+    Useful for background token refresh jobs.
+
+    Returns:
+        List of characters needing token refresh
+    """
+    tokens = await token_store.get_tokens_needing_refresh()
+
+    return [
+        CharacterInfo(
+            character_id=token["character_id"],
+            character_name=token["character_name"],
+            scopes=token["scopes"],
+            expires_at=token["expires_at"],
+            authenticated=True,
+            needs_refresh=True,
+        )
+        for token in tokens
+    ]
+
+
+@router.post("/maintenance/cleanup")
+async def run_maintenance_cleanup() -> dict[str, int]:
+    """
+    Run maintenance cleanup tasks.
+
+    Cleans up expired OAuth states and JWT revocation entries.
+    Should be called periodically (e.g., hourly) or on startup.
+
+    Returns:
+        Count of cleaned up entries
+    """
+    expired_states = cleanup_expired_states()
+    expired_tokens = cleanup_revoked_tokens()
+
+    return {
+        "expired_oauth_states_cleaned": expired_states,
+        "expired_revoked_tokens_cleaned": expired_tokens,
+    }

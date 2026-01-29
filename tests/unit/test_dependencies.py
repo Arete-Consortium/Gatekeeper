@@ -1,6 +1,7 @@
 """Unit tests for authentication dependencies."""
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -40,8 +41,16 @@ class TestGetCurrentCharacter:
         """Create a memory token store."""
         return MemoryTokenStore()
 
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request object."""
+        request = MagicMock()
+        request.client = MagicMock()
+        request.client.host = "127.0.0.1"
+        return request
+
     @pytest.mark.asyncio
-    async def test_get_current_character_valid(self, token_store):
+    async def test_get_current_character_valid(self, token_store, mock_request):
         """Test getting character with valid token."""
         # Store a valid token
         await token_store.store_token(
@@ -53,25 +62,37 @@ class TestGetCurrentCharacter:
             scopes=["esi-location.read_location.v1"],
         )
 
-        char = await get_current_character(character_id=12345, token_store=token_store)
+        char = await get_current_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
 
         assert char.character_id == 12345
         assert char.character_name == "Test Pilot"
         assert char.access_token == "valid_token"
 
     @pytest.mark.asyncio
-    async def test_get_current_character_not_found(self, token_store):
+    async def test_get_current_character_not_found(self, token_store, mock_request):
         """Test getting character when no token exists."""
         from fastapi import HTTPException
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_character(character_id=99999, token_store=token_store)
+            await get_current_character(
+                request=mock_request,
+                character_id=99999,
+                authorization=None,
+                user_agent=None,
+                token_store=token_store,
+            )
 
         assert exc_info.value.status_code == 401
         assert "Not authenticated" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_get_current_character_expired(self, token_store):
+    async def test_get_current_character_expired(self, token_store, mock_request):
         """Test getting character with expired token."""
         from fastapi import HTTPException
 
@@ -86,7 +107,13 @@ class TestGetCurrentCharacter:
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_character(character_id=12345, token_store=token_store)
+            await get_current_character(
+                request=mock_request,
+                character_id=12345,
+                authorization=None,
+                user_agent=None,
+                token_store=token_store,
+            )
 
         assert exc_info.value.status_code == 401
         assert "expired" in exc_info.value.detail.lower()
@@ -100,14 +127,28 @@ class TestGetOptionalCharacter:
         """Create a memory token store."""
         return MemoryTokenStore()
 
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request object."""
+        request = MagicMock()
+        request.client = MagicMock()
+        request.client.host = "127.0.0.1"
+        return request
+
     @pytest.mark.asyncio
-    async def test_optional_character_none_id(self, token_store):
+    async def test_optional_character_none_id(self, token_store, mock_request):
         """Test optional character with no ID provided."""
-        result = await get_optional_character(character_id=None, token_store=token_store)
+        result = await get_optional_character(
+            request=mock_request,
+            character_id=None,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_optional_character_valid(self, token_store):
+    async def test_optional_character_valid(self, token_store, mock_request):
         """Test optional character with valid token."""
         await token_store.store_token(
             character_id=12345,
@@ -118,19 +159,31 @@ class TestGetOptionalCharacter:
             scopes=[],
         )
 
-        result = await get_optional_character(character_id=12345, token_store=token_store)
+        result = await get_optional_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
 
         assert result is not None
         assert result.character_id == 12345
 
     @pytest.mark.asyncio
-    async def test_optional_character_not_found(self, token_store):
+    async def test_optional_character_not_found(self, token_store, mock_request):
         """Test optional character when token not found."""
-        result = await get_optional_character(character_id=99999, token_store=token_store)
+        result = await get_optional_character(
+            request=mock_request,
+            character_id=99999,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_optional_character_expired(self, token_store):
+    async def test_optional_character_expired(self, token_store, mock_request):
         """Test optional character with expired token."""
         await token_store.store_token(
             character_id=12345,
@@ -141,7 +194,13 @@ class TestGetOptionalCharacter:
             scopes=[],
         )
 
-        result = await get_optional_character(character_id=12345, token_store=token_store)
+        result = await get_optional_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
         assert result is None
 
 
@@ -153,8 +212,16 @@ class TestRequireScopes:
         """Create a memory token store."""
         return MemoryTokenStore()
 
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request object."""
+        request = MagicMock()
+        request.client = MagicMock()
+        request.client.host = "127.0.0.1"
+        return request
+
     @pytest.mark.asyncio
-    async def test_require_scopes_has_scope(self, token_store):
+    async def test_require_scopes_has_scope(self, token_store, mock_request):
         """Test require_scopes when character has required scope."""
         await token_store.store_token(
             character_id=12345,
@@ -169,14 +236,20 @@ class TestRequireScopes:
         verify_scopes = require_scopes("esi-location.read_location.v1")
 
         # Get the character first
-        char = await get_current_character(character_id=12345, token_store=token_store)
+        char = await get_current_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
 
         # This should pass
         result = await verify_scopes(character=char)
         assert result.character_id == 12345
 
     @pytest.mark.asyncio
-    async def test_require_scopes_missing_scope(self, token_store):
+    async def test_require_scopes_missing_scope(self, token_store, mock_request):
         """Test require_scopes when character is missing scope."""
         from fastapi import HTTPException
 
@@ -192,7 +265,13 @@ class TestRequireScopes:
         # Create dependency that requires a different scope
         verify_scopes = require_scopes("esi-ui.write_waypoint.v1")
 
-        char = await get_current_character(character_id=12345, token_store=token_store)
+        char = await get_current_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await verify_scopes(character=char)
@@ -201,7 +280,7 @@ class TestRequireScopes:
         assert "Missing required scopes" in exc_info.value.detail
 
     @pytest.mark.asyncio
-    async def test_require_multiple_scopes(self, token_store):
+    async def test_require_multiple_scopes(self, token_store, mock_request):
         """Test require_scopes with multiple scopes."""
         await token_store.store_token(
             character_id=12345,
@@ -220,6 +299,12 @@ class TestRequireScopes:
             "esi-ui.write_waypoint.v1",
         )
 
-        char = await get_current_character(character_id=12345, token_store=token_store)
+        char = await get_current_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=token_store,
+        )
         result = await verify_scopes(character=char)
         assert result.character_id == 12345

@@ -202,8 +202,18 @@ class TestMemoryTokenStore:
 class TestAuthDependencies:
     """Tests for authentication dependencies."""
 
+    @pytest.fixture
+    def mock_request(self):
+        """Create a mock request object."""
+        from unittest.mock import MagicMock
+
+        request = MagicMock()
+        request.client = MagicMock()
+        request.client.host = "127.0.0.1"
+        return request
+
     @pytest.mark.asyncio
-    async def test_get_current_character_valid_token(self):
+    async def test_get_current_character_valid_token(self, mock_request):
         """Should return character for valid token."""
         from backend.app.api.v1.dependencies import get_current_character
         from backend.app.services.token_store import set_token_store
@@ -221,13 +231,19 @@ class TestAuthDependencies:
             scopes=["esi-location.read_location.v1"],
         )
 
-        character = await get_current_character(character_id=12345, token_store=store)
+        character = await get_current_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=store,
+        )
         assert character.character_id == 12345
         assert character.character_name == "Test Pilot"
         assert character.access_token == "valid-token"
 
     @pytest.mark.asyncio
-    async def test_get_current_character_no_token(self):
+    async def test_get_current_character_no_token(self, mock_request):
         """Should raise 401 when no token found."""
         from fastapi import HTTPException
 
@@ -238,12 +254,18 @@ class TestAuthDependencies:
         set_token_store(store)
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_character(character_id=99999, token_store=store)
+            await get_current_character(
+                request=mock_request,
+                character_id=99999,
+                authorization=None,
+                user_agent=None,
+                token_store=store,
+            )
 
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_current_character_expired_token(self):
+    async def test_get_current_character_expired_token(self, mock_request):
         """Should raise 401 when token expired."""
         from fastapi import HTTPException
 
@@ -264,7 +286,13 @@ class TestAuthDependencies:
         )
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_character(character_id=12345, token_store=store)
+            await get_current_character(
+                request=mock_request,
+                character_id=12345,
+                authorization=None,
+                user_agent=None,
+                token_store=store,
+            )
 
         assert exc_info.value.status_code == 401
         assert "expired" in exc_info.value.detail.lower()
@@ -295,7 +323,7 @@ class TestAuthDependencies:
         assert callable(verify)
 
     @pytest.mark.asyncio
-    async def test_get_optional_character_none(self):
+    async def test_get_optional_character_none(self, mock_request):
         """Should return None when no character_id provided."""
         from backend.app.api.v1.dependencies import get_optional_character
         from backend.app.services.token_store import set_token_store
@@ -303,11 +331,17 @@ class TestAuthDependencies:
         store = MemoryTokenStore()
         set_token_store(store)
 
-        character = await get_optional_character(character_id=None, token_store=store)
+        character = await get_optional_character(
+            request=mock_request,
+            character_id=None,
+            authorization=None,
+            user_agent=None,
+            token_store=store,
+        )
         assert character is None
 
     @pytest.mark.asyncio
-    async def test_get_optional_character_valid(self):
+    async def test_get_optional_character_valid(self, mock_request):
         """Should return character when valid."""
         from backend.app.api.v1.dependencies import get_optional_character
         from backend.app.services.token_store import set_token_store
@@ -325,6 +359,12 @@ class TestAuthDependencies:
             scopes=[],
         )
 
-        character = await get_optional_character(character_id=12345, token_store=store)
+        character = await get_optional_character(
+            request=mock_request,
+            character_id=12345,
+            authorization=None,
+            user_agent=None,
+            token_store=store,
+        )
         assert character is not None
         assert character.character_id == 12345

@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     ESI_SECRET_KEY: str | None = None
     ESI_CALLBACK_URL: str = "http://localhost:8000/callback"
     ESI_USER_AGENT: str = "EVE_Gatekeeper/1.0 (https://github.com/AreteDriver/EVE_Gatekeeper)"
+    ESI_CONCURRENCY_LIMIT: int = 20  # Max concurrent ESI requests
+    ESI_TIMEOUT: float = 30.0  # ESI request timeout in seconds
 
     # zKillboard
     ZKILL_BASE_URL: str = "https://zkillboard.com/api"

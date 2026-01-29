@@ -35,7 +35,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [ ] Create sample client implementations
 
 ### Authentication & Authorization
-- [ ] Implement proper JWT token management
+- [x] Implement proper JWT token management
 - [ ] Add per-user rate limiting
 
 ### Performance
@@ -96,7 +96,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Security | 0 | 2 |
 | Critical Fixes | 0 | 1 |
 | API Docs | 2 | 0 |
-| Auth | 2 | 0 |
+| Auth | 1 | 1 |
 | Performance | 3 | 0 |
 | Monitoring | 5 | 0 |
 | Logging | 0 | 1 |
@@ -107,7 +107,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Features | 3 | 0 |
 | Dependencies | 2 | 0 |
 | Ops | 1 | 0 |
-| **Total** | **29** | **11** |
+| **Total** | **28** | **12** |
 
 ---
 
