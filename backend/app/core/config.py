@@ -1,6 +1,7 @@
+import warnings
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -85,6 +86,32 @@ class Settings(BaseSettings):
             except json.JSONDecodeError:
                 return [origin.strip() for origin in v.split(",")]
         return v
+
+    @field_validator("SECRET_KEY", mode="after")
+    @classmethod
+    def validate_secret_key(cls, v):
+        if len(v) < 32:
+            warnings.warn(
+                f"SECRET_KEY should be at least 32 characters (got {len(v)})",
+                stacklevel=2,
+            )
+        if v == "change-me-in-production":
+            warnings.warn(
+                "SECRET_KEY using default value - insecure for production!",
+                stacklevel=2,
+            )
+        return v
+
+    @model_validator(mode="after")
+    def enforce_production_security(self):
+        if self.is_production:
+            if self.SECRET_KEY == "change-me-in-production":
+                raise ValueError("SECRET_KEY must be changed from default in production")
+            if len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    f"SECRET_KEY must be at least 32 characters in production (got {len(self.SECRET_KEY)})"
+                )
+        return self
 
     @property
     def database_url(self) -> str:

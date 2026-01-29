@@ -8,23 +8,25 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [ ] Integration testing - End-to-end tests for all 9 tools
 - [ ] Add error handling for edge cases
 
+### Security
+- [x] Enforce SECRET_KEY validation in production mode
+- [x] Review and tighten CORS configuration for production
+
+## Completed
+
 ### Mobile App
-- [ ] Complete FittingScreen functionality
-- [ ] Complete AlertsScreen functionality
-- [ ] Integrate screens with backend APIs
-- [ ] Add offline capabilities
+- [x] Complete FittingScreen functionality
+- [x] Complete AlertsScreen functionality
+- [x] Integrate screens with backend APIs
+- [x] Add offline capabilities
 
 ### Desktop App
-- [ ] Add system tray support
-- [ ] Add native notifications
-- [ ] Complete menu system
-
-### Security
-- [ ] Enforce SECRET_KEY validation in production mode
-- [ ] Review and tighten CORS configuration for production
+- [x] Add system tray support
+- [x] Add native notifications
+- [x] Complete menu system
 
 ### Critical Fixes
-- [ ] zkill_client.py - Implement real zKillboard HTTP integration (currently stub)
+- [x] zkill_client.py - Real zKillboard HTTP integration implemented
 
 ## Medium Priority
 
@@ -86,26 +88,26 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 
 ## Task Summary
 
-| Category | Count |
-|----------|-------|
-| MCP Server | 2 |
-| Mobile App | 4 |
-| Desktop App | 3 |
-| Security | 2 |
-| Critical Fixes | 1 |
-| API Docs | 2 |
-| Auth | 2 |
-| Performance | 3 |
-| Monitoring | 5 |
-| Logging | 1 |
-| Config | 3 |
-| Data | 2 |
-| Cache | 2 |
-| Visualization | 2 |
-| Features | 3 |
-| Dependencies | 2 |
-| Ops | 1 |
-| **Total** | **40** |
+| Category | Open | Done |
+|----------|------|------|
+| MCP Server | 2 | 0 |
+| Mobile App | 0 | 4 |
+| Desktop App | 0 | 3 |
+| Security | 0 | 2 |
+| Critical Fixes | 0 | 1 |
+| API Docs | 2 | 0 |
+| Auth | 2 | 0 |
+| Performance | 3 | 0 |
+| Monitoring | 5 | 0 |
+| Logging | 1 | 0 |
+| Config | 3 | 0 |
+| Data | 2 | 0 |
+| Cache | 2 | 0 |
+| Visualization | 2 | 0 |
+| Features | 3 | 0 |
+| Dependencies | 2 | 0 |
+| Ops | 1 | 0 |
+| **Total** | **30** | **10** |
 
 ---
 
@@ -113,9 +115,9 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 
 ### Discovered Issues
 
-1. **zkill_client.py stub**: `fetch_system_stats()` at line 4-10 returns empty `ZKillStats()` - needs real HTTP implementation
-2. **SECRET_KEY**: Hardcoded default "change-me-in-production" in `backend/app/core/config.py:61`
-3. **CORS**: `allow_credentials=True` + `allow_methods=["*"]` may be overly permissive in `backend/app/main.py:60-63`
+1. ~~**zkill_client.py stub**: `fetch_system_stats()` at line 4-10 returns empty `ZKillStats()` - needs real HTTP implementation~~ **FIXED**
+2. ~~**SECRET_KEY**: Hardcoded default "change-me-in-production" in `backend/app/core/config.py:61`~~ **FIXED** - Validation added
+3. ~~**CORS**: `allow_credentials=True` + `allow_methods=["*"]` may be overly permissive in `backend/app/main.py:60-63`~~ **FIXED** - Explicit methods/headers
 4. **ESI status**: Health check returns "unknown" - `backend/app/main.py:159-161`
 5. **Redis check**: Only verifies config exists, not actual connectivity - `backend/app/api/v1/status.py:51-55`
 6. **Print statements**: ~30+ instances in `backend/starmap/ingest_sde.py` should use structured logging
