@@ -144,7 +144,8 @@ def example_7_async_integration():
     print("=" * 70)
 
     print("\nFor async applications, use httpx.AsyncClient:")
-    print("""
+    print(
+        """
 import httpx
 import asyncio
 
@@ -169,7 +170,8 @@ async def main():
 
 # Run the async code
 asyncio.run(main())
-    """)
+    """
+    )
     print()
 
 

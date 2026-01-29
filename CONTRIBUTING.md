@@ -2,7 +2,7 @@
 
 Thank you for considering contributing!
 
-**Issues:**  
+**Issues:**
 - Open a new issue for bugs or requests.
 - Please search existing issues before posting.
 

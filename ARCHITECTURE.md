@@ -295,7 +295,7 @@ app.add_middleware(
        ├─> nx.kamada_kawai_layout() [physics-based]
        ├─> nx.circular_layout() [circular arrangement]
        └─> nx.shell_layout() [concentric shells]
-       
+
 4. Position Assignment
    └─> Update System.x and System.y
        └─> self.systems[system_id].x = x
