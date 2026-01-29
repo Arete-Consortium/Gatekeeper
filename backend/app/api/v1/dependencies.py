@@ -157,7 +157,7 @@ async def get_authenticated_esi_client(
                     character.character_id
                 ), authenticated=True)
     """
-    from starmap.esi.client import ESIClient, TokenData
+    from backend.starmap.esi.client import ESIClient, TokenData
 
     client = ESIClient()
     client.set_token(

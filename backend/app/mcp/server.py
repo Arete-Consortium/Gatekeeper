@@ -21,7 +21,8 @@ Configuration in Claude Code:
 import asyncio
 import json
 import sys
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from .tools import (
     analyze_fitting,
@@ -240,7 +241,7 @@ class MCPServer:
             },
         }
 
-    async def handle_request(self, request: dict) -> dict:
+    async def handle_request(self, request: dict) -> dict | None:
         """Handle an incoming JSON-RPC request."""
         method = request.get("method", "")
         req_id = request.get("id")
@@ -333,12 +334,14 @@ class MCPServer:
         }
 
         handler = tool_map.get(tool_name)
-        if not handler:
+        if handler is None:
             raise ValueError(f"No handler for tool: {tool_name}")
 
-        if asyncio.iscoroutinefunction(handler):
-            return await handler(**arguments)
-        return handler(**arguments)
+        # Cast to callable after None check
+        func = cast(Callable[..., Any], handler)
+        if asyncio.iscoroutinefunction(func):
+            return await func(**arguments)
+        return func(**arguments)
 
     def _success_response(self, req_id: Any, result: Any) -> dict:
         """Create a success response."""
@@ -361,13 +364,13 @@ async def run_server() -> None:
     """Run the MCP server with stdio transport."""
     server = MCPServer()
 
-    async def read_message() -> dict | None:
+    async def read_message() -> dict[str, Any] | None:
         """Read a JSON-RPC message from stdin."""
         line = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
         if not line:
             return None
         try:
-            return json.loads(line.strip())
+            return cast(dict[str, Any], json.loads(line.strip()))
         except json.JSONDecodeError:
             return None
 
