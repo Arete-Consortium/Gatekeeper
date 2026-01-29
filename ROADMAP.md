@@ -6,7 +6,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 
 ### MCP Server
 - [x] Integration testing - End-to-end tests for all 11 tools (94 tests added)
-- [ ] Add error handling for edge cases
+- [x] Add error handling for edge cases (48 new tests, validation helpers)
 
 ### Security
 - [x] Enforce SECRET_KEY validation in production mode
@@ -41,12 +41,12 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 ### Performance
 - [ ] Implement query result caching strategies
 - [x] Add WebSocket reconnection logic
-- [ ] Add pagination for large result sets
+- [x] Add pagination for large result sets (systems, history, shares, notes)
 
 ### Monitoring & Observability
 - [x] Fix ESI connectivity check (now makes actual HTTP request)
 - [x] Implement actual Redis connectivity check (now uses ping())
-- [ ] Expand logging coverage
+- [x] Expand logging coverage (ESI, cache, auth, WebSocket, rate limits)
 - [ ] Add alerting for service degradation
 - [ ] Add cache hit/miss rate metrics
 
@@ -90,15 +90,15 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 
 | Category | Open | Done |
 |----------|------|------|
-| MCP Server | 1 | 1 |
+| MCP Server | 0 | 2 |
 | Mobile App | 0 | 4 |
 | Desktop App | 0 | 3 |
 | Security | 0 | 2 |
 | Critical Fixes | 0 | 1 |
 | API Docs | 2 | 0 |
 | Auth | 0 | 2 |
-| Performance | 2 | 1 |
-| Monitoring | 3 | 2 |
+| Performance | 1 | 2 |
+| Monitoring | 2 | 3 |
 | Logging | 0 | 1 |
 | Config | 0 | 3 |
 | Data | 2 | 0 |
@@ -107,7 +107,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Features | 3 | 0 |
 | Dependencies | 2 | 0 |
 | Ops | 1 | 0 |
-| **Total** | **20** | **20** |
+| **Total** | **17** | **23** |
 
 ---
 
