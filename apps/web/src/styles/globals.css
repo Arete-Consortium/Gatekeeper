@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* EVE Online inspired base styles */
+@layer base {
+  body {
+    @apply bg-background text-text antialiased;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-secondary;
+  }
+}
+
+@layer components {
+  /* Glow effects for important elements */
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(10, 132, 255, 0.3);
+  }
+
+  .glow-green {
+    box-shadow: 0 0 15px rgba(50, 215, 75, 0.3);
+  }
+
+  .glow-red {
+    box-shadow: 0 0 15px rgba(255, 69, 58, 0.3);
+  }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-200 hover:bg-card-hover hover:border-primary/30;
+  }
+
+  /* Status dot animation */
+  .status-dot {
+    @apply relative;
+  }
+
+  .status-dot::after {
+    content: '';
+    @apply absolute inset-0 rounded-full animate-ping opacity-75;
+    background: inherit;
+  }
+}
+
+@layer utilities {
+  /* Security status text utilities */
+  .security-high {
+    @apply text-high-sec;
+  }
+
+  .security-low {
+    @apply text-low-sec;
+  }
+
+  .security-null {
+    @apply text-null-sec;
+  }
+
+  .security-wh {
+    @apply text-wormhole;
+  }
+}

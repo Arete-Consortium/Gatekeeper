@@ -1,0 +1,1 @@
+export { FittingResult } from './FittingAnalyzer';
