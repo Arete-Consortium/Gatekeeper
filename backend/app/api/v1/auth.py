@@ -529,7 +529,7 @@ async def clear_all_tokens(
 async def issue_jwt_token(
     character_id: int = Query(..., description="Character ID to issue token for"),
     token_store: TokenStore = Depends(get_token_store),
-    request: Request | None = None,
+    request: Request = None,  # type: ignore[assignment]
     user_agent: str | None = Header(None),
 ) -> JWTTokenResponse:
     """
