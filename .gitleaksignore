@@ -1,0 +1,6 @@
+# Ignore test fixture keys in JWT service tests
+# These are fake keys used for unit testing, not real secrets
+0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:53
+0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:54
+0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:64
+0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:65
