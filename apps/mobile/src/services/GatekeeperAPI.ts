@@ -166,7 +166,7 @@ class GatekeeperAPIService {
    * Get route calculation history
    */
   async getRouteHistory(limit: number = 10): Promise<RouteHistoryResponse> {
-    const response = await this.client.get('/route/history', {
+    const response = await this.client.get('/api/v1/route/history', {
       params: { limit },
     });
     return response.data;
@@ -179,7 +179,7 @@ class GatekeeperAPIService {
    */
   async getSystemStats(systemName: string, hours: number = 24): Promise<SystemStats> {
     const response = await this.client.get(
-      `/stats/system/${encodeURIComponent(systemName)}`,
+      `/api/v1/stats/system/${encodeURIComponent(systemName)}`,
       { params: { hours } }
     );
     return response.data;
@@ -192,7 +192,7 @@ class GatekeeperAPIService {
     systemNames: string[],
     hours: number = 24
   ): Promise<Record<string, SystemStats>> {
-    const response = await this.client.post('/stats/bulk', {
+    const response = await this.client.post('/api/v1/stats/bulk', {
       systems: systemNames,
       hours,
     });
@@ -203,7 +203,7 @@ class GatekeeperAPIService {
    * Get hottest systems by recent activity
    */
   async getHotSystems(hours: number = 24, limit: number = 10): Promise<HotSystem[]> {
-    const response = await this.client.get('/stats/hot', {
+    const response = await this.client.get('/api/v1/stats/hot', {
       params: { hours, limit },
     });
     return response.data.systems;
@@ -236,7 +236,7 @@ class GatekeeperAPIService {
    * Analyze a ship fitting for travel recommendations
    */
   async analyzeFitting(eftText: string): Promise<FittingAnalysisResponse> {
-    const response = await this.client.post('/fitting/analyze', {
+    const response = await this.client.post('/api/v1/fitting/analyze', {
       eft_text: eftText,
     });
     return response.data;
@@ -248,7 +248,7 @@ class GatekeeperAPIService {
    * List all alert subscriptions
    */
   async listAlertSubscriptions(): Promise<AlertSubscriptionListResponse> {
-    const response = await this.client.get('/alerts/subscriptions');
+    const response = await this.client.get('/api/v1/alerts/subscriptions');
     return response.data;
   }
 
@@ -258,7 +258,7 @@ class GatekeeperAPIService {
   async createAlertSubscription(
     data: CreateAlertSubscriptionRequest
   ): Promise<AlertSubscription> {
-    const response = await this.client.post('/alerts/subscriptions', data);
+    const response = await this.client.post('/api/v1/alerts/subscriptions', data);
     return response.data;
   }
 
@@ -266,7 +266,7 @@ class GatekeeperAPIService {
    * Delete an alert subscription
    */
   async deleteAlertSubscription(subscriptionId: string): Promise<void> {
-    await this.client.delete(`/alerts/subscriptions/${subscriptionId}`);
+    await this.client.delete(`/api/v1/alerts/subscriptions/${subscriptionId}`);
   }
 
   /**
@@ -277,7 +277,7 @@ class GatekeeperAPIService {
     shipType: string = 'Caracal',
     totalValue: number = 100000000
   ): Promise<TestAlertResponse> {
-    const response = await this.client.post('/alerts/test', {
+    const response = await this.client.post('/api/v1/alerts/test', {
       system_name: systemName,
       ship_type: shipType,
       total_value: totalValue,
