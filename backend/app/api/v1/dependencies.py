@@ -61,7 +61,7 @@ async def get_character_from_bearer(
 
     # Validate JWT
     payload, error = validate_jwt(token, verify_fingerprint=fingerprint)
-    if error:
+    if error or payload is None:
         raise HTTPException(
             status_code=401,
             detail=f"Invalid Bearer token: {error}",

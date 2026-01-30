@@ -306,7 +306,9 @@ class MCPServer:
         # Validate tool_name is a string
         if not isinstance(tool_name, str):
             return self._error_response(
-                req_id, -32602, f"Invalid type for 'name': expected string, got {type(tool_name).__name__}"
+                req_id,
+                -32602,
+                f"Invalid type for 'name': expected string, got {type(tool_name).__name__}",
             )
 
         if tool_name not in self.tools:
@@ -315,7 +317,9 @@ class MCPServer:
         # Validate arguments is a dict
         if arguments is not None and not isinstance(arguments, dict):
             return self._error_response(
-                req_id, -32602, f"Invalid type for 'arguments': expected object, got {type(arguments).__name__}"
+                req_id,
+                -32602,
+                f"Invalid type for 'arguments': expected object, got {type(arguments).__name__}",
             )
 
         arguments = arguments or {}
@@ -330,7 +334,12 @@ class MCPServer:
                 return self._success_response(
                     req_id,
                     {
-                        "content": [{"type": "text", "text": f"Error: Failed to serialize result: {str(json_err)}"}],
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Error: Failed to serialize result: {str(json_err)}",
+                            }
+                        ],
                         "isError": True,
                     },
                 )
@@ -346,10 +355,18 @@ class MCPServer:
             return self._success_response(
                 req_id,
                 {
-                    "content": [{"type": "text", "text": json.dumps({
-                        "error": f"Invalid arguments: {str(e)}",
-                        "hint": "Check that all required parameters are provided with correct types",
-                    }, indent=2)}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "error": f"Invalid arguments: {str(e)}",
+                                    "hint": "Check that all required parameters are provided with correct types",
+                                },
+                                indent=2,
+                            ),
+                        }
+                    ],
                     "isError": True,
                 },
             )
@@ -357,10 +374,18 @@ class MCPServer:
             return self._success_response(
                 req_id,
                 {
-                    "content": [{"type": "text", "text": json.dumps({
-                        "error": str(e),
-                        "error_type": type(e).__name__,
-                    }, indent=2)}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "error": str(e),
+                                    "error_type": type(e).__name__,
+                                },
+                                indent=2,
+                            ),
+                        }
+                    ],
                     "isError": True,
                 },
             )

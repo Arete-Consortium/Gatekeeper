@@ -92,7 +92,7 @@ class TokenStore(ABC):
         token = await self.get_token(character_id)
         if not token:
             return False
-        return datetime.now(UTC) < token["expires_at"]
+        return bool(datetime.now(UTC) < token["expires_at"])
 
 
 class MemoryTokenStore(TokenStore):

@@ -31,10 +31,10 @@ from ..services.webhooks import (
     list_subscriptions,
 )
 
-
 # =============================================================================
 # Input Validation Helpers
 # =============================================================================
+
 
 class ValidationError(Exception):
     """Raised when input validation fails."""
@@ -89,7 +89,7 @@ def _validate_system_name(value: Any, name: str = "system_name") -> str:
     """Validate a system name input."""
     result = _validate_string(value, name, required=True)
     if result is None:
-        raise ValidationError(f"System name is required", hint="Provide a valid system name")
+        raise ValidationError("System name is required", hint="Provide a valid system name")
     # System names shouldn't be excessively long
     if len(result) > 100:
         raise ValidationError(
@@ -103,7 +103,7 @@ def _validate_region_name(value: Any, name: str = "region_name") -> str:
     """Validate a region name input."""
     result = _validate_string(value, name, required=True)
     if result is None:
-        raise ValidationError(f"Region name is required", hint="Provide a valid region name")
+        raise ValidationError("Region name is required", hint="Provide a valid region name")
     if len(result) > 100:
         raise ValidationError(
             f"Region name too long: {len(result)} characters",
@@ -116,7 +116,7 @@ def _validate_ship_name(value: Any, name: str = "ship_name") -> str:
     """Validate a ship name input."""
     result = _validate_string(value, name, required=True)
     if result is None:
-        raise ValidationError(f"Ship name is required", hint="Provide a valid ship name")
+        raise ValidationError("Ship name is required", hint="Provide a valid ship name")
     if len(result) > 100:
         raise ValidationError(
             f"Ship name too long: {len(result)} characters",
@@ -130,7 +130,7 @@ def _validate_eft_text(value: Any, name: str = "eft_text") -> str:
     result = _validate_string(value, name, required=True)
     if result is None:
         raise ValidationError(
-            f"EFT text is required",
+            "EFT text is required",
             hint="EFT format should start with [ShipName, FitName]",
         )
     # Basic sanity check - EFT should start with [
@@ -193,7 +193,7 @@ def _validate_integer(
     if max_val is not None and value > max_val:
         value = max_val
 
-    return value
+    return int(value)
 
 
 def _validate_float(
@@ -637,7 +637,9 @@ def get_jump_range(center_system: str, max_jumps: int = 5) -> dict[str, Any]:
 
     # Validate and clamp max_jumps
     try:
-        validated_jumps = _validate_integer(max_jumps, "max_jumps", min_val=1, max_val=20, default=5)
+        validated_jumps = _validate_integer(
+            max_jumps, "max_jumps", min_val=1, max_val=20, default=5
+        )
     except ValidationError as e:
         return _validation_error_to_dict(e)
 

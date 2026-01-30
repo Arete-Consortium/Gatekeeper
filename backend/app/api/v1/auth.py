@@ -529,7 +529,7 @@ async def clear_all_tokens(
 async def issue_jwt_token(
     character_id: int = Query(..., description="Character ID to issue token for"),
     token_store: TokenStore = Depends(get_token_store),
-    request: Request = None,
+    request: Request | None = None,
     user_agent: str | None = Header(None),
 ) -> JWTTokenResponse:
     """
@@ -627,8 +627,8 @@ async def verify_jwt_token(
     # Validate token
     payload, error = validate_jwt(token, verify_fingerprint=fingerprint)
 
-    if error:
-        return TokenVerification(valid=False, error=error)
+    if error or payload is None:
+        return TokenVerification(valid=False, error=error or "Invalid token")
 
     # Check revocation
     if is_token_revoked(payload.jti):
@@ -665,7 +665,7 @@ async def revoke_jwt_token(
     # Validate token to get jti and expiration
     payload, error = validate_jwt(token)
 
-    if error:
+    if error or payload is None:
         raise HTTPException(status_code=400, detail=f"Invalid token: {error}")
 
     # Revoke the token
