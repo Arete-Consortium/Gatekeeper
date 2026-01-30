@@ -86,13 +86,13 @@ export default function DashboardPage() {
       </section>
 
       {/* Recent Routes */}
-      {historyData && historyData.history.length > 0 && (
+      {historyData && historyData.items && historyData.items.length > 0 && (
         <section aria-labelledby="recent-routes-heading">
           <h2 id="recent-routes-heading" className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">
             Recent Routes
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {historyData.history.map((entry, index) => (
+            {historyData.items.map((entry, index) => (
               <Link
                 key={`${entry.from_system}-${entry.to_system}-${index}`}
                 href={`/route?from=${encodeURIComponent(entry.from_system)}&to=${encodeURIComponent(entry.to_system)}`}

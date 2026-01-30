@@ -37,11 +37,29 @@ export interface ZKillStats {
 // Risk assessment report
 export interface RiskReport {
   system_name: string;
-  risk_score: number;
-  security_score: number;
-  kill_score: number;
-  pod_score: number;
-  risk_color: 'green' | 'yellow' | 'orange' | 'red';
+  system_id: number;
+  category: string;
+  security: number;
+  score: number;
+  breakdown: {
+    security_component: number;
+    kills_component: number;
+    pods_component: number;
+  };
+  zkill_stats: {
+    recent_kills: number;
+    recent_pods: number;
+  };
+  danger_level: string | null;
+  ship_profile: string | null;
+}
+
+// Helper to get risk color from score
+export function getRiskColorFromScore(score: number): 'green' | 'yellow' | 'orange' | 'red' {
+  if (score <= 2) return 'green';
+  if (score <= 5) return 'yellow';
+  if (score <= 8) return 'orange';
+  return 'red';
 }
 
 // Single hop in a route
@@ -154,10 +172,14 @@ export interface RouteHistoryEntry {
   timestamp: string;
 }
 
-// Route history response
+// Route history response (API returns items + pagination)
 export interface RouteHistoryResponse {
-  history: RouteHistoryEntry[];
-  total: number;
+  items: RouteHistoryEntry[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 // System stats from zkill
