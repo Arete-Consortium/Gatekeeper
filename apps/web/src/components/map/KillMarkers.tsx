@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { KillFeedProps, MapKill, MapSystem, MapViewport } from './types';
 import { formatIsk } from '@/lib/utils';
@@ -74,8 +74,9 @@ interface KillMarkerProps {
 
 /**
  * Individual kill marker with pulse animation
+ * Memoized to prevent unnecessary re-renders when viewport changes don't affect visibility
  */
-function KillMarker({ kill, system, viewport, maxAge }: KillMarkerProps) {
+const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge }: KillMarkerProps) {
   const screenPos = worldToScreen(system.x, system.y, viewport);
 
   // Skip if not visible
@@ -191,7 +192,7 @@ function KillMarker({ kill, system, viewport, maxAge }: KillMarkerProps) {
       </div>
     </motion.div>
   );
-}
+});
 
 /**
  * Kill markers overlay for the map

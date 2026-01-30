@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { useHotSystems } from '@/hooks';
 import { Card, Input, Select, Badge } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
 import { Radar, Skull, TrendingUp } from 'lucide-react';
 import { ErrorMessage, SkeletonCard, SkeletonTable, getUserFriendlyError } from '@/components/ui';
+import type { HotSystem } from '@/lib/types';
 
 const timeOptions = [
   { value: '1', label: 'Last 1 hour' },
@@ -20,6 +21,66 @@ const limitOptions = [
   { value: '50', label: 'Top 50' },
 ];
 
+/**
+ * HotSystemRow - Memoized table row for performance in large lists
+ */
+interface HotSystemRowProps {
+  system: HotSystem;
+  index: number;
+}
+
+const HotSystemRow = memo(function HotSystemRow({ system, index }: HotSystemRowProps) {
+  return (
+    <div
+      className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[500px]"
+      role="row"
+    >
+      <div className="col-span-1 text-text-secondary text-sm" role="cell">
+        {index + 1}
+      </div>
+      <div className="col-span-4 font-medium text-text truncate" role="cell">
+        {system.system_name}
+      </div>
+      <div className="col-span-2" role="cell">
+        <SecurityBadge security={system.security} size="sm" />
+      </div>
+      <div className="col-span-2 text-right" role="cell">
+        <span className="text-risk-red font-medium">
+          {system.recent_kills}
+        </span>
+      </div>
+      <div className="col-span-2 text-right" role="cell">
+        {system.recent_pods > 0 ? (
+          <span className="text-risk-orange font-medium">
+            {system.recent_pods}
+          </span>
+        ) : (
+          <span className="text-text-secondary">0</span>
+        )}
+      </div>
+      <div className="col-span-1 text-right" role="cell">
+        <Badge
+          variant={
+            system.category === 'high_sec'
+              ? 'success'
+              : system.category === 'low_sec'
+                ? 'warning'
+                : 'danger'
+          }
+          size="sm"
+          aria-label={system.category === 'high_sec' ? 'High security' : system.category === 'low_sec' ? 'Low security' : 'Null security'}
+        >
+          {system.category === 'high_sec'
+            ? 'H'
+            : system.category === 'low_sec'
+              ? 'L'
+              : 'N'}
+        </Badge>
+      </div>
+    </div>
+  );
+});
+
 export default function IntelPage() {
   const [hours, setHours] = useState(24);
   const [limit, setLimit] = useState(25);
@@ -27,9 +88,25 @@ export default function IntelPage() {
 
   const { data: hotSystems, isLoading, error, refetch } = useHotSystems(hours, limit);
 
-  const filteredSystems = hotSystems?.filter((system) =>
-    system.system_name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Memoize filtered systems and stats to prevent recalculation on every render
+  const filteredSystems = useMemo(() => {
+    if (!hotSystems) return [];
+    if (!search) return hotSystems;
+    const lowerSearch = search.toLowerCase();
+    return hotSystems.filter((system) =>
+      system.system_name.toLowerCase().includes(lowerSearch)
+    );
+  }, [hotSystems, search]);
+
+  // Memoize summary stats to avoid recalculating on every render
+  const stats = useMemo(() => {
+    if (!hotSystems || hotSystems.length === 0) return null;
+    return {
+      totalKills: hotSystems.reduce((sum, s) => sum + s.recent_kills, 0),
+      totalPods: hotSystems.reduce((sum, s) => sum + s.recent_pods, 0),
+      hottest: hotSystems[0]?.system_name || '-',
+    };
+  }, [hotSystems]);
 
   return (
     <div className="space-y-6">
@@ -72,15 +149,15 @@ export default function IntelPage() {
       </Card>
 
       {/* Stats Summary */}
-      {hotSystems && hotSystems.length > 0 && (
+      {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" role="region" aria-label="Kill statistics summary">
           <Card className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Radar className="h-4 w-4 text-primary" aria-hidden="true" />
               <span className="text-xs text-text-secondary uppercase">Systems</span>
             </div>
-            <span className="text-2xl font-bold text-text" aria-label={`${hotSystems.length} systems`}>
-              {hotSystems.length}
+            <span className="text-2xl font-bold text-text" aria-label={`${hotSystems?.length || 0} systems`}>
+              {hotSystems?.length || 0}
             </span>
           </Card>
           <Card className="text-center">
@@ -90,8 +167,8 @@ export default function IntelPage() {
                 Total Kills
               </span>
             </div>
-            <span className="text-2xl font-bold text-risk-red" aria-label={`${hotSystems.reduce((sum, s) => sum + s.recent_kills, 0)} total kills`}>
-              {hotSystems.reduce((sum, s) => sum + s.recent_kills, 0)}
+            <span className="text-2xl font-bold text-risk-red" aria-label={`${stats.totalKills} total kills`}>
+              {stats.totalKills}
             </span>
           </Card>
           <Card className="text-center">
@@ -101,8 +178,8 @@ export default function IntelPage() {
                 Total Pods
               </span>
             </div>
-            <span className="text-2xl font-bold text-risk-orange" aria-label={`${hotSystems.reduce((sum, s) => sum + s.recent_pods, 0)} total pods`}>
-              {hotSystems.reduce((sum, s) => sum + s.recent_pods, 0)}
+            <span className="text-2xl font-bold text-risk-orange" aria-label={`${stats.totalPods} total pods`}>
+              {stats.totalPods}
             </span>
           </Card>
           <Card className="text-center">
@@ -110,8 +187,8 @@ export default function IntelPage() {
               <TrendingUp className="h-4 w-4 text-risk-red" aria-hidden="true" />
               <span className="text-xs text-text-secondary uppercase">Hottest</span>
             </div>
-            <span className="text-lg font-bold text-text truncate" aria-label={`Hottest system: ${hotSystems[0]?.system_name || 'none'}`}>
-              {hotSystems[0]?.system_name || '-'}
+            <span className="text-lg font-bold text-text truncate" aria-label={`Hottest system: ${stats.hottest}`}>
+              {stats.hottest}
             </span>
           </Card>
         </div>
@@ -143,56 +220,13 @@ export default function IntelPage() {
               <div className="col-span-1 text-right" role="columnheader"><span className="sr-only">Category</span>Cat</div>
             </div>
 
-            {/* Table Body */}
+            {/* Table Body - Using memoized HotSystemRow for performance */}
             {filteredSystems.map((system, index) => (
-              <div
+              <HotSystemRow
                 key={system.system_id}
-                className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[500px]"
-                role="row"
-              >
-                <div className="col-span-1 text-text-secondary text-sm" role="cell">
-                  {index + 1}
-                </div>
-                <div className="col-span-4 font-medium text-text truncate" role="cell">
-                  {system.system_name}
-                </div>
-                <div className="col-span-2" role="cell">
-                  <SecurityBadge security={system.security} size="sm" />
-                </div>
-                <div className="col-span-2 text-right" role="cell">
-                  <span className="text-risk-red font-medium">
-                    {system.recent_kills}
-                  </span>
-                </div>
-                <div className="col-span-2 text-right" role="cell">
-                  {system.recent_pods > 0 ? (
-                    <span className="text-risk-orange font-medium">
-                      {system.recent_pods}
-                    </span>
-                  ) : (
-                    <span className="text-text-secondary">0</span>
-                  )}
-                </div>
-                <div className="col-span-1 text-right" role="cell">
-                  <Badge
-                    variant={
-                      system.category === 'high_sec'
-                        ? 'success'
-                        : system.category === 'low_sec'
-                          ? 'warning'
-                          : 'danger'
-                    }
-                    size="sm"
-                    aria-label={system.category === 'high_sec' ? 'High security' : system.category === 'low_sec' ? 'Low security' : 'Null security'}
-                  >
-                    {system.category === 'high_sec'
-                      ? 'H'
-                      : system.category === 'low_sec'
-                        ? 'L'
-                        : 'N'}
-                  </Badge>
-                </div>
-              </div>
+                system={system}
+                index={index}
+              />
             ))}
           </div>
         ) : (

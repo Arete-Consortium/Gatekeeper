@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
@@ -72,6 +72,7 @@ export default function MapPage() {
     showRoute: true,
     showKills: true,
     showHeatmap: false,
+    showRegionLabels: true,
   });
   const [colorMode, setColorMode] = useState<'security' | 'risk'>('security');
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
@@ -171,28 +172,29 @@ export default function MapPage() {
     compareProfiles: true,
   });
 
-  // Filter systems by search
-  const filteredSystems = searchQuery
-    ? systems.filter((s) =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  // Filter systems by search - memoized for performance
+  const filteredSystems = useMemo(() => {
+    if (!searchQuery) return [];
+    const lowerQuery = searchQuery.toLowerCase();
+    return systems.filter((s) => s.name.toLowerCase().includes(lowerQuery));
+  }, [systems, searchQuery]);
 
-  const handleZoomIn = () => {
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleZoomIn = useCallback(() => {
     const viewport = mapRef.current?.getViewport();
     if (viewport) {
       mapRef.current?.zoomTo(viewport.zoom * 1.5);
     }
-  };
+  }, []);
 
-  const handleZoomOut = () => {
+  const handleZoomOut = useCallback(() => {
     const viewport = mapRef.current?.getViewport();
     if (viewport) {
       mapRef.current?.zoomTo(viewport.zoom / 1.5);
     }
-  };
+  }, []);
 
-  const handleFullscreen = () => {
+  const handleFullscreen = useCallback(() => {
     const container = document.getElementById('map-container');
     if (container) {
       if (document.fullscreenElement) {
@@ -201,9 +203,9 @@ export default function MapPage() {
         container.requestFullscreen();
       }
     }
-  };
+  }, []);
 
-  const handleSystemSelect = (systemId: number) => {
+  const handleSystemSelect = useCallback((systemId: number) => {
     setSelectedSystem(systemId);
     mapRef.current?.panTo(systemId);
 
@@ -211,16 +213,22 @@ export default function MapPage() {
     if (routeState.mode !== 'idle') {
       selectRouteSystem(systemId);
     }
-  };
+  }, [routeState.mode, selectRouteSystem]);
 
-  const handleSearchSelect = (system: MapSystem) => {
+  const handleSearchSelect = useCallback((system: MapSystem) => {
     setSearchQuery('');
-    handleSystemSelect(system.systemId);
-  };
+    setSelectedSystem(system.systemId);
+    mapRef.current?.panTo(system.systemId);
 
-  const updateLayer = (key: keyof MapLayers, value: boolean) => {
+    // If in route selection mode, handle route selection
+    if (routeState.mode !== 'idle') {
+      selectRouteSystem(system.systemId);
+    }
+  }, [routeState.mode, selectRouteSystem]);
+
+  const updateLayer = useCallback((key: keyof MapLayers, value: boolean) => {
     setLayers((prev) => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
   const isLoading = loadingSystems || loadingConfig;
   const error = systemsError || configError;

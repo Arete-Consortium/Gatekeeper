@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { SecurityBadge, RiskBadge } from '@/components/system';
 import { cn } from '@/lib/utils';
 import type { RouteHop } from '@/lib/types';
@@ -18,7 +19,11 @@ function getRiskColor(risk: number): 'green' | 'yellow' | 'orange' | 'red' {
   return 'red';
 }
 
-export function RouteHopRow({
+/**
+ * RouteHopRow - Memoized for performance in route lists
+ * Only re-renders when hop data or position props change
+ */
+export const RouteHopRow = memo(function RouteHopRow({
   hop,
   index,
   isFirst = false,
@@ -62,4 +67,4 @@ export function RouteHopRow({
       />
     </div>
   );
-}
+});

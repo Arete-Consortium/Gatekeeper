@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useCallback } from 'react';
 import { Card } from '@/components/ui';
 import { SecurityBadge } from './SecurityBadge';
 import { RiskBadge } from './RiskBadge';
@@ -15,7 +16,11 @@ interface SystemCardProps {
   className?: string;
 }
 
-export function SystemCard({
+/**
+ * SystemCard - Memoized for performance in system lists
+ * Only re-renders when system data changes
+ */
+export const SystemCard = memo(function SystemCard({
   systemName,
   security,
   riskColor,
@@ -64,4 +69,4 @@ export function SystemCard({
       )}
     </Card>
   );
-}
+});

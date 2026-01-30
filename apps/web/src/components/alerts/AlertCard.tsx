@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useCallback } from 'react';
 import { Card, Badge, Toggle, Button } from '@/components/ui';
 import { formatRelativeTime } from '@/lib/utils';
 import type { AlertSubscription } from '@/lib/types';
@@ -11,7 +12,21 @@ interface AlertCardProps {
   onDelete: (id: string) => void;
 }
 
-export function AlertCard({ subscription, onToggle, onDelete }: AlertCardProps) {
+/**
+ * AlertCard - Memoized for performance in alert lists
+ * Only re-renders when subscription data or callbacks change
+ */
+export const AlertCard = memo(function AlertCard({ subscription, onToggle, onDelete }: AlertCardProps) {
+  // Memoize handlers to prevent unnecessary re-renders
+  const handleToggle = useCallback(
+    (enabled: boolean) => onToggle(subscription.id, enabled),
+    [onToggle, subscription.id]
+  );
+
+  const handleDelete = useCallback(
+    () => onDelete(subscription.id),
+    [onDelete, subscription.id]
+  );
   const webhookIcon =
     subscription.webhook_type === 'discord' ? (
       <Badge variant="info" size="sm">
@@ -75,12 +90,12 @@ export function AlertCard({ subscription, onToggle, onDelete }: AlertCardProps) 
         <div className="flex flex-col items-end gap-2">
           <Toggle
             checked={subscription.enabled}
-            onChange={(enabled) => onToggle(subscription.id, enabled)}
+            onChange={handleToggle}
           />
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => onDelete(subscription.id)}
+            onClick={handleDelete}
             className="text-risk-red hover:bg-risk-red/10"
           >
             <Trash2 className="h-4 w-4" />
@@ -89,4 +104,4 @@ export function AlertCard({ subscription, onToggle, onDelete }: AlertCardProps) 
       </div>
     </Card>
   );
-}
+});
