@@ -5,7 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import type { MapSystem, MapGate } from './types';
+import type { MapSystem, MapGate, MapRegion } from './types';
 import { buildQuadtree, type Quadtree } from './utils/spatial';
 
 // API response types (adjust based on actual API shape)
@@ -312,4 +312,56 @@ export function getConnectedSystems(
   }
 
   return connected;
+}
+
+/**
+ * Calculate region centers from systems
+ * Groups systems by regionId and computes centroid for each region
+ */
+export function calculateRegionCenters(
+  systems: MapSystem[],
+  regionNames?: Map<number, string>
+): MapRegion[] {
+  // Group systems by region
+  const regionGroups = new Map<number, MapSystem[]>();
+
+  for (const system of systems) {
+    const group = regionGroups.get(system.regionId);
+    if (group) {
+      group.push(system);
+    } else {
+      regionGroups.set(system.regionId, [system]);
+    }
+  }
+
+  // Calculate centroid for each region
+  const regions: MapRegion[] = [];
+
+  regionGroups.forEach((regionSystems, regionId) => {
+    if (regionSystems.length === 0) return;
+
+    let sumX = 0;
+    let sumY = 0;
+
+    for (const system of regionSystems) {
+      sumX += system.x;
+      sumY += system.y;
+    }
+
+    const centerX = sumX / regionSystems.length;
+    const centerY = sumY / regionSystems.length;
+
+    // Use provided name or generate placeholder
+    const name = regionNames?.get(regionId) || `Region ${regionId}`;
+
+    regions.push({
+      regionId,
+      name,
+      centerX,
+      centerY,
+      systemCount: regionSystems.length,
+    });
+  });
+
+  return regions;
 }

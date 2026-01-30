@@ -5,13 +5,17 @@
  * Works without PixiJS for reliable rendering
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { MapSystem, MapGate, MapViewport, MapLayers } from './types';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion } from './types';
 import { getSecurityColor } from './types';
 
 const MIN_ZOOM = 0.01;
 const MAX_ZOOM = 5;
 const SYSTEM_RADIUS = 3;
+
+// Zoom thresholds for showing different label types
+const REGION_LABEL_MAX_ZOOM = 0.15; // Show region labels when zoomed out
+const SYSTEM_LABEL_MIN_ZOOM = 0.3; // Show system labels when zoomed in
 
 interface SimpleMapCanvasProps {
   systems: MapSystem[];
@@ -19,10 +23,12 @@ interface SimpleMapCanvasProps {
   viewport: MapViewport;
   onViewportChange: (viewport: MapViewport) => void;
   selectedSystem?: number | null;
+  highlightedSystems?: number[];
   onSystemClick?: (systemId: number) => void;
   onSystemHover?: (systemId: number | null) => void;
   layers: MapLayers;
   colorMode: 'security' | 'risk';
+  regions?: MapRegion[];
 }
 
 export function SimpleMapCanvas({
@@ -31,10 +37,12 @@ export function SimpleMapCanvas({
   viewport,
   onViewportChange,
   selectedSystem,
+  highlightedSystems = [],
   onSystemClick,
   onSystemHover,
   layers,
   colorMode,
+  regions = [],
 }: SimpleMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,6 +55,12 @@ export function SimpleMapCanvas({
     systems.forEach((s) => map.set(s.systemId, s));
     systemMapRef.current = map;
   }, [systems]);
+
+  // Build highlighted systems set for O(1) lookup
+  const highlightedSet = useMemo(
+    () => new Set(highlightedSystems),
+    [highlightedSystems]
+  );
 
   // World to screen transformation
   const worldToScreen = useCallback(
@@ -137,11 +151,29 @@ export function SimpleMapCanvas({
       )
         continue;
 
+      const isHighlighted = highlightedSet.has(system.systemId);
+      const isSelected = system.systemId === selectedSystem;
       const color = getSecurityColor(system.security);
-      const radius =
-        system.systemId === selectedSystem
-          ? SYSTEM_RADIUS * 2
-          : SYSTEM_RADIUS;
+      const radius = isSelected ? SYSTEM_RADIUS * 2 : SYSTEM_RADIUS;
+
+      // Draw highlight glow for search results
+      if (isHighlighted) {
+        ctx.save();
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = '#00ffff';
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, radius + 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Highlight ring
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, radius + 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
 
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -149,7 +181,7 @@ export function SimpleMapCanvas({
       ctx.fill();
 
       // Selection ring
-      if (system.systemId === selectedSystem) {
+      if (isSelected) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -158,8 +190,42 @@ export function SimpleMapCanvas({
       }
     }
 
-    // Draw labels at high zoom
-    if (layers.showLabels && viewport.zoom > 0.3) {
+    // Draw region labels when zoomed out
+    if (layers.showRegionLabels && viewport.zoom < REGION_LABEL_MAX_ZOOM && regions.length > 0) {
+      ctx.save();
+      // Scale font size based on zoom - larger when zoomed out more
+      const fontSize = Math.max(14, Math.min(24, 3 / viewport.zoom));
+      ctx.font = `bold ${fontSize}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.6;
+
+      for (const region of regions) {
+        const screen = worldToScreen(region.centerX, region.centerY);
+
+        // Skip if off screen with generous margin for text
+        if (
+          screen.x < -100 ||
+          screen.x > viewport.width + 100 ||
+          screen.y < -50 ||
+          screen.y > viewport.height + 50
+        )
+          continue;
+
+        // Draw text with shadow for readability
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(region.name, screen.x, screen.y);
+      }
+
+      ctx.restore();
+    }
+
+    // Draw system labels at high zoom
+    if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
       ctx.fillStyle = '#ffffff';
       ctx.font = '10px Arial';
       ctx.textAlign = 'center';
@@ -180,7 +246,7 @@ export function SimpleMapCanvas({
 
       ctx.globalAlpha = 1;
     }
-  }, [systems, gates, viewport, layers, selectedSystem, worldToScreen]);
+  }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen]);
 
   // Mouse wheel zoom
   const handleWheel = useCallback(

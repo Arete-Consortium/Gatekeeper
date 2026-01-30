@@ -11,7 +11,7 @@ export { UniverseMap } from './UniverseMap';
 export { default as MapCanvas } from './MapCanvas';
 
 // Data hooks
-export { useMapData, useMapDataFromProps, searchSystems, getConnectedSystems } from './useMapData';
+export { useMapData, useMapDataFromProps, searchSystems, getConnectedSystems, calculateRegionCenters } from './useMapData';
 
 // Spatial utilities
 export {
@@ -49,6 +49,7 @@ export type {
 // Overlay components
 export { KillMarkers } from './KillMarkers';
 export { RiskHeatmap, RiskHeatmapLegend } from './RiskHeatmap';
+export { Minimap } from './Minimap';
 
 // Intel controls
 export { IntelControls, IntelStatusBadge } from './IntelControls';

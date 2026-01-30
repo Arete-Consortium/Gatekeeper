@@ -71,6 +71,16 @@ export interface MapLayers {
   showRoute: boolean;
   showKills: boolean;
   showHeatmap: boolean;
+  showRegionLabels: boolean;
+}
+
+// Region data for map labels
+export interface MapRegion {
+  regionId: number;
+  name: string;
+  centerX: number;
+  centerY: number;
+  systemCount: number;
 }
 
 // Props for the main UniverseMap component

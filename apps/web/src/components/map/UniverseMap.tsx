@@ -7,6 +7,7 @@
 
 import React, {
   forwardRef,
+  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -18,15 +19,17 @@ import type {
   MapSystem,
   MapViewport,
   MapLayers,
+  MapRegion,
   UniverseMapProps,
   UniverseMapRef,
 } from './types';
-import { useMapDataFromProps } from './useMapData';
+import { useMapDataFromProps, calculateRegionCenters } from './useMapData';
 import { calculateFitZoom, lerp, smoothStep } from './utils/spatial';
 import { SimpleMapCanvas } from './SimpleMapCanvas';
 import { RouteOverlay } from './RouteOverlay';
 import { KillMarkers } from './KillMarkers';
 import { RiskHeatmap } from './RiskHeatmap';
+import { Minimap } from './Minimap';
 
 // Default layer visibility
 const DEFAULT_LAYERS: MapLayers = {
@@ -35,6 +38,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showRoute: true,
   showKills: false,
   showHeatmap: false,
+  showRegionLabels: true,
 };
 
 // Animation duration in ms
@@ -53,7 +57,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       kills = [],
       risks = [],
       selectedSystem,
-      highlightedSystems: _highlightedSystems,
+      highlightedSystems = [],
       onSystemClick,
       onSystemHover,
       onRouteRequest: _onRouteRequest,
@@ -74,6 +78,12 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
 
     // Build efficient data structures (systemMap used for panTo/fitToSystems)
     const { systemMap } = useMapDataFromProps(systems, gates);
+
+    // Calculate region centers for labels
+    const regions = useMemo(
+      () => calculateRegionCenters(systems),
+      [systems]
+    );
 
     // Viewport state
     const [viewport, setViewport] = useState<MapViewport>({
@@ -209,6 +219,18 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       setViewport(newViewport);
     }, []);
 
+    // Handle minimap navigation (partial viewport updates)
+    const handleMinimapViewportChange = useCallback(
+      (partial: Partial<MapViewport>) => {
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
+        }
+        setViewport((prev) => ({ ...prev, ...partial }));
+      },
+      []
+    );
+
     // Handle system hover
     const handleSystemHover = useCallback(
       (systemId: number | null) => {
@@ -246,10 +268,12 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           viewport={viewport}
           onViewportChange={handleViewportChange}
           selectedSystem={selectedSystem}
+          highlightedSystems={highlightedSystems}
           onSystemClick={handleSystemClick}
           onSystemHover={handleSystemHover}
           layers={layers}
           colorMode={colorMode}
+          regions={regions}
         />
 
         {/* Risk Heatmap (renders behind other overlays) */}
@@ -289,6 +313,14 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           />
         )}
 
+        {/* Minimap overview */}
+        <Minimap
+          systems={systems}
+          viewport={viewport}
+          onViewportChange={handleMinimapViewportChange}
+          size={150}
+        />
+
         {/* Zoom level indicator */}
         <div className="absolute bottom-4 right-4 bg-black/70 text-gray-400 text-xs px-2 py-1 rounded">
           Zoom: {(viewport.zoom * 100).toFixed(0)}%
@@ -300,13 +332,14 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
 
 /**
  * Tooltip displayed when hovering over a system
+ * Memoized to prevent re-renders when other map state changes
  */
 interface SystemTooltipProps {
   system: MapSystem | undefined;
   viewport: MapViewport;
 }
 
-function SystemTooltip({ system, viewport }: SystemTooltipProps) {
+const SystemTooltip = memo(function SystemTooltip({ system, viewport }: SystemTooltipProps) {
   if (!system) return null;
 
   // Calculate screen position
@@ -337,6 +370,6 @@ function SystemTooltip({ system, viewport }: SystemTooltipProps) {
       </div>
     </div>
   );
-}
+});
 
 export default UniverseMap;
