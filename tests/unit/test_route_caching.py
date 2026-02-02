@@ -21,8 +21,9 @@ class TestRouteCacheKeyBuilder:
             bridges=False,
             thera=False,
             pochven=False,
+            wormholes=False,
         )
-        assert key == "route:Jita:Amarr:shortest:avoid::bridges:False:thera:False:pochven:False"
+        assert key == "route:Jita:Amarr:shortest:avoid::bridges:False:thera:False:pochven:False:wormholes:False"
 
     def test_key_with_avoid_systems(self):
         """Test cache key includes sorted avoid list."""
