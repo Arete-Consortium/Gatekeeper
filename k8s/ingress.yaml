@@ -1,0 +1,42 @@
+---
+# EVE Gatekeeper Ingress
+# Requires an Ingress Controller (nginx-ingress, traefik, etc.)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eve-gatekeeper
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: ingress
+  annotations:
+    # For nginx-ingress
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    # WebSocket support
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/limit-connections: "20"
+    # For cert-manager TLS (uncomment to enable)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # Uncomment for TLS
+  # tls:
+  #   - hosts:
+  #       - api.eve-gatekeeper.example.com
+  #     secretName: eve-gatekeeper-tls
+  rules:
+    - host: api.eve-gatekeeper.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: eve-gatekeeper
+                port:
+                  name: http

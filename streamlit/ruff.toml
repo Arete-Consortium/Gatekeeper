@@ -1,0 +1,6 @@
+# Ruff config for Streamlit app
+# Inherits from parent but adjusts for Streamlit patterns
+
+[lint]
+# C408: dict() vs {} - Plotly uses dict() idiomatically for readability
+ignore = ["C408"]

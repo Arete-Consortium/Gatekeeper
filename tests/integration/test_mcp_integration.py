@@ -237,9 +237,7 @@ class TestSystemThreatIntegration:
     @pytest.mark.asyncio
     async def test_threat_nullsec_system(self, server):
         """Null-sec system should have high base risk."""
-        resp = await server.handle_request(
-            _call("gatekeeper_system_threat", system_name="HED-GP")
-        )
+        resp = await server.handle_request(_call("gatekeeper_system_threat", system_name="HED-GP"))
         data = _parse_content(resp)
 
         assert data["system_name"] == "HED-GP"
@@ -392,9 +390,7 @@ class TestParseFittingIntegration:
     @pytest.mark.asyncio
     async def test_parse_fitting_has_hint_on_error(self, server):
         """Error response should include hint."""
-        resp = await server.handle_request(
-            _call("gatekeeper_parse_fitting", eft_text="invalid")
-        )
+        resp = await server.handle_request(_call("gatekeeper_parse_fitting", eft_text="invalid"))
         data = _parse_content(resp)
         assert "hint" in data
 
@@ -674,9 +670,7 @@ class TestJumpRangeIntegration:
     @pytest.mark.asyncio
     async def test_jump_range_default_jumps(self, server):
         """Default max_jumps should be used when not specified."""
-        resp = await server.handle_request(
-            _call("gatekeeper_jump_range", center_system="Jita")
-        )
+        resp = await server.handle_request(_call("gatekeeper_jump_range", center_system="Jita"))
         data = _parse_content(resp)
 
         assert data["center_system"] == "Jita"
@@ -1233,18 +1227,14 @@ class TestEdgeCases:
     async def test_system_name_case_sensitivity(self, server):
         """System names should work with various cases."""
         # Test lowercase
-        resp = await server.handle_request(
-            _call("gatekeeper_system_threat", system_name="Jita")
-        )
+        resp = await server.handle_request(_call("gatekeeper_system_threat", system_name="Jita"))
         data = _parse_content(resp)
         assert "error" not in data
 
     @pytest.mark.asyncio
     async def test_region_name_case_sensitivity(self, server):
         """Region lookup should match case-insensitively."""
-        resp = await server.handle_request(
-            _call("gatekeeper_region_map", region_name="the forge")
-        )
+        resp = await server.handle_request(_call("gatekeeper_region_map", region_name="the forge"))
         data = _parse_content(resp)
         assert "error" not in data
         # Region lookup is case-insensitive but returns input case
@@ -1290,54 +1280,42 @@ class TestInputValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_system_threat_with_null_name(self, server):
         """System threat with None name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_system_threat", system_name=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_system_threat", system_name=None))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_ship_info_with_null_name(self, server):
         """Ship info with None name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_ship_info", ship_name=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_ship_info", ship_name=None))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_region_map_with_null_name(self, server):
         """Region map with None name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_region_map", region_name=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_region_map", region_name=None))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_jump_range_with_null_system(self, server):
         """Jump range with None system should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_jump_range", center_system=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_jump_range", center_system=None))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_parse_fitting_with_null_text(self, server):
         """Parse fitting with None text should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_parse_fitting", eft_text=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_parse_fitting", eft_text=None))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_create_alert_with_null_url(self, server):
         """Create alert with None URL should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_create_alert", webhook_url=None)
-        )
+        resp = await server.handle_request(_call("gatekeeper_create_alert", webhook_url=None))
         data = _parse_content(resp)
         assert "error" in data
 
@@ -1354,27 +1332,21 @@ class TestInputValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_system_threat_with_empty_name(self, server):
         """System threat with empty name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_system_threat", system_name="")
-        )
+        resp = await server.handle_request(_call("gatekeeper_system_threat", system_name=""))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_ship_info_with_empty_name(self, server):
         """Ship info with empty name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_ship_info", ship_name="")
-        )
+        resp = await server.handle_request(_call("gatekeeper_ship_info", ship_name=""))
         data = _parse_content(resp)
         assert "error" in data
 
     @pytest.mark.asyncio
     async def test_parse_fitting_with_empty_text(self, server):
         """Parse fitting with empty text should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_parse_fitting", eft_text="")
-        )
+        resp = await server.handle_request(_call("gatekeeper_parse_fitting", eft_text=""))
         data = _parse_content(resp)
         assert "error" in data
 
@@ -1391,9 +1363,7 @@ class TestInputValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_system_threat_with_whitespace_name(self, server):
         """System threat with whitespace-only name should return validation error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_system_threat", system_name="   \t  ")
-        )
+        resp = await server.handle_request(_call("gatekeeper_system_threat", system_name="   \t  "))
         data = _parse_content(resp)
         assert "error" in data
 
@@ -1535,7 +1505,12 @@ class TestInputValidationEdgeCases:
     async def test_route_with_mixed_avoid_items(self, server):
         """Route with mixed types in avoid_systems should error."""
         resp = await server.handle_request(
-            _call("gatekeeper_route", origin="Jita", destination="Amarr", avoid_systems=["Niarja", 123])
+            _call(
+                "gatekeeper_route",
+                origin="Jita",
+                destination="Amarr",
+                avoid_systems=["Niarja", 123],
+            )
         )
         data = _parse_content(resp)
         assert "error" in data
@@ -1554,9 +1529,7 @@ class TestInputValidationEdgeCases:
     @pytest.mark.asyncio
     async def test_parse_fitting_with_only_whitespace(self, server):
         """Fitting with only whitespace should return error."""
-        resp = await server.handle_request(
-            _call("gatekeeper_parse_fitting", eft_text="   \n\t   ")
-        )
+        resp = await server.handle_request(_call("gatekeeper_parse_fitting", eft_text="   \n\t   "))
         data = _parse_content(resp)
         assert "error" in data
 
@@ -1570,60 +1543,70 @@ class TestServerErrorHandling:
     @pytest.mark.asyncio
     async def test_tool_call_without_name(self, server):
         """Tool call without name should return error."""
-        resp = await server.handle_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"arguments": {}},
-        })
+        resp = await server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"arguments": {}},
+            }
+        )
         assert "error" in resp
         assert resp["error"]["code"] == -32602
 
     @pytest.mark.asyncio
     async def test_tool_call_with_empty_name(self, server):
         """Tool call with empty name should return error."""
-        resp = await server.handle_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": "", "arguments": {}},
-        })
+        resp = await server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "", "arguments": {}},
+            }
+        )
         assert "error" in resp
         assert resp["error"]["code"] == -32602
 
     @pytest.mark.asyncio
     async def test_tool_call_with_numeric_name(self, server):
         """Tool call with numeric name should return error."""
-        resp = await server.handle_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": 12345, "arguments": {}},
-        })
+        resp = await server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": 12345, "arguments": {}},
+            }
+        )
         assert "error" in resp
         assert resp["error"]["code"] == -32602
 
     @pytest.mark.asyncio
     async def test_tool_call_with_list_arguments(self, server):
         """Tool call with list arguments should return error."""
-        resp = await server.handle_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": "gatekeeper_ship_info", "arguments": ["Caracal"]},
-        })
+        resp = await server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "gatekeeper_ship_info", "arguments": ["Caracal"]},
+            }
+        )
         assert "error" in resp
         assert resp["error"]["code"] == -32602
 
     @pytest.mark.asyncio
     async def test_tool_call_with_null_arguments(self, server):
         """Tool call with null arguments should work (use empty dict)."""
-        resp = await server.handle_request({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/call",
-            "params": {"name": "gatekeeper_list_alerts", "arguments": None},
-        })
+        resp = await server.handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "gatekeeper_list_alerts", "arguments": None},
+            }
+        )
         # Should succeed for list_alerts which has no required args
         assert "result" in resp
         data = json.loads(resp["result"]["content"][0]["text"])
@@ -1632,9 +1615,7 @@ class TestServerErrorHandling:
     @pytest.mark.asyncio
     async def test_error_responses_include_hint_when_available(self, server):
         """Error responses should include hint when validation fails."""
-        resp = await server.handle_request(
-            _call("gatekeeper_ship_info", ship_name="")
-        )
+        resp = await server.handle_request(_call("gatekeeper_ship_info", ship_name=""))
         data = _parse_content(resp)
         assert "error" in data
         assert "hint" in data

@@ -1,0 +1,60 @@
+---
+# EVE Gatekeeper Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: eve-gatekeeper
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: api
+---
+# Postgres Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: database
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: cache

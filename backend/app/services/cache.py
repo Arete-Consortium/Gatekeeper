@@ -40,6 +40,11 @@ class CacheService(ABC):
         """Clear all cache entries."""
         pass
 
+    @abstractmethod
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        pass
+
     # Convenience methods for JSON serialization
     async def get_json(self, key: str) -> Any | None:
         """Get and deserialize JSON value from cache."""

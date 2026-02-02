@@ -128,6 +128,137 @@ async def get_websocket_health() -> dict[str, Any]:
 
 
 @router.get(
+    "/universe",
+    summary="Get universe data status",
+    description="Returns status information about the universe data file.",
+)
+async def get_universe_status() -> dict[str, Any]:
+    """
+    Get status information about the universe data.
+
+    Returns data freshness, file info, and monitoring status.
+    """
+    from ...services.universe_refresher import get_universe_refresher
+
+    refresher = get_universe_refresher()
+    return refresher.get_status()
+
+
+@router.post(
+    "/universe/invalidate",
+    summary="Invalidate universe cache",
+    description="Clears the universe data cache to force reload on next access.",
+)
+async def invalidate_universe_cache() -> dict[str, Any]:
+    """
+    Invalidate the universe data cache.
+
+    Forces the next API request to reload universe data from disk.
+    Use after updating universe.json with new data.
+    """
+    from ...services.universe_refresher import get_universe_refresher
+
+    refresher = get_universe_refresher()
+    refresher.invalidate_cache()
+    return {"status": "invalidated", "new_status": refresher.get_status()}
+
+
+@router.get(
+    "/cache/stats",
+    summary="Get cache statistics",
+    description="Returns cache hit/miss metrics and storage information.",
+)
+async def get_cache_stats() -> dict[str, Any]:
+    """
+    Get cache statistics including hit rates and storage metrics.
+
+    Returns cache type (memory/redis), hit/miss counts, and hit ratio.
+    """
+    from ...services.cache import get_cache
+
+    cache = await get_cache()
+    stats = cache.get_stats()
+
+    # Add derived metrics
+    total_requests = stats.get("hits", 0) + stats.get("misses", 0)
+
+    return {
+        "cache_type": stats.get("type", "unknown"),
+        "hits": stats.get("hits", 0),
+        "misses": stats.get("misses", 0),
+        "total_requests": total_requests,
+        "hit_ratio": stats.get("hit_ratio", 0),
+        "hit_percentage": round(stats.get("hit_ratio", 0) * 100, 2),
+        "entries": stats.get("entries", None),  # Only for memory cache
+    }
+
+
+@router.get(
+    "/kills",
+    summary="Get recent kills",
+    description="Returns recent kills from the kill history with optional filtering.",
+)
+async def get_recent_kills(
+    limit: int = 100,
+    system_id: int | None = None,
+    region_id: int | None = None,
+    min_value: float | None = None,
+) -> dict[str, Any]:
+    """
+    Get recent kills from the kill history.
+
+    Supports filtering by system, region, and minimum ISK value.
+    Returns newest kills first, up to the specified limit.
+    """
+    from ...services.kill_history import get_kill_history
+
+    history = get_kill_history()
+    kills = history.get_recent(
+        limit=min(limit, 500),  # Cap at 500 to prevent abuse
+        system_id=system_id,
+        region_id=region_id,
+        min_value=min_value,
+    )
+
+    return {
+        "count": len(kills),
+        "kills": kills,
+        "filters": {
+            "limit": limit,
+            "system_id": system_id,
+            "region_id": region_id,
+            "min_value": min_value,
+        },
+    }
+
+
+@router.get(
+    "/kills/stats",
+    summary="Get kill history statistics",
+    description="Returns statistics about the kill history storage.",
+)
+async def get_kill_history_stats() -> dict[str, Any]:
+    """Get kill history statistics including storage usage and aging metrics."""
+    from ...services.kill_history import get_kill_history
+
+    history = get_kill_history()
+    return history.get_stats()
+
+
+@router.get(
+    "/pubsub",
+    summary="Get Redis pub/sub status",
+    description="Returns status of the Redis pub/sub service for multi-instance deployments.",
+)
+async def get_pubsub_status() -> dict[str, Any]:
+    """Get Redis pub/sub status for multi-instance kill event broadcasting."""
+    from ...services.redis_pubsub import get_redis_pubsub
+
+    pubsub = get_redis_pubsub()
+    return pubsub.get_stats()
+
+
+@router.get(
     "/version",
     summary="Get version info for website",
     description="Returns comprehensive version and project info for website display.",

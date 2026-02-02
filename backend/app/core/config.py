@@ -87,6 +87,21 @@ class Settings(BaseSettings):
     CACHE_TTL_ROUTE: int = 600  # 10 minutes
     CACHE_TTL_RISK: int = 120  # 2 minutes
 
+    # Universe Data Refresh
+    UNIVERSE_REFRESH_ENABLED: bool = True
+    UNIVERSE_REFRESH_INTERVAL_HOURS: int = 24  # Refresh every 24 hours
+    UNIVERSE_REFRESH_ON_STARTUP: bool = False  # Check for refresh on startup
+
+    # Kill Data Aging
+    KILL_HISTORY_ENABLED: bool = True
+    KILL_HISTORY_MAX_AGE_HOURS: int = 24  # Maximum age of stored kills (default 24 hours)
+    KILL_HISTORY_MAX_ENTRIES: int = 10000  # Maximum number of kills to store
+    KILL_HISTORY_CLEANUP_INTERVAL_MINUTES: int = 15  # How often to run cleanup
+
+    # Redis Pub/Sub (for multi-instance deployments)
+    REDIS_PUBSUB_ENABLED: bool = True  # Auto-enabled if REDIS_URL is set
+    REDIS_PUBSUB_CHANNEL: str = "eve_gatekeeper:kills"  # Channel name for kill events
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

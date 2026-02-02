@@ -1,13 +1,22 @@
 """Systems API v1 endpoints."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from ...core.pagination import PaginationParams, get_pagination_params, paginate
 from ...models.risk import SHIP_PROFILES, RiskReport
 from ...models.system import SystemListResponse, SystemSummary
+from ...services.cache import get_cache
 from ...services.data_loader import get_neighbors, load_universe
 from ...services.risk_engine import compute_risk_async
+from ..metrics import record_risk_cache_hit, record_risk_cache_miss
+
+logger = logging.getLogger(__name__)
+
+# Risk cache TTL (2 minutes - risk data can change frequently from zKill)
+RISK_CACHE_TTL = 120
 
 router = APIRouter()
 
@@ -109,6 +118,12 @@ def get_system(system_name: str) -> SystemSummary:
     )
 
 
+def _build_risk_cache_key(system_name: str, live: bool, ship_profile: str | None) -> str:
+    """Build a cache key for risk calculations."""
+    profile_part = ship_profile or "default"
+    return f"risk:{system_name}:{live}:{profile_part}"
+
+
 @router.get(
     "/{system_name}/risk",
     response_model=RiskReport,
@@ -142,7 +157,24 @@ async def get_system_risk(
             detail=f"Unknown ship profile: '{ship_profile}'. Available: {available}",
         )
 
-    return await compute_risk_async(system_name, fetch_live=live, ship_profile_name=ship_profile)
+    # Check cache before computing
+    cache_key = _build_risk_cache_key(system_name, live, ship_profile)
+    cache = await get_cache()
+    cached_data = await cache.get_json(cache_key)
+    if cached_data:
+        record_risk_cache_hit()
+        logger.debug("Risk cache hit", extra={"key": cache_key, "system": system_name})
+        return RiskReport(**cached_data)
+
+    record_risk_cache_miss()
+    logger.debug("Risk cache miss", extra={"key": cache_key, "system": system_name})
+
+    risk = await compute_risk_async(system_name, fetch_live=live, ship_profile_name=ship_profile)
+
+    # Cache the result
+    await cache.set_json(cache_key, risk.model_dump(mode="json"), ttl=RISK_CACHE_TTL)
+
+    return risk
 
 
 @router.get(

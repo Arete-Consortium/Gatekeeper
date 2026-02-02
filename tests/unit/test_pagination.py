@@ -1,6 +1,7 @@
 """Unit tests for pagination utilities."""
 
 import pytest
+
 from backend.app.core.pagination import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,

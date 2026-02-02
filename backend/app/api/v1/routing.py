@@ -1,5 +1,7 @@
 """Routing API v1 endpoints."""
 
+import hashlib
+import logging
 from collections import deque
 from datetime import UTC, datetime
 from typing import Any
@@ -25,9 +27,13 @@ from ...models.route import (
     WaypointRouteResponse,
 )
 from ...services.avoidance import resolve_avoidance
+from ...services.cache import get_cache
 from ...services.data_loader import load_risk_config, load_universe
 from ...services.risk_engine import compute_risk, risk_to_color
 from ...services.routing import compute_route, compute_waypoint_route
+from ..metrics import record_route_cache_hit, record_route_cache_miss
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -76,13 +82,49 @@ def clear_route_history() -> None:
     _route_history.clear()
 
 
+# Route cache TTL (5 minutes - routes don't change often)
+ROUTE_CACHE_TTL = 300
+
+
+def _build_route_cache_key(
+    from_system: str,
+    to_system: str,
+    profile: str,
+    avoid: set[str],
+    bridges: bool,
+    thera: bool,
+    pochven: bool,
+) -> str:
+    """Build a cache key for route calculations including all parameters."""
+    # Sort avoid set for consistent key generation
+    avoid_str = ",".join(sorted(avoid)) if avoid else ""
+    key_parts = [
+        "route",
+        from_system,
+        to_system,
+        profile,
+        f"avoid:{avoid_str}",
+        f"bridges:{bridges}",
+        f"thera:{thera}",
+        f"pochven:{pochven}",
+    ]
+    # Use hash for avoid list if it gets too long
+    raw_key = ":".join(key_parts)
+    if len(raw_key) > 200:
+        # Hash the avoid portion to keep key manageable
+        avoid_hash = hashlib.md5(avoid_str.encode()).hexdigest()[:8]
+        key_parts[4] = f"avoid_hash:{avoid_hash}"
+        raw_key = ":".join(key_parts)
+    return raw_key
+
+
 @router.get(
     "/",
     response_model=RouteResponse,
     summary="Calculate route between systems",
     description="Calculates a route between two systems using the specified routing profile.",
 )
-def calculate_route(
+async def calculate_route(
     from_system: str = Query(..., alias="from", description="Origin system name"),
     to_system: str = Query(..., alias="to", description="Destination system name"),
     profile: str = Query(
@@ -145,6 +187,22 @@ def calculate_route(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
 
+    # Check cache before computing
+    cache_key = _build_route_cache_key(
+        from_system, to_system, profile, avoid_set, bridges, thera, pochven
+    )
+    cache = await get_cache()
+    cached_data = await cache.get_json(cache_key)
+    if cached_data:
+        record_route_cache_hit(profile)
+        logger.debug("Route cache hit", extra={"key": cache_key, "profile": profile})
+        route = RouteResponse(**cached_data)
+        _add_to_history(route)
+        return route
+
+    record_route_cache_miss(profile)
+    logger.debug("Route cache miss", extra={"key": cache_key, "profile": profile})
+
     try:
         route = compute_route(
             from_system,
@@ -155,6 +213,8 @@ def calculate_route(
             use_thera=thera,
             use_pochven=pochven,
         )
+        # Cache the result
+        await cache.set_json(cache_key, route.model_dump(mode="json"), ttl=ROUTE_CACHE_TTL)
         _add_to_history(route)
         return route
     except ValueError as e:

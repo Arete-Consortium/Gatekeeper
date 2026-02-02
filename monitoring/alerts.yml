@@ -1,0 +1,237 @@
+# EVE Gatekeeper Prometheus Alert Rules
+#
+# Installation:
+#   1. Copy this file to your Prometheus rules directory
+#   2. Add to prometheus.yml:
+#      rule_files:
+#        - "rules/gatekeeper_alerts.yml"
+#   3. Reload Prometheus configuration
+#
+# AlertManager integration required for notifications.
+
+groups:
+  - name: gatekeeper_cache
+    rules:
+      # High cache miss rate indicates caching not effective
+      - alert: HighRouteCacheMissRate
+        expr: |
+          (
+            rate(route_cache_misses_total[5m]) /
+            (rate(route_cache_hits_total[5m]) + rate(route_cache_misses_total[5m]) + 0.001)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High route cache miss rate"
+          description: "Route cache miss rate is {{ $value | humanizePercentage }} over the last 5 minutes. Expected < 50%."
+
+      - alert: HighRiskCacheMissRate
+        expr: |
+          (
+            rate(risk_cache_misses_total[5m]) /
+            (rate(risk_cache_hits_total[5m]) + rate(risk_cache_misses_total[5m]) + 0.001)
+          ) > 0.7
+        for: 10m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High risk cache miss rate"
+          description: "Risk cache miss rate is {{ $value | humanizePercentage }} over the last 5 minutes. Expected < 70% (risk data is more dynamic)."
+
+      - alert: CacheMissRateCritical
+        expr: |
+          (
+            rate(cache_misses_total[5m]) /
+            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]) + 0.001)
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          service: gatekeeper
+        annotations:
+          summary: "Critical cache miss rate"
+          description: "Overall cache miss rate is {{ $value | humanizePercentage }}. Cache may not be functioning."
+
+  - name: gatekeeper_latency
+    rules:
+      # High API latency
+      - alert: APILatencyHigh
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile API latency is {{ $value | humanizeDuration }}. Expected < 2s."
+
+      - alert: APILatencyCritical
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: gatekeeper
+        annotations:
+          summary: "Critical API latency"
+          description: "95th percentile API latency is {{ $value | humanizeDuration }}. API may be unresponsive."
+
+      # Slow route calculations
+      - alert: RouteCalculationSlow
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{path=~"/api/v1/route.*"}[5m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "Slow route calculations"
+          description: "95th percentile route calculation time is {{ $value | humanizeDuration }}."
+
+  - name: gatekeeper_errors
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m]) /
+            rate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High error rate"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors."
+
+      - alert: ErrorRateCritical
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m]) /
+            rate(http_requests_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: gatekeeper
+        annotations:
+          summary: "Critical error rate"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors. Service may be failing."
+
+      # Client errors spike (possible attack or misconfiguration)
+      - alert: HighClientErrorRate
+        expr: |
+          rate(http_requests_total{status=~"4.."}[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High client error rate"
+          description: "{{ $value | humanize }} client errors per second. Check for API misuse or attacks."
+
+  - name: gatekeeper_degradation
+    rules:
+      # Service component degraded
+      - alert: ServiceDegraded
+        expr: service_degradation_state == 1
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "{{ $labels.component }} is degraded"
+          description: "The {{ $labels.component }} component has been in degraded state for 5 minutes."
+
+      - alert: ServiceUnhealthy
+        expr: service_degradation_state == 2
+        for: 2m
+        labels:
+          severity: critical
+          service: gatekeeper
+        annotations:
+          summary: "{{ $labels.component }} is unhealthy"
+          description: "The {{ $labels.component }} component is unhealthy. Immediate attention required."
+
+  - name: gatekeeper_external
+    rules:
+      # ESI API issues
+      - alert: ESIHighErrorRate
+        expr: |
+          (
+            rate(esi_requests_total{status=~"[45].."}[5m]) /
+            rate(esi_requests_total[5m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High ESI API error rate"
+          description: "{{ $value | humanizePercentage }} of ESI requests are failing. EVE API may be experiencing issues."
+
+      # zKillboard disconnections
+      - alert: ZKillboardDisconnected
+        expr: |
+          increase(zkill_events_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "No zKillboard events received"
+          description: "No kill events received from zKillboard in 15 minutes. WebSocket connection may be down."
+
+  - name: gatekeeper_websocket
+    rules:
+      # WebSocket connection issues
+      - alert: NoWebSocketConnections
+        expr: websocket_connections_active == 0
+        for: 30m
+        labels:
+          severity: info
+          service: gatekeeper
+        annotations:
+          summary: "No active WebSocket connections"
+          description: "No WebSocket clients connected for 30 minutes. This may be expected during low-traffic periods."
+
+      - alert: TooManyWebSocketConnections
+        expr: websocket_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High WebSocket connection count"
+          description: "{{ $value }} active WebSocket connections. Consider scaling if this continues."
+
+  - name: gatekeeper_availability
+    rules:
+      # No traffic (possible downtime)
+      - alert: NoTraffic
+        expr: |
+          rate(http_requests_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "No API traffic"
+          description: "No HTTP requests received in 10 minutes. Service may be unreachable."
+
+      # High request rate (possible attack)
+      - alert: HighRequestRate
+        expr: |
+          rate(http_requests_total[1m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: gatekeeper
+        annotations:
+          summary: "High request rate"
+          description: "Receiving {{ $value | humanize }} requests per second. Check for DDoS or abuse."

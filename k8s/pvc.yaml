@@ -1,0 +1,16 @@
+---
+# EVE Gatekeeper Data PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eve-gatekeeper-data
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

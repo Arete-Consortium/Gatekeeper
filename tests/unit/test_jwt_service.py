@@ -3,14 +3,12 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-import pytest
-
 from backend.app.services.jwt_service import (
+    ESI_REFRESH_THRESHOLD_SECONDS,
     JWT_EXPIRY_HOURS,
     JWT_REFRESH_THRESHOLD_MINUTES,
-    ESI_REFRESH_THRESHOLD_SECONDS,
-    _revoked_tokens,
     _revoked_token_expiry,
+    _revoked_tokens,
     cleanup_revoked_tokens,
     clear_revoked_tokens,
     decrypt_token,

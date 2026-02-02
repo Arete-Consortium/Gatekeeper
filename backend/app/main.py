@@ -124,6 +124,24 @@ async def startup_event() -> None:
     listener = get_zkill_listener()
     await listener.start()
 
+    # Start universe data monitor
+    from .services.universe_refresher import get_universe_refresher
+
+    refresher = get_universe_refresher()
+    await refresher.start()
+
+    # Start kill history service
+    from .services.kill_history import get_kill_history
+
+    kill_history = get_kill_history()
+    await kill_history.start()
+
+    # Start Redis pub/sub for multi-instance deployments
+    from .services.redis_pubsub import get_redis_pubsub
+
+    pubsub = get_redis_pubsub()
+    await pubsub.start()
+
     logger.info("Application startup complete")
 
 
@@ -137,6 +155,24 @@ async def shutdown_event() -> None:
 
     listener = get_zkill_listener()
     await listener.stop()
+
+    # Stop universe data monitor
+    from .services.universe_refresher import get_universe_refresher
+
+    refresher = get_universe_refresher()
+    await refresher.stop()
+
+    # Stop kill history service
+    from .services.kill_history import get_kill_history
+
+    kill_history = get_kill_history()
+    await kill_history.stop()
+
+    # Stop Redis pub/sub
+    from .services.redis_pubsub import get_redis_pubsub
+
+    pubsub = get_redis_pubsub()
+    await pubsub.stop()
 
     # Close database connections
     from .db.database import close_db

@@ -1,0 +1,9 @@
+---
+# EVE Gatekeeper Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: namespace

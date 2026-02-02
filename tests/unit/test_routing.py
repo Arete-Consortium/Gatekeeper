@@ -11,7 +11,7 @@ from backend.app.api.v1.routing import (
     clear_route_history,
     get_route_history,
 )
-from backend.app.core.pagination import PaginationMeta, PaginationParams
+from backend.app.core.pagination import PaginationMeta
 from backend.app.services.routing import _build_graph, _dijkstra, compute_route
 
 

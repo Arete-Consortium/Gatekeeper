@@ -31,15 +31,15 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 ## Medium Priority
 
 ### API Documentation
-- [ ] Add real-world usage examples
-- [ ] Create sample client implementations
+- [x] Add real-world usage examples
+- [x] Create sample client implementations
 
 ### Authentication & Authorization
 - [x] Implement proper JWT token management
 - [x] Add per-user rate limiting (character_id-based for authenticated, IP for anonymous)
 
 ### Performance
-- [ ] Implement query result caching strategies
+- [x] Implement query result caching strategies
 - [x] Add WebSocket reconnection logic
 - [x] Add pagination for large result sets (systems, history, shares, notes)
 
@@ -47,8 +47,8 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [x] Fix ESI connectivity check (now makes actual HTTP request)
 - [x] Implement actual Redis connectivity check (now uses ping())
 - [x] Expand logging coverage (ESI, cache, auth, WebSocket, rate limits)
-- [ ] Add alerting for service degradation
-- [ ] Add cache hit/miss rate metrics
+- [x] Add alerting for service degradation
+- [x] Add cache hit/miss rate metrics
 
 ### Logging
 - [x] Replace print() with structured logging in ingest_sde.py
@@ -59,14 +59,14 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [x] Make WebSocket reconnect delays configurable (WS_* settings)
 
 ### Data Management
-- [ ] Implement periodic universe data refresh from ESI
-- [ ] Add kill data aging strategy
+- [x] Implement periodic universe data refresh from ESI
+- [x] Add kill data aging strategy
 
 ## Lower Priority
 
 ### Cache Improvements
-- [ ] Implement file modification time checking for invalidation
-- [ ] Add Redis pub/sub for multi-instance deployments
+- [x] Implement file modification time checking for invalidation
+- [x] Add Redis pub/sub for multi-instance deployments
 
 ### Visualization
 - [ ] Add interactive map to web/desktop
@@ -78,8 +78,9 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [ ] Collaborative routing sessions
 
 ### Dependencies
-- [ ] Update deprecated npm packages in desktop app
-- [ ] Update deprecated npm packages in mobile app
+- [x] Update deprecated npm packages in desktop app (semver-compatible, 0 vulnerabilities)
+- [x] Update deprecated npm packages in mobile app (semver-compatible, 0 vulnerabilities)
+  - Major version upgrades available (electron 40, jest 30, react-native 0.83) require migration planning
 
 ### Operations
 - [ ] Create Kubernetes deployment configs
@@ -95,19 +96,19 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Desktop App | 0 | 3 |
 | Security | 0 | 2 |
 | Critical Fixes | 0 | 1 |
-| API Docs | 2 | 0 |
+| API Docs | 0 | 2 |
 | Auth | 0 | 2 |
-| Performance | 1 | 2 |
-| Monitoring | 2 | 3 |
+| Performance | 0 | 3 |
+| Monitoring | 0 | 5 |
 | Logging | 0 | 1 |
 | Config | 0 | 3 |
-| Data | 2 | 0 |
-| Cache | 2 | 0 |
+| Data | 0 | 2 |
+| Cache | 0 | 2 |
 | Visualization | 2 | 0 |
 | Features | 3 | 0 |
-| Dependencies | 2 | 0 |
+| Dependencies | 0 | 2 |
 | Ops | 1 | 0 |
-| **Total** | **17** | **23** |
+| **Total** | **6** | **34** |
 
 ---
 

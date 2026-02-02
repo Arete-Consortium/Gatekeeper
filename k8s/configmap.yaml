@@ -1,0 +1,51 @@
+---
+# EVE Gatekeeper ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eve-gatekeeper-config
+  namespace: eve-gatekeeper
+  labels:
+    app.kubernetes.io/name: eve-gatekeeper
+    app.kubernetes.io/component: config
+data:
+  # Logging
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+  # Database
+  DATABASE_URL: "sqlite:///./eve_gatekeeper.db"
+
+  # ESI Configuration
+  ESI_BASE_URL: "https://esi.evetech.net/latest"
+  ESI_CONCURRENCY_LIMIT: "20"
+  ESI_TIMEOUT: "30.0"
+
+  # zKillboard
+  ZKILL_BASE_URL: "https://zkillboard.com/api"
+  ZKILL_REDISQ_URL: "https://redisq.zkillboard.com/listen.php"
+
+  # WebSocket
+  WS_INITIAL_RETRY_DELAY: "1.0"
+  WS_MAX_RETRY_DELAY: "60.0"
+  WS_RETRY_MULTIPLIER: "2.0"
+  WS_MAX_RETRY_ATTEMPTS: "0"
+  WS_HEALTH_CHECK_INTERVAL: "30.0"
+  WS_CONNECTION_TIMEOUT: "10.0"
+
+  # Cache TTLs
+  CACHE_TTL_ESI: "300"
+  CACHE_TTL_ROUTE: "600"
+  CACHE_TTL_RISK: "120"
+
+  # Rate Limiting
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_PER_MINUTE: "100"
+  RATE_LIMIT_PER_MINUTE_USER: "200"
+  RATE_LIMIT_PER_MINUTE_APIKEY: "300"
+
+  # Features
+  METRICS_ENABLED: "true"
+  UNIVERSE_REFRESH_ENABLED: "true"
+  KILL_HISTORY_ENABLED: "true"
+  REDIS_PUBSUB_ENABLED: "true"

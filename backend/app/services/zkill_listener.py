@@ -265,12 +265,24 @@ class ZKillListener:
                 f"{kill_data['total_value']:,.0f} ISK"
             )
 
+            # Store in kill history
+            from .kill_history import get_kill_history
+
+            history = get_kill_history()
+            history.add_kill(kill_data)
+
             # Call custom handler if provided
             if self.on_kill:
                 self.on_kill(kill_data)
 
             # Broadcast to connected WebSocket clients
             await connection_manager.broadcast_kill(kill_data)
+
+            # Publish to Redis for multi-instance deployments
+            from .redis_pubsub import get_redis_pubsub
+
+            pubsub = get_redis_pubsub()
+            await pubsub.publish_kill(kill_data)
 
         except Exception as e:
             logger.exception(f"Error processing kill: {e}")

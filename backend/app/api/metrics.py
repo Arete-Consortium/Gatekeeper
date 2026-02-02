@@ -47,6 +47,30 @@ CACHE_MISSES = Counter(
     ["cache_type"],
 )
 
+# Route-specific cache metrics
+ROUTE_CACHE_HITS = Counter(
+    "route_cache_hits_total",
+    "Route calculation cache hits",
+    ["profile"],
+)
+
+ROUTE_CACHE_MISSES = Counter(
+    "route_cache_misses_total",
+    "Route calculation cache misses",
+    ["profile"],
+)
+
+# Risk-specific cache metrics
+RISK_CACHE_HITS = Counter(
+    "risk_cache_hits_total",
+    "Risk assessment cache hits",
+)
+
+RISK_CACHE_MISSES = Counter(
+    "risk_cache_misses_total",
+    "Risk assessment cache misses",
+)
+
 # =============================================================================
 # ESI Metrics
 # =============================================================================
@@ -97,6 +121,20 @@ INFO = Gauge(
     ["version"],
 )
 INFO.labels(version=settings.API_VERSION).set(1)
+
+# =============================================================================
+# Service Degradation Gauge
+# =============================================================================
+
+SERVICE_DEGRADATION = Gauge(
+    "service_degradation_state",
+    "Service degradation state: 0=healthy, 1=degraded, 2=unhealthy",
+    ["component"],
+)
+
+# Initialize components to healthy state
+for component in ["database", "cache", "zkill", "esi"]:
+    SERVICE_DEGRADATION.labels(component=component).set(0)
 
 
 @router.get("/metrics", include_in_schema=False)
@@ -177,3 +215,49 @@ def record_zkill_event(event_type: str = "kill") -> None:
 def set_websocket_connections(count: int) -> None:
     """Set the current number of WebSocket connections."""
     WEBSOCKET_CONNECTIONS.set(count)
+
+
+def record_route_cache_hit(profile: str) -> None:
+    """Record a route cache hit."""
+    ROUTE_CACHE_HITS.labels(profile=profile).inc()
+
+
+def record_route_cache_miss(profile: str) -> None:
+    """Record a route cache miss."""
+    ROUTE_CACHE_MISSES.labels(profile=profile).inc()
+
+
+def record_risk_cache_hit() -> None:
+    """Record a risk cache hit."""
+    RISK_CACHE_HITS.inc()
+
+
+def record_risk_cache_miss() -> None:
+    """Record a risk cache miss."""
+    RISK_CACHE_MISSES.inc()
+
+
+def set_service_health(component: str, state: int) -> None:
+    """
+    Set the health state for a service component.
+
+    Args:
+        component: Component name (database, cache, zkill, esi)
+        state: Health state (0=healthy, 1=degraded, 2=unhealthy)
+    """
+    SERVICE_DEGRADATION.labels(component=component).set(state)
+
+
+def mark_healthy(component: str) -> None:
+    """Mark a component as healthy."""
+    set_service_health(component, 0)
+
+
+def mark_degraded(component: str) -> None:
+    """Mark a component as degraded."""
+    set_service_health(component, 1)
+
+
+def mark_unhealthy(component: str) -> None:
+    """Mark a component as unhealthy."""
+    set_service_health(component, 2)
