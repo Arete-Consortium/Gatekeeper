@@ -12,6 +12,7 @@ EDGE_GATE = "gate"
 EDGE_BRIDGE = "bridge"
 EDGE_THERA = "thera"
 EDGE_POCHVEN = "pochven"
+EDGE_WORMHOLE = "wormhole"
 
 
 def _build_graph(
@@ -19,6 +20,7 @@ def _build_graph(
     use_bridges: bool = False,
     use_thera: bool = False,
     use_pochven: bool = False,
+    use_wormholes: bool = False,
 ) -> tuple[dict[str, dict[str, float]], dict[tuple[str, str], str]]:
     """
     Build navigation graph from universe data.
@@ -28,11 +30,12 @@ def _build_graph(
         use_bridges: Whether to include Ansiblex jump bridges
         use_thera: Whether to include Thera wormhole shortcuts
         use_pochven: Whether to include Pochven filament connections
+        use_wormholes: Whether to include user-submitted wormhole connections
 
     Returns:
         Tuple of (adjacency dict, edge type dict)
         - Adjacency: system -> {neighbor -> distance}
-        - Edge types: (from, to) -> "gate", "bridge", "thera", or "pochven"
+        - Edge types: (from, to) -> "gate", "bridge", "thera", "pochven", or "wormhole"
     """
     universe = load_universe()
     avoid = avoid or set()
@@ -95,6 +98,22 @@ def _build_graph(
                     graph[pconn.to_system][pconn.from_system] = 1.0
                     edge_types[(pconn.to_system, pconn.from_system)] = EDGE_POCHVEN
 
+    # Add user-submitted wormhole connections
+    if use_wormholes:
+        from .wormhole import get_wormhole_service
+
+        wh_service = get_wormhole_service()
+        for wh_conn in wh_service.get_active_wormholes():
+            if wh_conn.from_system in avoid or wh_conn.to_system in avoid:
+                continue
+            if wh_conn.from_system in graph and wh_conn.to_system in graph:
+                # Weight 1: wormhole is direct connection
+                graph[wh_conn.from_system][wh_conn.to_system] = 1.0
+                edge_types[(wh_conn.from_system, wh_conn.to_system)] = EDGE_WORMHOLE
+                if wh_conn.bidirectional:
+                    graph[wh_conn.to_system][wh_conn.from_system] = 1.0
+                    edge_types[(wh_conn.to_system, wh_conn.from_system)] = EDGE_WORMHOLE
+
     return graph, edge_types
 
 
@@ -149,6 +168,7 @@ def compute_route(
     use_bridges: bool = False,
     use_thera: bool = False,
     use_pochven: bool = False,
+    use_wormholes: bool = False,
 ) -> RouteResponse:
     """
     Compute a route between two systems.
@@ -161,6 +181,7 @@ def compute_route(
         use_bridges: Whether to use Ansiblex jump bridges
         use_thera: Whether to use Thera wormhole shortcuts
         use_pochven: Whether to use Pochven filament connections
+        use_wormholes: Whether to use user-submitted wormhole connections
 
     Returns:
         RouteResponse with path details
@@ -178,7 +199,11 @@ def compute_route(
         raise ValueError(f"Cannot avoid destination system: {to_system}")
 
     graph, edge_types = _build_graph(
-        avoid, use_bridges=use_bridges, use_thera=use_thera, use_pochven=use_pochven
+        avoid,
+        use_bridges=use_bridges,
+        use_thera=use_thera,
+        use_pochven=use_pochven,
+        use_wormholes=use_wormholes,
     )
     path_names, total_cost = _dijkstra(graph, from_system, to_system, profile)
     if not path_names:
@@ -191,6 +216,7 @@ def compute_route(
     bridges_used = 0
     thera_used = 0
     pochven_used = 0
+    wormholes_used = 0
 
     for idx, name in enumerate(path_names):
         rr = compute_risk(name)
@@ -210,6 +236,8 @@ def compute_route(
                 thera_used += 1
             elif connection_type == EDGE_POCHVEN:
                 pochven_used += 1
+            elif connection_type == EDGE_WORMHOLE:
+                wormholes_used += 1
 
         hops.append(
             RouteHop(
@@ -236,6 +264,7 @@ def compute_route(
         bridges_used=bridges_used,
         thera_used=thera_used,
         pochven_used=pochven_used,
+        wormholes_used=wormholes_used,
     )
 
 
@@ -247,6 +276,7 @@ def compute_waypoint_route(
     use_bridges: bool = False,
     use_thera: bool = False,
     use_pochven: bool = False,
+    use_wormholes: bool = False,
     optimize: bool = False,
 ) -> WaypointRouteResponse:
     """
@@ -259,6 +289,8 @@ def compute_waypoint_route(
         avoid: Set of system names to avoid
         use_bridges: Whether to use Ansiblex jump bridges
         use_thera: Whether to use Thera wormhole shortcuts
+        use_pochven: Whether to use Pochven filament connections
+        use_wormholes: Whether to use user-submitted wormhole connections
         optimize: If True, reorder waypoints using nearest-neighbor heuristic
 
     Returns:
@@ -296,6 +328,7 @@ def compute_waypoint_route(
                         use_bridges=use_bridges,
                         use_thera=use_thera,
                         use_pochven=use_pochven,
+                        use_wormholes=use_wormholes,
                     )
                     if route.total_jumps < best_jumps:
                         best_jumps = route.total_jumps
@@ -318,6 +351,7 @@ def compute_waypoint_route(
     total_bridges = 0
     total_thera = 0
     total_pochven = 0
+    total_wormholes = 0
     current = from_system
 
     for wp in ordered_waypoints:
@@ -329,6 +363,7 @@ def compute_waypoint_route(
             use_bridges=use_bridges,
             use_thera=use_thera,
             use_pochven=use_pochven,
+            use_wormholes=use_wormholes,
         )
         leg = WaypointLeg(
             from_system=current,
@@ -338,6 +373,7 @@ def compute_waypoint_route(
             bridges_used=route.bridges_used,
             thera_used=route.thera_used,
             pochven_used=route.pochven_used,
+            wormholes_used=route.wormholes_used,
             path_systems=[hop.system_name for hop in route.path],
         )
         legs.append(leg)
@@ -346,6 +382,7 @@ def compute_waypoint_route(
         total_bridges += route.bridges_used
         total_thera += route.thera_used
         total_pochven += route.pochven_used
+        total_wormholes += route.wormholes_used
         current = wp
 
     return WaypointRouteResponse(
@@ -359,4 +396,5 @@ def compute_waypoint_route(
         total_bridges_used=total_bridges,
         total_thera_used=total_thera,
         total_pochven_used=total_pochven,
+        total_wormholes_used=total_wormholes,
     )

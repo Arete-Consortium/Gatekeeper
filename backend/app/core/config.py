@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "EVE Gatekeeper"
     API_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    API_BASE_URL: str | None = None  # Base URL for generating links (e.g., session join URLs)
 
     # Paths
     BASE_DIR: Path = Path(__file__).resolve().parents[2]

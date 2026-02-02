@@ -8,7 +8,8 @@ class RouteHop(BaseModel):
     cumulative_cost: float
     risk_score: float
     connection_type: str = Field(
-        "gate", description="How we reached this system: 'gate', 'bridge', 'thera', or 'pochven'"
+        "gate",
+        description="How we reached this system: 'gate', 'bridge', 'thera', 'pochven', or 'wormhole'",
     )
 
 
@@ -24,6 +25,9 @@ class RouteResponse(BaseModel):
     bridges_used: int = Field(0, description="Number of Ansiblex bridges in route")
     thera_used: int = Field(0, description="Number of Thera wormhole shortcuts in route")
     pochven_used: int = Field(0, description="Number of Pochven filament connections in route")
+    wormholes_used: int = Field(
+        0, description="Number of user-submitted wormhole connections in route"
+    )
 
 
 class RouteCompareRequest(BaseModel):
@@ -37,6 +41,7 @@ class RouteCompareRequest(BaseModel):
     use_bridges: bool = Field(False, description="Include bridges in routing")
     use_thera: bool = Field(False, description="Include Thera wormhole shortcuts")
     use_pochven: bool = Field(False, description="Include Pochven filament routing")
+    use_wormholes: bool = Field(False, description="Include user-submitted wormhole connections")
     avoid: list[str] = Field(default_factory=list, description="Systems to avoid")
     avoid_lists: list[str] = Field(
         default_factory=list, description="Named avoidance lists to apply"
@@ -54,6 +59,7 @@ class RouteSummary(BaseModel):
     bridges_used: int = 0
     thera_used: int = 0
     pochven_used: int = 0
+    wormholes_used: int = 0
     highsec_jumps: int = 0
     lowsec_jumps: int = 0
     nullsec_jumps: int = 0
@@ -80,6 +86,7 @@ class WaypointRouteRequest(BaseModel):
     use_bridges: bool = Field(False, description="Include bridges")
     use_thera: bool = Field(False, description="Include Thera shortcuts")
     use_pochven: bool = Field(False, description="Include Pochven filament routing")
+    use_wormholes: bool = Field(False, description="Include user-submitted wormhole connections")
     optimize: bool = Field(False, description="Reorder waypoints to minimize total jumps (TSP)")
     avoid: list[str] = Field(default_factory=list, description="Systems to avoid")
 
@@ -94,6 +101,7 @@ class WaypointLeg(BaseModel):
     bridges_used: int = 0
     thera_used: int = 0
     pochven_used: int = 0
+    wormholes_used: int = 0
     path_systems: list[str] = Field(default_factory=list)
 
 
@@ -112,6 +120,7 @@ class WaypointRouteResponse(BaseModel):
     total_bridges_used: int = 0
     total_thera_used: int = 0
     total_pochven_used: int = 0
+    total_wormholes_used: int = 0
 
 
 class BulkRouteRequest(BaseModel):
@@ -123,6 +132,7 @@ class BulkRouteRequest(BaseModel):
     use_bridges: bool = Field(False, description="Include bridges in routing")
     use_thera: bool = Field(False, description="Include Thera wormhole shortcuts")
     use_pochven: bool = Field(False, description="Include Pochven filament routing")
+    use_wormholes: bool = Field(False, description="Include user-submitted wormhole connections")
     avoid: list[str] = Field(default_factory=list, description="Systems to avoid")
     avoid_lists: list[str] = Field(
         default_factory=list, description="Named avoidance lists to apply"
@@ -141,6 +151,7 @@ class BulkRouteResult(BaseModel):
     bridges_used: int = 0
     thera_used: int = 0
     pochven_used: int = 0
+    wormholes_used: int = 0
     path_systems: list[str] = Field(default_factory=list)
     error: str | None = None
 

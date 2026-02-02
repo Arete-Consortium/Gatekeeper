@@ -94,6 +94,7 @@ def _build_route_cache_key(
     bridges: bool,
     thera: bool,
     pochven: bool,
+    wormholes: bool = False,
 ) -> str:
     """Build a cache key for route calculations including all parameters."""
     # Sort avoid set for consistent key generation
@@ -107,6 +108,7 @@ def _build_route_cache_key(
         f"bridges:{bridges}",
         f"thera:{thera}",
         f"pochven:{pochven}",
+        f"wormholes:{wormholes}",
     ]
     # Use hash for avoid list if it gets too long
     raw_key = ":".join(key_parts)
@@ -146,6 +148,10 @@ async def calculate_route(
     pochven: bool = Query(
         False,
         description="Use Pochven filament routing if available",
+    ),
+    wormholes: bool = Query(
+        False,
+        description="Use user-submitted wormhole connections if available",
     ),
     avoid_lists: list[str] | None = Query(
         None,
@@ -189,7 +195,7 @@ async def calculate_route(
 
     # Check cache before computing
     cache_key = _build_route_cache_key(
-        from_system, to_system, profile, avoid_set, bridges, thera, pochven
+        from_system, to_system, profile, avoid_set, bridges, thera, pochven, wormholes
     )
     cache = await get_cache()
     cached_data = await cache.get_json(cache_key)
@@ -212,6 +218,7 @@ async def calculate_route(
             use_bridges=bridges,
             use_thera=thera,
             use_pochven=pochven,
+            use_wormholes=wormholes,
         )
         # Cache the result
         await cache.set_json(cache_key, route.model_dump(mode="json"), ttl=ROUTE_CACHE_TTL)
@@ -317,6 +324,7 @@ def compare_routes(request: RouteCompareRequest) -> RouteCompareResponse:
                 use_bridges=request.use_bridges,
                 use_thera=request.use_thera,
                 use_pochven=request.use_pochven,
+                use_wormholes=request.use_wormholes,
             )
 
             # Count security categories
@@ -340,6 +348,7 @@ def compare_routes(request: RouteCompareRequest) -> RouteCompareResponse:
                     bridges_used=route.bridges_used,
                     thera_used=route.thera_used,
                     pochven_used=route.pochven_used,
+                    wormholes_used=route.wormholes_used,
                     highsec_jumps=highsec,
                     lowsec_jumps=lowsec,
                     nullsec_jumps=nullsec,
@@ -480,6 +489,7 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
                 use_bridges=request.use_bridges,
                 use_thera=request.use_thera,
                 use_pochven=request.use_pochven,
+                use_wormholes=request.use_wormholes,
             )
             results.append(
                 BulkRouteResult(
@@ -492,6 +502,7 @@ def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
                     bridges_used=route.bridges_used,
                     thera_used=route.thera_used,
                     pochven_used=route.pochven_used,
+                    wormholes_used=route.wormholes_used,
                     path_systems=[hop.system_name for hop in route.path],
                 )
             )
@@ -554,6 +565,7 @@ def waypoint_route(request: WaypointRouteRequest) -> WaypointRouteResponse:
             use_bridges=request.use_bridges,
             use_thera=request.use_thera,
             use_pochven=request.use_pochven,
+            use_wormholes=request.use_wormholes,
             optimize=request.optimize,
         )
     except ValueError as e:

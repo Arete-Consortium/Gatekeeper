@@ -201,6 +201,55 @@ class ConnectionManager:
             ],
         }
 
+    async def broadcast_map_update(self, update_type: str, data: dict[str, Any]) -> int:
+        """Broadcast a map update to all connected clients.
+
+        Args:
+            update_type: Type of update ('system_risk', 'wormhole', 'bridge', etc.)
+            data: Update data
+
+        Returns:
+            Number of clients notified
+        """
+        message = {
+            "type": "map_update",
+            "update_type": update_type,
+            "data": data,
+        }
+        return await self.broadcast(message)
+
+    async def broadcast_system_risk_update(
+        self,
+        system_id: int,
+        system_name: str,
+        risk_score: float,
+        recent_kills: int,
+    ) -> int:
+        """Broadcast a system risk score update."""
+        return await self.broadcast_map_update(
+            "system_risk",
+            {
+                "system_id": system_id,
+                "system_name": system_name,
+                "risk_score": risk_score,
+                "recent_kills": recent_kills,
+            },
+        )
+
+    async def broadcast_wormhole_update(
+        self,
+        action: str,  # 'added', 'updated', 'deleted'
+        wormhole_data: dict[str, Any],
+    ) -> int:
+        """Broadcast a wormhole connection update."""
+        return await self.broadcast_map_update(
+            "wormhole",
+            {
+                "action": action,
+                **wormhole_data,
+            },
+        )
+
 
 # Global connection manager instance
 connection_manager = ConnectionManager()

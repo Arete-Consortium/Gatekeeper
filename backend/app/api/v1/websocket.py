@@ -166,3 +166,115 @@ async def handle_client_message(
                 "valid_types": ["subscribe", "ping", "status"],
             }
         )
+
+
+@router.websocket("/ws/map")
+async def map_websocket(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for real-time map updates.
+
+    Connect to receive map updates including:
+    - System risk score changes
+    - Wormhole connection updates (added, updated, deleted)
+    - Jump bridge status changes
+
+    All connected clients receive all map updates (no filtering).
+
+    Update events are sent as:
+    ```json
+    {
+        "type": "map_update",
+        "update_type": "system_risk",  // or "wormhole", "bridge"
+        "data": {
+            // Update-specific data
+        }
+    }
+    ```
+    """
+    client_id = f"map-{uuid.uuid4()}"
+
+    try:
+        await connection_manager.connect(client_id, websocket)
+        logger.info(
+            "Map WebSocket client connected",
+            extra={
+                "client_id": client_id,
+                "active_connections": connection_manager.connection_count,
+            },
+        )
+
+        # Send welcome message
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "client_id": client_id,
+                "message": "Connected to EVE Gatekeeper map updates",
+                "active_connections": connection_manager.connection_count,
+            }
+        )
+
+        # Listen for messages
+        while True:
+            try:
+                data = await websocket.receive_json()
+                await handle_map_message(client_id, data, websocket)
+            except ValueError:
+                logger.warning(
+                    "Map WebSocket received invalid JSON", extra={"client_id": client_id}
+                )
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": "Invalid JSON message",
+                    }
+                )
+
+    except WebSocketDisconnect:
+        logger.info(f"Map client {client_id} disconnected normally")
+    except Exception as e:
+        logger.exception(f"Map WebSocket error for client {client_id}: {e}")
+    finally:
+        await connection_manager.disconnect(client_id)
+
+
+async def handle_map_message(
+    client_id: str,
+    data: dict[str, Any],
+    websocket: WebSocket,
+) -> None:
+    """Handle incoming messages from map WebSocket clients."""
+    message_type = data.get("type")
+
+    if message_type == "ping":
+        await websocket.send_json({"type": "pong"})
+
+    elif message_type == "status":
+        stats = connection_manager.get_stats()
+        await websocket.send_json(
+            {
+                "type": "status",
+                "data": stats,
+            }
+        )
+
+    elif message_type == "get_wormholes":
+        # Send current wormhole connections
+        from ...services.wormhole import get_wormhole_service
+
+        service = get_wormhole_service()
+        connections = service.get_all_connections()
+        await websocket.send_json(
+            {
+                "type": "wormholes",
+                "data": [conn.model_dump(mode="json") for conn in connections],
+            }
+        )
+
+    else:
+        await websocket.send_json(
+            {
+                "type": "error",
+                "message": f"Unknown message type: {message_type}",
+                "valid_types": ["ping", "status", "get_wormholes"],
+            }
+        )

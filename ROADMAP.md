@@ -69,13 +69,13 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [x] Add Redis pub/sub for multi-instance deployments
 
 ### Visualization
-- [ ] Add interactive map to web/desktop
-- [ ] Real-time map updates via WebSocket
+- [x] Add interactive map to web/desktop
+- [x] Real-time map updates via WebSocket
 
 ### New Features
-- [ ] Add wormhole routing support
-- [ ] Add multi-character support
-- [ ] Collaborative routing sessions
+- [x] Add wormhole routing support
+- [x] Add multi-character support
+- [x] Collaborative routing sessions
 
 ### Dependencies
 - [x] Update deprecated npm packages in desktop app (semver-compatible, 0 vulnerabilities)
@@ -83,7 +83,7 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
   - Major version upgrades available (electron 40, jest 30, react-native 0.83) require migration planning
 
 ### Operations
-- [ ] Create Kubernetes deployment configs
+- [x] Create Kubernetes deployment configs
 
 ---
 
@@ -104,11 +104,11 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Config | 0 | 3 |
 | Data | 0 | 2 |
 | Cache | 0 | 2 |
-| Visualization | 2 | 0 |
-| Features | 3 | 0 |
+| Visualization | 0 | 2 |
+| Features | 0 | 3 |
 | Dependencies | 0 | 2 |
-| Ops | 1 | 0 |
-| **Total** | **6** | **34** |
+| Ops | 0 | 1 |
+| **Total** | **0** | **40** |
 
 ---
 

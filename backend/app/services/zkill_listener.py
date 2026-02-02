@@ -278,6 +278,22 @@ class ZKillListener:
             # Broadcast to connected WebSocket clients
             await connection_manager.broadcast_kill(kill_data)
 
+            # Broadcast system risk update for map clients
+            if system_name and solar_system_id:
+                from .zkill_stats import fetch_system_kills
+
+                try:
+                    stats = await fetch_system_kills(solar_system_id, hours=1)
+                    recent_kills = stats.recent_kills + stats.recent_pods
+                    await connection_manager.broadcast_system_risk_update(
+                        system_id=solar_system_id,
+                        system_name=system_name,
+                        risk_score=risk_score,
+                        recent_kills=recent_kills,
+                    )
+                except Exception:
+                    pass  # Don't fail on risk update error
+
             # Publish to Redis for multi-instance deployments
             from .redis_pubsub import get_redis_pubsub
 

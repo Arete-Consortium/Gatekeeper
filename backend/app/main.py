@@ -70,6 +70,7 @@ def create_app() -> FastAPI:
             "Authorization",
             "X-Request-ID",
             "X-Requested-With",
+            "X-Session-ID",
         ],
         expose_headers=["X-Request-ID", "X-Response-Time"],
     )
