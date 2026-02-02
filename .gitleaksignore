@@ -4,3 +4,6 @@
 0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:54
 0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:64
 0139801bbbf8b3ca9223a1d54d06f59c1505b585:tests/unit/test_jwt_service.py:generic-api-key:65
+
+# Ignore example curl commands in API documentation (placeholder values)
+2c22171357db971b2ac8ed165dce3fdad2e1e288:docs/API_USAGE_GUIDE.md:curl-auth-header:49
