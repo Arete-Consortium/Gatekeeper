@@ -93,6 +93,12 @@ disallow_untyped_defs = false
 ignore_missing_imports = true
 explicit_package_bases = true
 mypy_path = "."
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
