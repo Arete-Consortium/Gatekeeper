@@ -241,10 +241,9 @@ class WormholeService:
                     expired_ids.append(conn_id)
 
         for conn_id in expired_ids:
-            conn = self._connections.get(conn_id)
-            if conn:
+            conn = self._connections.pop(conn_id, None)
+            if conn is not None:
                 self._remove_from_index(conn)
-                del self._connections[conn_id]
                 self._total_expired += 1
 
         if expired_ids:

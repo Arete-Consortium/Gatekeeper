@@ -53,9 +53,9 @@ class CharacterPreferences(BaseModel):
 
     character_id: int = Field(..., description="EVE character ID")
     character_name: str = Field(..., description="EVE character name")
-    routing: RoutingPreferences = Field(default_factory=RoutingPreferences)
-    alerts: AlertPreferences = Field(default_factory=AlertPreferences)
-    ui: UIPreferences = Field(default_factory=UIPreferences)
+    routing: RoutingPreferences = Field(default_factory=lambda: RoutingPreferences())
+    alerts: AlertPreferences = Field(default_factory=lambda: AlertPreferences())
+    ui: UIPreferences = Field(default_factory=lambda: UIPreferences())
     home_system: str | None = Field(None, description="Home system for routing")
     notes: str | None = Field(None, description="Personal notes")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
