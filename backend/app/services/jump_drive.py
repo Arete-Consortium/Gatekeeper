@@ -2,12 +2,12 @@
 
 import math
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from .data_loader import load_universe
 
 
-class CapitalShipType(str, Enum):
+class CapitalShipType(StrEnum):
     """Capital ship types with jump drives."""
 
     JUMP_FREIGHTER = "jump_freighter"

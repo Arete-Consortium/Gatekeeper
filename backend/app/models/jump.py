@@ -1,11 +1,11 @@
 """Pydantic models for jump drive operations."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ShipType(str, Enum):
+class ShipType(StrEnum):
     """Capital ship types with jump drives."""
 
     JUMP_FREIGHTER = "jump_freighter"

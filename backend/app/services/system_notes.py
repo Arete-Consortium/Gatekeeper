@@ -7,11 +7,11 @@ Notes can be personal or shared with the community.
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from threading import RLock
 
 
-class NoteType(str, Enum):
+class NoteType(StrEnum):
     """Type of system note."""
 
     INFO = "info"  # General information

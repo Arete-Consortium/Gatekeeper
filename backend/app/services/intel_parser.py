@@ -17,13 +17,13 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from threading import RLock
 
 from .data_loader import load_universe
 
 
-class ThreatType(str, Enum):
+class ThreatType(StrEnum):
     """Type of threat reported."""
 
     hostile = "hostile"

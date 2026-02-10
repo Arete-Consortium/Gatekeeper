@@ -5,13 +5,13 @@ with security status coloring, threat overlays, and connection types.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import cast
 
 from .data_loader import load_universe
 
 
-class SecurityLevel(str, Enum):
+class SecurityLevel(StrEnum):
     """Security status classification."""
 
     high_sec = "high_sec"  # 0.5 to 1.0
@@ -19,7 +19,7 @@ class SecurityLevel(str, Enum):
     null_sec = "null_sec"  # -1.0 to 0.0
 
 
-class ConnectionType(str, Enum):
+class ConnectionType(StrEnum):
     """Types of connections between systems."""
 
     stargate = "stargate"
@@ -28,7 +28,7 @@ class ConnectionType(str, Enum):
     wormhole = "wormhole"
 
 
-class ThreatLevel(str, Enum):
+class ThreatLevel(StrEnum):
     """Threat classification for systems."""
 
     safe = "safe"

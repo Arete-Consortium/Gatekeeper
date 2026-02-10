@@ -5,10 +5,10 @@ Parses EFT format fits and calculates jump capabilities for travel planning.
 
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class ShipCategory(str, Enum):
+class ShipCategory(StrEnum):
     """Ship size/category for travel planning."""
 
     frigate = "frigate"
@@ -23,7 +23,7 @@ class ShipCategory(str, Enum):
     unknown = "unknown"
 
 
-class JumpCapability(str, Enum):
+class JumpCapability(StrEnum):
     """Ship jump drive capability."""
 
     none = "none"  # No jump drive

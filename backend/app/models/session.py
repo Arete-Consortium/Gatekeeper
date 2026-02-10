@@ -5,13 +5,13 @@ can share routes, waypoints, and coordinate travel together.
 """
 
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class SessionRole(str, Enum):
+class SessionRole(StrEnum):
     """Role of a participant in a session."""
 
     OWNER = "owner"  # Created the session, full control
@@ -19,7 +19,7 @@ class SessionRole(str, Enum):
     VIEWER = "viewer"  # Read-only access
 
 
-class SessionState(str, Enum):
+class SessionState(StrEnum):
     """State of a collaborative session."""
 
     ACTIVE = "active"  # Session is live and accepting participants
@@ -190,7 +190,7 @@ class SessionListResponse(BaseModel):
     total_count: int
 
 
-class SessionEventType(str, Enum):
+class SessionEventType(StrEnum):
     """Types of events broadcast to session participants."""
 
     PARTICIPANT_JOINED = "participant_joined"

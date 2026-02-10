@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 import httpx
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ from ..core.config import settings
 logger = logging.getLogger(__name__)
 
 
-class WebhookType(str, Enum):
+class WebhookType(StrEnum):
     """Supported webhook types."""
 
     discord = "discord"

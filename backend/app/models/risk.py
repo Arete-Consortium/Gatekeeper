@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class DangerLevel(str, Enum):
+class DangerLevel(StrEnum):
     """Danger classification levels for systems based on kill activity."""
 
     low = "low"

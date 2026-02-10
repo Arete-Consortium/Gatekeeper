@@ -1,12 +1,12 @@
 """Wormhole connection models."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class WormholeType(str, Enum):
+class WormholeType(StrEnum):
     """Wormhole type classification."""
 
     # K-space to K-space
@@ -33,7 +33,7 @@ class WormholeType(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
-class WormholeMass(str, Enum):
+class WormholeMass(StrEnum):
     """Wormhole mass status."""
 
     STABLE = "stable"  # > 50% mass remaining
@@ -42,7 +42,7 @@ class WormholeMass(str, Enum):
     UNKNOWN = "unknown"
 
 
-class WormholeLife(str, Enum):
+class WormholeLife(StrEnum):
     """Wormhole time status."""
 
     STABLE = "stable"  # > 4 hours remaining
