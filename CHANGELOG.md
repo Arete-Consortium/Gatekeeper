@@ -7,23 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-02-09
+
 ### Added
-- MCP (Model Context Protocol) server for Claude Code integration
-  - 9 tools: route, parse_fitting, analyze_fitting, ship_info, system_threat, region_info, jump_range, create_alert, list_alerts
-  - Console script entry point: `gatekeeper-mcp`
-- Mobile app screens for Fitting Analyzer and Kill Alerts
-- Desktop app README with build and development instructions
-- Mobile app test infrastructure with Jest and React Native Testing Library (46 tests)
-- Desktop app test infrastructure with Jest (29 tests)
-- Backend tests for map_visualization service (26 tests)
-- Backend tests for fitting service edge cases (35 tests)
-- Backend tests for MCP server (28 tests)
+- **Web Frontend** - Complete React/Next.js web application
+  - PixiJS WebGL map renderer with minimap and region labels
+  - Playwright E2E test suite and vitest unit tests
+  - React performance optimizations
+  - CI/CD workflow for web frontend
+- **Routing Enhancements**
+  - Thera wormhole routing via EVE-Scout API
+  - Pochven filament routing (27 systems)
+  - Multi-stop waypoint routing with TSP optimization
+  - Named avoidance lists with CRUD and persistence
+- **MCP Server** - Thera connection and status tools registered
+- **Security** - SECRET_KEY production validation, hardened CORS, CodeQL scanning
+- **Infrastructure**
+  - Per-user rate limiting (character_id for authenticated, IP for anonymous)
+  - WebSocket reconnection logic
+  - Structured logging in ingest_sde.py (replaced print statements)
+  - Actual Redis and ESI connectivity health checks
+  - MCP error handling, pagination, and expanded logging
+  - JWT token management improvements
+  - Configurable ESI concurrency/timeout and WebSocket reconnect delays
+- **Mobile** - Bridge and Thera toggle switches, API endpoint sync
+- **Desktop** - Production features and offline support
+- **Website** - Version endpoint and version.json
+- Comprehensive backend and app test suites
+- ROADMAP.md with all 40 tasks completed
 
 ### Changed
+- Total backend tests: 2099
 - Improved test coverage for map_visualization.py (32% -> 99%)
 - Improved test coverage for fitting.py (77% -> 98%)
 - Improved test coverage for MCP server.py (67% -> 84%)
-- Total backend tests: 1604
+
+### Fixed
+- Pydantic `json_str` field name vs alias in model construction
+- Mypy type errors across multiple modules
+- Route cache key for wormholes parameter
+- Abstract `get_stats` added to CacheService
+- Mobile netinfo downgraded to existing v11.4.x
+- FastAPI Request type annotation compatibility
+- IPv4 Docker health checks for web frontend
+- Security vulnerabilities in web frontend dependencies
+
+### Security
+- Added CodeQL automated security scanning (weekly)
+- Dependency bumps: tar, @isaacs/brace-expansion
 
 ## [1.2.0] - 2025-01-25
 
@@ -100,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Fixed Electron ASAR integrity bypass vulnerability
 
-[Unreleased]: https://github.com/AreteDriver/EVE_Gatekeeper/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/AreteDriver/EVE_Gatekeeper/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/AreteDriver/EVE_Gatekeeper/compare/v1.3.0...v1.4.0
 [1.2.0]: https://github.com/AreteDriver/EVE_Gatekeeper/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/AreteDriver/EVE_Gatekeeper/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/AreteDriver/EVE_Gatekeeper/releases/tag/v1.0.0
