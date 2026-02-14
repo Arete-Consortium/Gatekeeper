@@ -216,4 +216,189 @@ describe('ROUTE_PROFILES', () => {
       borderColor: expect.any(String),
     });
   });
+
+  it('has exactly three profiles', () => {
+    const keys = Object.keys(ROUTE_PROFILES);
+    expect(keys).toEqual(['shortest', 'safer', 'paranoid']);
+  });
+
+  it('has unique labels for each profile', () => {
+    const labels = Object.values(ROUTE_PROFILES).map((p) => p.label);
+    const uniqueLabels = new Set(labels);
+    expect(uniqueLabels.size).toBe(labels.length);
+  });
+
+  it('has descriptive text for shortest profile', () => {
+    expect(ROUTE_PROFILES.shortest.description).toContain('jumps');
+  });
+
+  it('has descriptive text for safer profile', () => {
+    expect(ROUTE_PROFILES.safer.description).toContain('risk');
+  });
+
+  it('has descriptive text for paranoid profile', () => {
+    expect(ROUTE_PROFILES.paranoid.description).toContain('safety');
+  });
+});
+
+describe('cn - additional edge cases', () => {
+  it('handles arrays of class names', () => {
+    expect(cn(['foo', 'bar'])).toBe('foo bar');
+  });
+
+  it('handles deeply nested conditionals', () => {
+    const isActive = true;
+    const isDisabled = false;
+    expect(cn('base', isActive && 'active', isDisabled && 'disabled')).toBe('base active');
+  });
+
+  it('handles number values', () => {
+    expect(cn('base', 0)).toBe('base');
+  });
+});
+
+describe('formatRelativeTime - additional edge cases', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns "1m ago" at exactly 1 minute', () => {
+    const timestamp = new Date('2024-01-15T11:59:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('1m ago');
+  });
+
+  it('returns "59m ago" at exactly 59 minutes', () => {
+    const timestamp = new Date('2024-01-15T11:01:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('59m ago');
+  });
+
+  it('returns "1h ago" at exactly 1 hour', () => {
+    const timestamp = new Date('2024-01-15T11:00:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('1h ago');
+  });
+
+  it('returns "23h ago" at exactly 23 hours', () => {
+    const timestamp = new Date('2024-01-14T13:00:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('23h ago');
+  });
+
+  it('returns "1d ago" at exactly 1 day', () => {
+    const timestamp = new Date('2024-01-14T12:00:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('1d ago');
+  });
+
+  it('returns "6d ago" at exactly 6 days', () => {
+    const timestamp = new Date('2024-01-09T12:00:00Z').toISOString();
+    expect(formatRelativeTime(timestamp)).toBe('6d ago');
+  });
+});
+
+describe('formatIsk - additional edge cases', () => {
+  it('formats exact boundary of 1 billion', () => {
+    expect(formatIsk(1_000_000_000)).toBe('1.00B ISK');
+  });
+
+  it('formats exact boundary of 1 million', () => {
+    expect(formatIsk(1_000_000)).toBe('1.00M ISK');
+  });
+
+  it('formats exact boundary of 1 thousand', () => {
+    expect(formatIsk(1_000)).toBe('1.00K ISK');
+  });
+
+  it('formats values just below boundaries', () => {
+    expect(formatIsk(999_999_999)).toBe('1000.00M ISK');
+    expect(formatIsk(999_999)).toBe('1000.00K ISK');
+    expect(formatIsk(999)).toBe('999 ISK');
+  });
+
+  it('handles very large values', () => {
+    expect(formatIsk(100_000_000_000)).toBe('100.00B ISK');
+  });
+});
+
+describe('getSecurityClass - additional edge cases', () => {
+  it('handles boundary value 0.5 as high-sec', () => {
+    expect(getSecurityClass(0.5)).toBe('text-high-sec');
+  });
+
+  it('handles boundary value 0.4999 as low-sec', () => {
+    expect(getSecurityClass(0.4999)).toBe('text-low-sec');
+  });
+
+  it('handles 0.0001 as low-sec', () => {
+    expect(getSecurityClass(0.0001)).toBe('text-low-sec');
+  });
+
+  it('handles -1.0 as null-sec', () => {
+    expect(getSecurityClass(-1.0)).toBe('text-null-sec');
+  });
+});
+
+describe('getRiskColorClass - default fallback', () => {
+  it('returns secondary class for unknown risk color', () => {
+    // @ts-expect-error Testing invalid input
+    expect(getRiskColorClass('unknown')).toBe('text-text-secondary');
+  });
+});
+
+describe('getRiskBgClass - default fallback', () => {
+  it('returns secondary bg class for unknown risk color', () => {
+    // @ts-expect-error Testing invalid input
+    expect(getRiskBgClass('unknown')).toBe('bg-text-secondary');
+  });
+});
+
+describe('debounce - additional edge cases', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('uses the latest arguments when called multiple times', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced('first');
+    debounced('second');
+    debounced('third');
+
+    vi.advanceTimersByTime(100);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith('third');
+  });
+
+  it('allows separate invocations after delay has passed', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced('first');
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledWith('first');
+
+    debounced('second');
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledWith('second');
+
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles zero delay', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 0);
+
+    debounced('value');
+    vi.advanceTimersByTime(0);
+
+    expect(fn).toHaveBeenCalledWith('value');
+  });
 });

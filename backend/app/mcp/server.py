@@ -26,21 +26,27 @@ from typing import Any, cast
 
 from .tools import (
     analyze_fitting,
+    calculate_fatigue,
     calculate_route,
     check_system_threat,
     create_alert_subscription,
+    get_external_links,
+    get_hot_systems,
     get_jump_range,
+    get_kill_stats,
     get_region_info,
     get_ship_info,
+    get_system_neighbors,
     get_thera_connections,
     get_thera_status,
     list_alert_subscriptions,
     parse_fitting,
+    submit_intel,
 )
 
 JSONRPC_VERSION = "2.0"
 MCP_PROTOCOL_VERSION = "2024-11-05"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 
 class MCPServer:
@@ -239,6 +245,115 @@ class MCPServer:
                     "properties": {},
                 },
             },
+            "gatekeeper_kill_stats": {
+                "name": "gatekeeper_kill_stats",
+                "description": "Get recent kill statistics for an EVE Online system from zKillboard.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "system_name": {
+                            "type": "string",
+                            "description": "System name to check (e.g., Jita, Tama)",
+                        },
+                        "hours": {
+                            "type": "integer",
+                            "description": "Lookback period in hours (1-168)",
+                            "default": 24,
+                            "minimum": 1,
+                            "maximum": 168,
+                        },
+                    },
+                    "required": ["system_name"],
+                },
+            },
+            "gatekeeper_hot_systems": {
+                "name": "gatekeeper_hot_systems",
+                "description": "Get the most active systems by kills. Returns top systems ranked by recent kill activity.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "hours": {
+                            "type": "integer",
+                            "description": "Lookback period in hours (1-168)",
+                            "default": 24,
+                            "minimum": 1,
+                            "maximum": 168,
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of systems to return (1-50)",
+                            "default": 10,
+                            "minimum": 1,
+                            "maximum": 50,
+                        },
+                    },
+                },
+            },
+            "gatekeeper_system_neighbors": {
+                "name": "gatekeeper_system_neighbors",
+                "description": "Get systems connected to the specified system via stargates, with security levels.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "system_name": {
+                            "type": "string",
+                            "description": "System name (e.g., Jita, Tama)",
+                        },
+                    },
+                    "required": ["system_name"],
+                },
+            },
+            "gatekeeper_external_links": {
+                "name": "gatekeeper_external_links",
+                "description": "Get external tool URLs (Dotlan, zKillboard, EVE Eye, ESI) for an EVE Online system.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "system_name": {
+                            "type": "string",
+                            "description": "System name (e.g., Jita, Tama)",
+                        },
+                    },
+                    "required": ["system_name"],
+                },
+            },
+            "gatekeeper_submit_intel": {
+                "name": "gatekeeper_submit_intel",
+                "description": "Submit intel channel text for parsing. Returns parsed hostile reports, systems, and character names.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "text": {
+                            "type": "string",
+                            "description": "Intel channel text (e.g., 'Jita +3', 'Tama clear', 'Amamake HostileName')",
+                        },
+                    },
+                    "required": ["text"],
+                },
+            },
+            "gatekeeper_calculate_fatigue": {
+                "name": "gatekeeper_calculate_fatigue",
+                "description": "Calculate jump fatigue (blue and red timers) for a capital ship jump.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "light_years": {
+                            "type": "number",
+                            "description": "Jump distance in light years",
+                            "minimum": 0.1,
+                            "maximum": 500.0,
+                        },
+                        "current_fatigue_minutes": {
+                            "type": "number",
+                            "description": "Current jump fatigue (red timer) in minutes",
+                            "default": 0,
+                            "minimum": 0,
+                            "maximum": 1440,
+                        },
+                    },
+                    "required": ["light_years"],
+                },
+            },
         }
 
     async def handle_request(self, request: dict) -> dict | None:
@@ -404,6 +519,12 @@ class MCPServer:
             "gatekeeper_list_alerts": list_alert_subscriptions,
             "gatekeeper_thera_connections": get_thera_connections,
             "gatekeeper_thera_status": get_thera_status,
+            "gatekeeper_kill_stats": get_kill_stats,
+            "gatekeeper_hot_systems": get_hot_systems,
+            "gatekeeper_system_neighbors": get_system_neighbors,
+            "gatekeeper_external_links": get_external_links,
+            "gatekeeper_submit_intel": submit_intel,
+            "gatekeeper_calculate_fatigue": calculate_fatigue,
         }
 
         handler = tool_map.get(tool_name)

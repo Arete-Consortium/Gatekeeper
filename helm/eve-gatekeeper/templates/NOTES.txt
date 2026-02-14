@@ -1,0 +1,63 @@
+===============================================================================
+  EVE Gatekeeper has been deployed!
+===============================================================================
+
+Application version: {{ .Chart.AppVersion }}
+Chart version:       {{ .Chart.Version }}
+
+{{- if .Values.ingress.enabled }}
+
+The application is accessible via Ingress:
+
+  Host: {{ .Values.ingress.host }}
+  {{- if .Values.ingress.tls.enabled }}
+  URL:  https://{{ .Values.ingress.host }}
+  {{- else }}
+  URL:  http://{{ .Values.ingress.host }}
+  {{- end }}
+
+{{- else }}
+
+To access the application, forward a local port to the service:
+
+  kubectl port-forward svc/{{ include "eve-gatekeeper.fullname" . }} 8000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+Then visit: http://localhost:8000
+
+{{- end }}
+
+Health endpoint: /health
+{{- if .Values.prometheus.enabled }}
+Metrics endpoint: {{ .Values.prometheus.path }} (port {{ .Values.prometheus.port }})
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+
+PostgreSQL is deployed as part of this release:
+  Service: {{ include "eve-gatekeeper.postgresql.fullname" . }}:5432
+  User:    {{ .Values.postgresql.user }}
+  DB:      {{ .Values.postgresql.database }}
+{{- end }}
+
+{{- if .Values.redis.enabled }}
+
+Redis is deployed as part of this release:
+  Service: {{ include "eve-gatekeeper.redis.fullname" . }}:6379
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+
+Autoscaling is enabled:
+  Min replicas: {{ .Values.autoscaling.minReplicas }}
+  Max replicas: {{ .Values.autoscaling.maxReplicas }}
+  CPU target:   {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%
+  Memory target: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}%
+{{- end }}
+
+IMPORTANT: Make sure to change the default secrets before deploying to production!
+
+  helm upgrade {{ .Release.Name }} eve-gatekeeper \
+    --set secrets.secretKey=$(openssl rand -base64 32) \
+    --set secrets.postgresPassword=$(openssl rand -base64 16)
+
+For more information, see the project documentation.
