@@ -3,6 +3,8 @@
 import re
 from typing import Any
 
+from ..services.data_loader import get_neighbors, load_universe
+from ..services.external_links import get_system_links
 from ..services.fitting import (
     JumpCapability,
     ShipCategory,
@@ -11,6 +13,11 @@ from ..services.fitting import (
 )
 from ..services.fitting import (
     get_ship_info as _get_ship_info,
+)
+from ..services.intel_parser import parse_intel_text, submit_intel as _submit_intel
+from ..services.jump_fatigue import (
+    calculate_jump_timers,
+    format_timer,
 )
 from ..services.map_visualization import (
     get_region_map,
@@ -30,6 +37,7 @@ from ..services.webhooks import (
     add_subscription,
     list_subscriptions,
 )
+from ..services.zkill_stats import fetch_bulk_system_stats, fetch_system_kills
 
 # =============================================================================
 # Input Validation Helpers
@@ -766,3 +774,386 @@ async def list_alert_subscriptions() -> dict[str, Any]:
             for s in subs
         ],
     }
+
+
+async def get_kill_stats(system_name: str, hours: int = 24) -> dict[str, Any]:
+    """Get kill statistics for a system.
+
+    Fetches recent kill and pod counts from zKillboard for the specified system.
+
+    Args:
+        system_name: Name of the EVE Online system (e.g., 'Jita', 'Tama')
+        hours: Lookback period in hours (1-168, default 24)
+
+    Returns:
+        Dict with system kill stats including kills, pods, total, and time range
+    """
+    # Input validation
+    try:
+        validated_name = _validate_system_name(system_name, "system_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        validated_hours = _validate_integer(hours, "hours", min_val=1, max_val=168, default=24)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        universe = load_universe()
+    except Exception as e:
+        return {
+            "error": f"Failed to load universe data: {str(e)}",
+            "hint": "Universe data may not be available",
+        }
+
+    if validated_name not in universe.systems:
+        return {
+            "error": f"Unknown system: {validated_name}",
+            "hint": "Check the system name spelling",
+        }
+
+    system = universe.systems[validated_name]
+
+    try:
+        stats = await fetch_system_kills(system.id, validated_hours)
+        return {
+            "system_name": validated_name,
+            "system_id": system.id,
+            "hours": validated_hours,
+            "kills": stats.recent_kills,
+            "pods": stats.recent_pods,
+            "total": stats.recent_kills + stats.recent_pods,
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to fetch kill stats: {str(e)}",
+            "hint": "zKillboard API may be temporarily unavailable",
+        }
+
+
+async def get_hot_systems(hours: int = 24, limit: int = 10) -> dict[str, Any]:
+    """Get the most active systems by kills.
+
+    Returns the top systems ranked by kill activity, using the known
+    high-traffic systems (trade hubs and dangerous pipe systems).
+
+    Args:
+        hours: Lookback period in hours (1-168, default 24)
+        limit: Maximum number of systems to return (1-50, default 10)
+
+    Returns:
+        Dict with ranked list of hot systems including security and kill counts
+    """
+    # Input validation
+    try:
+        validated_hours = _validate_integer(hours, "hours", min_val=1, max_val=168, default=24)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        validated_limit = _validate_integer(limit, "limit", min_val=1, max_val=50, default=10)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        universe = load_universe()
+    except Exception as e:
+        return {
+            "error": f"Failed to load universe data: {str(e)}",
+            "hint": "Universe data may not be available",
+        }
+
+    # Priority system IDs (trade hubs and pipe systems)
+    priority_ids = [
+        30000142,  # Jita
+        30002187,  # Amarr
+        30002659,  # Dodixie
+        30002510,  # Rens
+        30002053,  # Hek
+        30002813,  # Tama
+        30002718,  # Rancer
+        30002537,  # Amamake
+        30003504,  # Niarja
+        30005196,  # Ahbazon
+    ]
+
+    # Build ID-to-name mapping
+    id_to_name: dict[int, str] = {}
+    id_to_security: dict[int, float] = {}
+    for name, system in universe.systems.items():
+        if system.id in priority_ids:
+            id_to_name[system.id] = name
+            id_to_security[system.id] = system.security
+
+    try:
+        stats_by_id = await fetch_bulk_system_stats(priority_ids, validated_hours)
+    except Exception as e:
+        return {
+            "error": f"Failed to fetch kill stats: {str(e)}",
+            "hint": "zKillboard API may be temporarily unavailable",
+        }
+
+    # Build and sort results
+    systems = []
+    for system_id, stats in stats_by_id.items():
+        name = id_to_name.get(system_id, f"System-{system_id}")
+        security = id_to_security.get(system_id, 0.0)
+        total = stats.recent_kills + stats.recent_pods
+        systems.append({
+            "system_name": name,
+            "system_id": system_id,
+            "security": round(security, 1),
+            "kills": stats.recent_kills,
+            "pods": stats.recent_pods,
+            "total": total,
+        })
+
+    # Sort by total activity descending
+    systems.sort(key=lambda s: s["total"], reverse=True)
+
+    return {
+        "hours": validated_hours,
+        "total_systems": len(systems[:validated_limit]),
+        "systems": systems[:validated_limit],
+    }
+
+
+def get_system_neighbors(system_name: str) -> dict[str, Any]:
+    """Get systems connected to the specified system via stargates.
+
+    Returns a list of neighboring systems with their security levels.
+
+    Args:
+        system_name: Name of the EVE Online system (e.g., 'Jita', 'Tama')
+
+    Returns:
+        Dict with neighboring systems and their security information
+    """
+    # Input validation
+    try:
+        validated_name = _validate_system_name(system_name, "system_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        universe = load_universe()
+    except Exception as e:
+        return {
+            "error": f"Failed to load universe data: {str(e)}",
+            "hint": "Universe data may not be available",
+        }
+
+    if validated_name not in universe.systems:
+        return {
+            "error": f"Unknown system: {validated_name}",
+            "hint": "Check the system name spelling",
+        }
+
+    try:
+        gates = get_neighbors(validated_name)
+        neighbor_names: set[str] = set()
+        for gate in gates:
+            if gate.from_system == validated_name:
+                neighbor_names.add(gate.to_system)
+            else:
+                neighbor_names.add(gate.from_system)
+
+        neighbors = []
+        for name in sorted(neighbor_names):
+            neighbor_sys = universe.systems.get(name)
+            if neighbor_sys:
+                neighbors.append({
+                    "system_name": name,
+                    "security": round(neighbor_sys.security, 1),
+                    "security_level": get_security_level(neighbor_sys.security).value,
+                    "region_name": neighbor_sys.region_name,
+                })
+
+        return {
+            "system_name": validated_name,
+            "neighbor_count": len(neighbors),
+            "neighbors": neighbors,
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to get neighbors: {str(e)}",
+            "hint": "An unexpected error occurred",
+        }
+
+
+def get_external_links(system_name: str) -> dict[str, Any]:
+    """Get external tool URLs for a system.
+
+    Returns links to popular EVE Online tools like Dotlan, zKillboard,
+    EVE Eye, and ESI for the specified system.
+
+    Args:
+        system_name: Name of the EVE Online system (e.g., 'Jita', 'Tama')
+
+    Returns:
+        Dict with system info and a links mapping of tool names to URLs
+    """
+    # Input validation
+    try:
+        validated_name = _validate_system_name(system_name, "system_name")
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    try:
+        universe = load_universe()
+    except Exception as e:
+        return {
+            "error": f"Failed to load universe data: {str(e)}",
+            "hint": "Universe data may not be available",
+        }
+
+    # Look up system for ID and region info
+    system = universe.systems.get(validated_name)
+    system_id = system.id if system else None
+    region_name = system.region_name if system else None
+    region_id = system.region_id if system else None
+
+    try:
+        links = get_system_links(
+            system_name=validated_name,
+            system_id=system_id,
+            region_name=region_name,
+            region_id=region_id,
+        )
+
+        return {
+            "system_name": validated_name,
+            "system_id": system_id,
+            "links": links,
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to generate links: {str(e)}",
+            "hint": "An unexpected error occurred",
+        }
+
+
+def submit_intel(text: str) -> dict[str, Any]:
+    """Submit intel channel text for parsing.
+
+    Parses intel text and returns parsed results including hostile systems
+    and character names found. Supports common intel formats:
+    - "Jita +1" (one hostile in Jita)
+    - "Jita +3" (three hostiles)
+    - "Jita clear" or "Jita clr" (system cleared)
+    - "Jita HostileName" (hostile by name)
+
+    Args:
+        text: Intel channel text (single or multi-line)
+
+    Returns:
+        Dict with parsed intel reports and hostile systems
+    """
+    # Input validation
+    try:
+        validated_text = _validate_string(text, "text", required=True)
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    if validated_text is None:
+        return {
+            "error": "Intel text is required",
+            "hint": "Provide intel channel text to parse",
+        }
+
+    try:
+        reports = _submit_intel(validated_text)
+
+        report_dicts = []
+        hostile_systems = []
+        for report in reports:
+            report_dict = {
+                "system_name": report.system_name,
+                "hostile_count": report.hostile_count,
+                "hostile_names": report.hostile_names,
+                "is_clear": report.is_clear,
+                "threat_type": report.threat_type.value,
+                "ship_types": report.ship_types,
+                "direction": report.direction,
+                "raw_text": report.raw_text,
+            }
+            report_dicts.append(report_dict)
+            if not report.is_clear and report.hostile_count > 0:
+                hostile_systems.append(report.system_name)
+
+        return {
+            "reports_parsed": len(reports),
+            "reports": report_dicts,
+            "hostile_systems": sorted(set(hostile_systems)),
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to parse intel: {str(e)}",
+            "hint": "Check the intel text format",
+        }
+
+
+def calculate_fatigue(
+    light_years: float,
+    current_fatigue_minutes: float = 0,
+) -> dict[str, Any]:
+    """Calculate jump fatigue for a capital ship jump.
+
+    Calculates blue timer (jump activation timer) and orange/red timer
+    (jump fatigue) based on jump distance and current fatigue.
+
+    Args:
+        light_years: Jump distance in light years
+        current_fatigue_minutes: Current jump fatigue (red timer) in minutes (default 0)
+
+    Returns:
+        Dict with blue timer, red timer, and formatted time strings
+    """
+    # Input validation
+    try:
+        validated_ly = _validate_float(
+            light_years, "light_years", min_val=0.1, max_val=500.0
+        )
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    if validated_ly is None:
+        return {
+            "error": "light_years is required",
+            "hint": "Provide jump distance in light years",
+        }
+
+    try:
+        validated_fatigue = _validate_float(
+            current_fatigue_minutes, "current_fatigue_minutes", min_val=0.0, max_val=1440.0
+        )
+    except ValidationError as e:
+        return _validation_error_to_dict(e)
+
+    # Convert current fatigue from minutes to seconds
+    current_red_seconds = (validated_fatigue or 0.0) * 60.0
+
+    try:
+        blue_added, red_added, new_blue, new_red = calculate_jump_timers(
+            distance_ly=validated_ly,
+            current_blue_seconds=0.0,
+            current_red_seconds=current_red_seconds,
+        )
+
+        return {
+            "distance_ly": round(validated_ly, 2),
+            "current_fatigue_minutes": round((validated_fatigue or 0.0), 1),
+            "blue_timer_seconds": round(new_blue, 1),
+            "blue_timer_formatted": format_timer(new_blue),
+            "red_timer_seconds": round(new_red, 1),
+            "red_timer_formatted": format_timer(new_red),
+            "blue_timer_added_seconds": round(blue_added, 1),
+            "red_timer_added_seconds": round(red_added, 1),
+            "fatigue_multiplier": round(current_red_seconds / 600.0, 3),
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to calculate fatigue: {str(e)}",
+            "hint": "Check the input values",
+        }

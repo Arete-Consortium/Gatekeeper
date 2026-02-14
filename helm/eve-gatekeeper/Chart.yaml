@@ -1,0 +1,15 @@
+apiVersion: v2
+name: eve-gatekeeper
+description: EVE Online navigation, routing, and intel visualization platform
+type: application
+version: 1.0.0
+appVersion: "1.4.0"
+keywords:
+  - eve-online
+  - navigation
+  - routing
+  - intel
+  - gatekeeper
+home: https://github.com/eve-gatekeeper/eve-gatekeeper
+maintainers:
+  - name: EVE Gatekeeper Team

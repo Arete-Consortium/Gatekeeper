@@ -84,14 +84,14 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          PYTHONPATH=. pytest --cov=backend/app --cov-report=xml --cov-report=term-missing
+          PYTHONPATH=. pytest --cov=backend/app --cov-report=xml --cov-report=term-missing --cov-fail-under=80
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: matrix.python-version == '3.11'
         with:
           files: ./coverage.xml
-          fail_ci_if_error: false
+          fail_ci_if_error: true
           verbose: true
 
   security:
@@ -109,7 +109,9 @@ jobs:
         run: pip install pip-audit
 
       - name: Run security audit
-        run: pip-audit -r backend/requirements.txt || true
+        run: |
+          pip-audit -r backend/requirements.txt --desc --fix --dry-run 2>&1 | tee audit-report.txt
+          pip-audit -r backend/requirements.txt --severity critical
 
   build:
     name: Build Docker

@@ -7,10 +7,17 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 ### MCP Server
 - [x] Integration testing - End-to-end tests for all 11 tools (94 tests added)
 - [x] Add error handling for edge cases (48 new tests, validation helpers)
+- [x] Expand MCP tools from 11 to 17 (kill stats, hot systems, neighbors, external links, intel, fatigue)
 
 ### Security
 - [x] Enforce SECRET_KEY validation in production mode
 - [x] Review and tighten CORS configuration for production
+- [x] Add SAST scanning workflow (Bandit, Semgrep, Trivy)
+- [x] Make pip-audit blocking for critical vulnerabilities
+
+### Testing & Quality
+- [x] Raise backend coverage threshold from 60% to 80% with CI enforcement
+- [x] Add web frontend unit tests for components, hooks, and pages (9 new test files)
 
 ## Completed
 
@@ -78,12 +85,12 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - [x] Collaborative routing sessions
 
 ### Dependencies
-- [x] Update deprecated npm packages in desktop app (semver-compatible, 0 vulnerabilities)
-- [x] Update deprecated npm packages in mobile app (semver-compatible, 0 vulnerabilities)
-  - Major version upgrades available (electron 40, jest 30, react-native 0.83) require migration planning
+- [x] Update deprecated npm packages in desktop app (Electron 35, Jest 29)
+- [x] Update deprecated npm packages in mobile app (Expo 54, React Native 0.81, React 19)
 
 ### Operations
 - [x] Create Kubernetes deployment configs
+- [x] Package K8s manifests into Helm chart (eve-gatekeeper v1.0.0)
 
 ---
 
@@ -91,10 +98,11 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 
 | Category | Open | Done |
 |----------|------|------|
-| MCP Server | 0 | 2 |
+| MCP Server | 0 | 3 |
 | Mobile App | 0 | 4 |
 | Desktop App | 0 | 3 |
-| Security | 0 | 2 |
+| Security | 0 | 4 |
+| Testing | 0 | 2 |
 | Critical Fixes | 0 | 1 |
 | API Docs | 0 | 2 |
 | Auth | 0 | 2 |
@@ -107,8 +115,8 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 | Visualization | 0 | 2 |
 | Features | 0 | 3 |
 | Dependencies | 0 | 2 |
-| Ops | 0 | 1 |
-| **Total** | **0** | **40** |
+| Ops | 0 | 2 |
+| **Total** | **0** | **46** |
 
 ---
 
@@ -128,3 +136,5 @@ This document tracks planned tasks and improvements for the EVE Gatekeeper proje
 - Architecture details: See `ARCHITECTURE.md`
 - Setup instructions: See `SETUP.md`
 - Recent changes: See `CHANGELOG.md`
+- Helm chart: See `helm/eve-gatekeeper/`
+- Security scanning: See `.github/workflows/sast.yml`
