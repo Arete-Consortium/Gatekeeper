@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   Map,
@@ -16,27 +17,29 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
 }
 
 const navItems: NavItem[] = [
-  { href: '/', label: 'Dashboard', icon: Map },
-  { href: '/map', label: 'Map', icon: Globe },
-  { href: '/route', label: 'Route', icon: Route },
-  { href: '/fitting', label: 'Fitting', icon: Wrench },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
-  { href: '/intel', label: 'Intel', icon: Radar },
-  { href: '/pricing', label: 'Pro', icon: CreditCard },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/', labelKey: 'dashboard', icon: Map },
+  { href: '/map', labelKey: 'map', icon: Globe },
+  { href: '/route', labelKey: 'route', icon: Route },
+  { href: '/fitting', labelKey: 'fitting', icon: Wrench },
+  { href: '/alerts', labelKey: 'alerts', icon: Bell },
+  { href: '/intel', labelKey: 'intel', icon: Radar },
+  { href: '/pricing', labelKey: 'pro', icon: CreditCard },
+  { href: '/settings', labelKey: 'settings', icon: Settings },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const t = useTranslations('nav');
 
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50">
@@ -69,10 +72,13 @@ export function Navbar() {
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
+            <div className="ml-2 border-l border-border pl-2">
+              <LanguageSwitcher />
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -108,10 +114,13 @@ export function Navbar() {
                     )}
                   >
                     <Icon className="h-5 w-5" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 );
               })}
+              <div className="px-3 py-3">
+                <LanguageSwitcher />
+              </div>
             </div>
           </div>
         )}

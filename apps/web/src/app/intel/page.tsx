@@ -1,25 +1,13 @@
 'use client';
 
 import { memo, useState, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useHotSystems } from '@/hooks';
 import { Card, Input, Select, Badge } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
 import { Radar, Skull, TrendingUp } from 'lucide-react';
 import { ErrorMessage, SkeletonCard, SkeletonTable, getUserFriendlyError } from '@/components/ui';
 import type { HotSystem } from '@/lib/types';
-
-const timeOptions = [
-  { value: '1', label: 'Last 1 hour' },
-  { value: '6', label: 'Last 6 hours' },
-  { value: '24', label: 'Last 24 hours' },
-  { value: '48', label: 'Last 48 hours' },
-];
-
-const limitOptions = [
-  { value: '10', label: 'Top 10' },
-  { value: '25', label: 'Top 25' },
-  { value: '50', label: 'Top 50' },
-];
 
 /**
  * HotSystemRow - Memoized table row for performance in large lists
@@ -82,9 +70,24 @@ const HotSystemRow = memo(function HotSystemRow({ system, index }: HotSystemRowP
 });
 
 export default function IntelPage() {
+  const t = useTranslations('intel');
+  const tc = useTranslations('common');
   const [hours, setHours] = useState(24);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
+
+  const timeOptions = [
+    { value: '1', label: t('last1h') },
+    { value: '6', label: t('last6h') },
+    { value: '24', label: t('last24h') },
+    { value: '48', label: t('last48h') },
+  ];
+
+  const limitOptions = [
+    { value: '10', label: t('top10') },
+    { value: '25', label: t('top25') },
+    { value: '50', label: t('top50') },
+  ];
 
   const { data: hotSystems, isLoading, error, refetch } = useHotSystems(hours, limit);
 
@@ -112,9 +115,9 @@ export default function IntelPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Intel</h1>
+        <h1 className="text-2xl font-bold text-text">{t('title')}</h1>
         <p className="text-text-secondary mt-1">
-          Track hot systems and recent kill activity
+          {t('subtitle')}
         </p>
       </div>
 
@@ -123,15 +126,15 @@ export default function IntelPage() {
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
             <Input
-              label="Search Systems"
+              label={t('searchSystems')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="System name..."
+              placeholder={t('systemPlaceholder')}
             />
           </div>
           <div className="w-40">
             <Select
-              label="Time Range"
+              label={t('timeRange')}
               value={hours.toString()}
               onChange={(e) => setHours(parseInt(e.target.value))}
               options={timeOptions}
@@ -139,7 +142,7 @@ export default function IntelPage() {
           </div>
           <div className="w-32">
             <Select
-              label="Show"
+              label={t('show')}
               value={limit.toString()}
               onChange={(e) => setLimit(parseInt(e.target.value))}
               options={limitOptions}
@@ -150,13 +153,13 @@ export default function IntelPage() {
 
       {/* Stats Summary */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" role="region" aria-label="Kill statistics summary">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4" role="region" aria-label={t('title')}>
           <Card className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Radar className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="text-xs text-text-secondary uppercase">Systems</span>
+              <span className="text-xs text-text-secondary uppercase">{tc('systems')}</span>
             </div>
-            <span className="text-2xl font-bold text-text" aria-label={`${hotSystems?.length || 0} systems`}>
+            <span className="text-2xl font-bold text-text">
               {hotSystems?.length || 0}
             </span>
           </Card>
@@ -164,10 +167,10 @@ export default function IntelPage() {
             <div className="flex items-center justify-center gap-2 mb-1">
               <Skull className="h-4 w-4 text-risk-red" aria-hidden="true" />
               <span className="text-xs text-text-secondary uppercase">
-                Total Kills
+                {t('totalKills')}
               </span>
             </div>
-            <span className="text-2xl font-bold text-risk-red" aria-label={`${stats.totalKills} total kills`}>
+            <span className="text-2xl font-bold text-risk-red">
               {stats.totalKills}
             </span>
           </Card>
@@ -175,19 +178,19 @@ export default function IntelPage() {
             <div className="flex items-center justify-center gap-2 mb-1">
               <Skull className="h-4 w-4 text-risk-orange" aria-hidden="true" />
               <span className="text-xs text-text-secondary uppercase">
-                Total Pods
+                {t('totalPods')}
               </span>
             </div>
-            <span className="text-2xl font-bold text-risk-orange" aria-label={`${stats.totalPods} total pods`}>
+            <span className="text-2xl font-bold text-risk-orange">
               {stats.totalPods}
             </span>
           </Card>
           <Card className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <TrendingUp className="h-4 w-4 text-risk-red" aria-hidden="true" />
-              <span className="text-xs text-text-secondary uppercase">Hottest</span>
+              <span className="text-xs text-text-secondary uppercase">{t('hottest')}</span>
             </div>
-            <span className="text-lg font-bold text-text truncate" aria-label={`Hottest system: ${stats.hottest}`}>
+            <span className="text-lg font-bold text-text truncate">
               {stats.hottest}
             </span>
           </Card>
@@ -197,30 +200,30 @@ export default function IntelPage() {
       {/* Hot Systems Table */}
       <section aria-labelledby="hot-systems-heading">
         <h2 id="hot-systems-heading" className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">
-          Hot Systems
+          {t('hotSystems')}
         </h2>
 
         {isLoading ? (
-          <SkeletonTable rows={5} columns={6} aria-label="Loading hot systems data" />
+          <SkeletonTable rows={5} columns={6} aria-label={tc('loading')} />
         ) : error ? (
           <ErrorMessage
-            title="Unable to load intel data"
+            title={t('unableToLoad')}
             message={getUserFriendlyError(error)}
             onRetry={() => refetch()}
           />
         ) : filteredSystems && filteredSystems.length > 0 ? (
-          <div className="border border-border rounded-lg overflow-x-auto" role="table" aria-label="Hot systems with kill activity">
+          <div className="border border-border rounded-lg overflow-x-auto" role="table" aria-label={t('hotSystems')}>
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[500px]" role="row">
               <div className="col-span-1" role="columnheader">#</div>
-              <div className="col-span-4" role="columnheader">System</div>
-              <div className="col-span-2" role="columnheader">Security</div>
-              <div className="col-span-2 text-right" role="columnheader">Kills</div>
-              <div className="col-span-2 text-right" role="columnheader">Pods</div>
-              <div className="col-span-1 text-right" role="columnheader"><span className="sr-only">Category</span>Cat</div>
+              <div className="col-span-4" role="columnheader">{t('system')}</div>
+              <div className="col-span-2" role="columnheader">{tc('security')}</div>
+              <div className="col-span-2 text-right" role="columnheader">{tc('kills')}</div>
+              <div className="col-span-2 text-right" role="columnheader">{tc('pods')}</div>
+              <div className="col-span-1 text-right" role="columnheader"><span className="sr-only">{t('cat')}</span>{t('cat')}</div>
             </div>
 
-            {/* Table Body - Using memoized HotSystemRow for performance */}
+            {/* Table Body */}
             {filteredSystems.map((system, index) => (
               <HotSystemRow
                 key={system.system_id}
@@ -234,8 +237,8 @@ export default function IntelPage() {
             <Radar className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
             <p className="text-text-secondary">
               {search
-                ? `No systems match "${search}". Try a different search term.`
-                : 'No systems with recent kill activity. Space is quiet for now.'}
+                ? t('noMatch', { search })
+                : t('spaceQuiet')}
             </p>
           </Card>
         )}

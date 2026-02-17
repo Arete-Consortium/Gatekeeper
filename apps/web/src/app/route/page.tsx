@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useRoute } from '@/hooks';
 import { Card, Button, Toggle } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
@@ -18,6 +19,7 @@ const profileOptions = Object.entries(ROUTE_PROFILES).map(([value, config]) => (
 
 function RoutePageContent() {
   const searchParams = useSearchParams();
+  const t = useTranslations('route');
 
   const [fromSystem, setFromSystem] = useState('');
   const [toSystem, setToSystem] = useState('');
@@ -80,9 +82,9 @@ function RoutePageContent() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Route Planner</h1>
+        <h1 className="text-2xl font-bold text-text">{t('title')}</h1>
         <p className="text-text-secondary mt-1">
-          Find the safest path between solar systems
+          {t('subtitle')}
         </p>
       </div>
 
@@ -93,10 +95,10 @@ function RoutePageContent() {
           <div className="flex gap-4 items-end">
             <div className="flex-1" onKeyDown={handleKeyDown}>
               <SystemSearch
-                label="From"
+                label={t('from')}
                 value={fromSystem}
                 onChange={setFromSystem}
-                placeholder="Origin system..."
+                placeholder={t('originPlaceholder')}
               />
             </div>
 
@@ -104,17 +106,17 @@ function RoutePageContent() {
               type="button"
               onClick={handleSwap}
               className="p-2 mb-1 text-text-secondary hover:text-primary transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-              aria-label="Swap origin and destination systems"
+              aria-label={t('swapSystems')}
             >
               <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />
             </button>
 
             <div className="flex-1" onKeyDown={handleKeyDown}>
               <SystemSearch
-                label="To"
+                label={t('to')}
                 value={toSystem}
                 onChange={setToSystem}
-                placeholder="Destination system..."
+                placeholder={t('destPlaceholder')}
               />
             </div>
           </div>
@@ -122,7 +124,7 @@ function RoutePageContent() {
           {/* Profile Selection */}
           <div className="grid sm:grid-cols-3 gap-4">
             <Select
-              label="Route Profile"
+              label={t('routeProfile')}
               value={profile}
               onChange={(e) => setProfile(e.target.value as RouteProfile)}
               options={profileOptions}
@@ -132,7 +134,7 @@ function RoutePageContent() {
               <Toggle
                 checked={includeBridges}
                 onChange={setIncludeBridges}
-                label="Include Jump Bridges"
+                label={t('includeBridges')}
               />
             </div>
 
@@ -140,7 +142,7 @@ function RoutePageContent() {
               <Toggle
                 checked={includeThera}
                 onChange={setIncludeThera}
-                label="Include Thera"
+                label={t('includeThera')}
               />
             </div>
           </div>
@@ -153,7 +155,7 @@ function RoutePageContent() {
             className="w-full sm:w-auto"
           >
             <Route className="mr-2 h-4 w-4" />
-            Calculate Route
+            {t('calculateRoute')}
           </Button>
         </div>
       </Card>
@@ -161,7 +163,7 @@ function RoutePageContent() {
       {/* Error State */}
       {error && (
         <ErrorMessage
-          title="Route calculation failed"
+          title={t('routeFailed')}
           message={getUserFriendlyError(error)}
           onRetry={handleSearch}
         />
@@ -175,7 +177,7 @@ function RoutePageContent() {
         <Card className="text-center py-12">
           <Route className="h-12 w-12 text-text-secondary mx-auto mb-4" />
           <p className="text-text-secondary">
-            Enter origin and destination systems to calculate a route
+            {t('emptyState')}
           </p>
         </Card>
       )}

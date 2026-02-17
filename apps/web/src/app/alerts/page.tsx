@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card } from '@/components/ui';
 import { AlertCard, AlertForm } from '@/components/alerts';
@@ -13,6 +14,8 @@ import { Bell, Loader2 } from 'lucide-react';
 import { ErrorMessage, SkeletonCard, getUserFriendlyError } from '@/components/ui';
 
 export default function AlertsPage() {
+  const t = useTranslations('alerts');
+  const tc = useTranslations('common');
   const queryClient = useQueryClient();
 
   const {
@@ -45,8 +48,6 @@ export default function AlertsPage() {
   });
 
   const handleToggle = (id: string, enabled: boolean) => {
-    // Note: The API would need to support updating subscriptions
-    // For now this is a placeholder
     console.log('Toggle subscription', id, enabled);
   };
 
@@ -56,9 +57,9 @@ export default function AlertsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Kill Alerts</h1>
+        <h1 className="text-2xl font-bold text-text">{t('title')}</h1>
         <p className="text-text-secondary mt-1">
-          Get notified about kills via Discord or Slack webhooks
+          {t('subtitle')}
         </p>
       </div>
 
@@ -73,28 +74,28 @@ export default function AlertsPage() {
       {/* Success/Error Messages */}
       {createMutation.isSuccess && (
         <Card className="border-risk-green bg-risk-green/10" role="status" aria-live="polite">
-          <p className="text-risk-green">Alert subscription created successfully!</p>
+          <p className="text-risk-green">{t('created')}</p>
         </Card>
       )}
 
       {createMutation.isError && (
         <ErrorMessage
-          title="Unable to create subscription"
-          message="Please verify your webhook URL is correct and accessible. Make sure it starts with https:// for Discord or Slack."
+          title={t('createFailed')}
+          message={t('createFailedDesc')}
           onRetry={() => createMutation.reset()}
         />
       )}
 
       {testMutation.isSuccess && (
         <Card className="border-primary bg-primary/10" role="status" aria-live="polite">
-          <p className="text-primary">Test alert sent! Check your webhook destination.</p>
+          <p className="text-primary">{t('testSent')}</p>
         </Card>
       )}
 
       {testMutation.isError && (
         <ErrorMessage
-          title="Test alert failed"
-          message="Could not send the test alert. Please verify your webhook configuration."
+          title={t('testFailed')}
+          message={t('testFailedDesc')}
           variant="warning"
         />
       )}
@@ -102,23 +103,23 @@ export default function AlertsPage() {
       {/* Subscriptions List */}
       <section aria-labelledby="subscriptions-heading">
         <h2 id="subscriptions-heading" className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-4">
-          Active Subscriptions ({subscriptions.length})
+          {t('activeSubscriptions', { count: subscriptions.length })}
         </h2>
 
         {isLoading ? (
-          <div className="space-y-3" aria-busy="true" aria-label="Loading subscriptions">
+          <div className="space-y-3" aria-busy="true" aria-label={tc('loading')}>
             {[...Array(2)].map((_, i) => (
               <SkeletonCard key={i} lines={3} />
             ))}
           </div>
         ) : error ? (
           <ErrorMessage
-            title="Unable to load subscriptions"
+            title={tc('error')}
             message={getUserFriendlyError(error)}
             onRetry={() => refetch()}
           />
         ) : subscriptions.length > 0 ? (
-          <div className="space-y-3" role="list" aria-label="Alert subscriptions">
+          <div className="space-y-3" role="list" aria-label={t('title')}>
             {subscriptions.map((sub) => (
               <AlertCard
                 key={sub.id}
@@ -132,7 +133,7 @@ export default function AlertsPage() {
           <Card className="text-center py-12">
             <Bell className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
             <p className="text-text-secondary">
-              No alert subscriptions yet. Create one above to get started.
+              {t('noSubscriptions')}
             </p>
           </Card>
         )}

@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card, CardTitle, CardDescription, Button, Input, Badge } from '@/components/ui';
 import { Settings, CheckCircle, AlertCircle, Loader2, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/layout';
 
 export default function SettingsPage() {
+  const t = useTranslations('settings');
+  const tc = useTranslations('common');
   const [apiUrl, setApiUrl] = useState('');
   const [savedUrl, setSavedUrl] = useState('');
 
@@ -19,7 +23,6 @@ export default function SettingsPage() {
 
   const testConnection = useMutation({
     mutationFn: async (url: string) => {
-      // Temporarily set the URL to test
       const originalUrl = GatekeeperAPI.getBaseUrl();
       GatekeeperAPI.setBaseUrl(url);
       try {
@@ -60,46 +63,54 @@ export default function SettingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Settings</h1>
+        <h1 className="text-2xl font-bold text-text">{t('title')}</h1>
         <p className="text-text-secondary mt-1">
-          Configure EVE Gatekeeper application settings
+          {t('subtitle')}
         </p>
       </div>
 
+      {/* Language */}
+      <Card>
+        <CardTitle>{t('language')}</CardTitle>
+        <CardDescription>{t('languageDesc')}</CardDescription>
+        <div className="mt-4">
+          <LanguageSwitcher />
+        </div>
+      </Card>
+
       {/* API Configuration */}
       <Card>
-        <CardTitle>API Configuration</CardTitle>
+        <CardTitle>{t('apiConfig')}</CardTitle>
         <CardDescription>
-          Configure the Gatekeeper backend API URL
+          {t('apiConfigDesc')}
         </CardDescription>
 
         <div className="mt-4 space-y-4">
           <Input
-            label="API URL"
+            label={t('apiUrl')}
             value={apiUrl}
             onChange={(e) => setApiUrl(e.target.value)}
             placeholder="http://localhost:8000"
           />
 
-          {/* Connection Status */}
           {testConnection.isPending && (
             <div className="flex items-center gap-2 text-text-secondary">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Testing connection...
+              {t('testingConnection')}
             </div>
           )}
 
           {testConnection.isSuccess && (
             <div className="flex items-center gap-2 text-risk-green">
               <CheckCircle className="h-4 w-4" />
-              Connection successful!
+              {t('connectionSuccess')}
             </div>
           )}
 
           {testConnection.isError && (
             <div className="flex items-center gap-2 text-risk-red">
               <AlertCircle className="h-4 w-4" />
-              Connection failed. Please check the URL.
+              {t('connectionFailed')}
             </div>
           )}
 
@@ -109,7 +120,7 @@ export default function SettingsPage() {
               disabled={!hasChanges}
               variant={hasChanges ? 'primary' : 'secondary'}
             >
-              Save
+              {tc('save')}
             </Button>
             <Button
               variant="secondary"
@@ -117,10 +128,10 @@ export default function SettingsPage() {
               disabled={testConnection.isPending}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              Test Connection
+              {t('testConnection')}
             </Button>
             <Button variant="ghost" onClick={handleReset}>
-              Reset to Default
+              {t('resetToDefault')}
             </Button>
           </div>
         </div>
@@ -131,37 +142,33 @@ export default function SettingsPage() {
 
       {/* About */}
       <Card>
-        <CardTitle>About EVE Gatekeeper</CardTitle>
+        <CardTitle>{t('about')}</CardTitle>
         <div className="mt-4 space-y-2 text-sm text-text-secondary">
-          <p>
-            EVE Gatekeeper is an intel and route planning tool for EVE Online
-            pilots. It provides safe routing recommendations based on recent
-            kill activity from zKillboard.
-          </p>
+          <p>{t('aboutText')}</p>
           <p className="pt-2">
-            <strong className="text-text">Features:</strong>
+            <strong className="text-text">{t('features')}</strong>
           </p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Risk-aware route planning with multiple profiles</li>
-            <li>Ship fitting analysis for travel recommendations</li>
-            <li>Kill alerts via Discord and Slack webhooks</li>
-            <li>Real-time hot systems tracking</li>
-            <li>Jump bridge and Thera connection support</li>
+            <li>{t('feature1')}</li>
+            <li>{t('feature2')}</li>
+            <li>{t('feature3')}</li>
+            <li>{t('feature4')}</li>
+            <li>{t('feature5')}</li>
           </ul>
         </div>
       </Card>
 
       {/* Keyboard Shortcuts */}
       <Card>
-        <CardTitle>Keyboard Shortcuts</CardTitle>
+        <CardTitle>{t('shortcuts')}</CardTitle>
         <div className="mt-4 space-y-2">
           {[
-            { keys: ['/', 'Ctrl', 'K'], action: 'Search systems' },
-            { keys: ['G', 'H'], action: 'Go to Dashboard' },
-            { keys: ['G', 'R'], action: 'Go to Route Planner' },
-            { keys: ['G', 'F'], action: 'Go to Fitting Analyzer' },
-            { keys: ['G', 'A'], action: 'Go to Alerts' },
-            { keys: ['G', 'I'], action: 'Go to Intel' },
+            { keys: ['/', 'Ctrl', 'K'], action: t('searchSystems') },
+            { keys: ['G', 'H'], action: t('goToDashboard') },
+            { keys: ['G', 'R'], action: t('goToRoute') },
+            { keys: ['G', 'F'], action: t('goToFitting') },
+            { keys: ['G', 'A'], action: t('goToAlerts') },
+            { keys: ['G', 'I'], action: t('goToIntel') },
           ].map(({ keys, action }) => (
             <div
               key={action}
@@ -189,6 +196,7 @@ export default function SettingsPage() {
 }
 
 function SubscriptionCard() {
+  const t = useTranslations('settings');
   // TODO: Replace 0 with actual character_id from auth context
   const characterId = 0;
 
@@ -215,16 +223,16 @@ function SubscriptionCard() {
           <CardTitle>
             <span className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Subscription
+              {t('subscription')}
             </span>
           </CardTitle>
           <CardDescription>
-            Manage your EVE Gatekeeper Pro subscription
+            {t('subscriptionDesc')}
           </CardDescription>
         </div>
         {isActive && (
           <Badge variant="success">
-            {planLabel} - Active
+            {planLabel} - {t('active')}
           </Badge>
         )}
       </div>
@@ -233,15 +241,15 @@ function SubscriptionCard() {
         {isLoading ? (
           <div className="flex items-center gap-2 text-text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading subscription status...
+            {t('loadingSub')}
           </div>
         ) : isActive ? (
           <div className="space-y-3">
             {subscription?.current_period_end && (
               <p className="text-sm text-text-secondary">
                 {subscription.cancel_at_period_end
-                  ? `Access until ${new Date(subscription.current_period_end).toLocaleDateString()}`
-                  : `Renews on ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+                  ? t('accessUntil', { date: new Date(subscription.current_period_end).toLocaleDateString() })
+                  : t('renewsOn', { date: new Date(subscription.current_period_end).toLocaleDateString() })}
               </p>
             )}
             <Button
@@ -250,18 +258,17 @@ function SubscriptionCard() {
               loading={manageSubscription.isPending}
             >
               <ExternalLink className="mr-2 h-4 w-4" />
-              Manage Subscription
+              {t('manageSub')}
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-text-secondary">
-              Subscribe to unlock all premium features including AI analysis,
-              priority alerts, and more.
+              {t('subscribePrompt')}
             </p>
             <Link href="/pricing">
               <Button variant="primary">
-                View Plans
+                {t('viewPlans')}
               </Button>
             </Link>
           </div>

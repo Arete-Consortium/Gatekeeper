@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button, Textarea } from '@/components/ui';
 import { FittingResult } from '@/components/fitting';
@@ -27,6 +28,7 @@ Small Gravity Capacitor Upgrade I
 `;
 
 export default function FittingPage() {
+  const t = useTranslations('fitting');
   const [eftText, setEftText] = useState('');
 
   const {
@@ -69,9 +71,9 @@ export default function FittingPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-text">Fitting Analyzer</h1>
+        <h1 className="text-2xl font-bold text-text">{t('title')}</h1>
         <p className="text-text-secondary mt-1">
-          Analyze ship fittings for travel recommendations
+          {t('subtitle')}
         </p>
       </div>
 
@@ -80,34 +82,34 @@ export default function FittingPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="block text-sm font-medium text-text-secondary">
-              EFT Fitting
+              {t('eftFitting')}
             </label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handlePaste}
                 className="text-xs text-primary hover:text-primary-hover flex items-center gap-1 rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary"
-                aria-label="Paste fitting from clipboard"
+                aria-label={t('paste')}
               >
                 <Clipboard className="h-3 w-3" aria-hidden="true" />
-                Paste
+                {t('paste')}
               </button>
               <button
                 type="button"
                 onClick={handleLoadExample}
                 className="text-xs text-text-secondary hover:text-text rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary"
-                aria-label="Load example fitting"
+                aria-label={t('loadExample')}
               >
-                Load Example
+                {t('loadExample')}
               </button>
               {eftText && (
                 <button
                   type="button"
                   onClick={handleClear}
                   className="text-xs text-text-secondary hover:text-text rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary"
-                  aria-label="Clear fitting text"
+                  aria-label={t('clear')}
                 >
-                  Clear
+                  {t('clear')}
                 </button>
               )}
             </div>
@@ -119,18 +121,7 @@ export default function FittingPage() {
               setEftText(e.target.value);
               reset();
             }}
-            placeholder="Paste your EFT fitting here...
-
-[Ship Name, Fit Name]
-
-Low Slot Module
-...
-
-Mid Slot Module
-...
-
-High Slot Module
-..."
+            placeholder={t('placeholder')}
             className="min-h-[200px]"
           />
 
@@ -140,7 +131,7 @@ High Slot Module
             loading={isPending}
           >
             <Wrench className="mr-2 h-4 w-4" />
-            Analyze Fitting
+            {t('analyzeFitting')}
           </Button>
         </div>
       </Card>
@@ -148,8 +139,8 @@ High Slot Module
       {/* Error State */}
       {error && (
         <ErrorMessage
-          title="Unable to analyze fitting"
-          message={error.message || 'Could not parse the fitting. Please check the EFT format and try again.'}
+          title={t('analyzeError')}
+          message={error.message || t('analyzeError')}
           onRetry={handleAnalyze}
         />
       )}
@@ -162,11 +153,10 @@ High Slot Module
         <Card className="text-center py-12">
           <Wrench className="h-12 w-12 text-text-secondary mx-auto mb-4" />
           <p className="text-text-secondary mb-2">
-            Paste an EFT fitting to analyze travel capabilities
+            {t('emptyState')}
           </p>
           <p className="text-xs text-text-secondary">
-            Copy a fitting from EVE Online (Alt+Shift+C) or use the Fitting
-            window export
+            {t('emptyHint')}
           </p>
         </Card>
       )}
