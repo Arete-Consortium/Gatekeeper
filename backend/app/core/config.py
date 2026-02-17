@@ -103,6 +103,15 @@ class Settings(BaseSettings):
     REDIS_PUBSUB_ENABLED: bool = True  # Auto-enabled if REDIS_URL is set
     REDIS_PUBSUB_CHANNEL: str = "eve_gatekeeper:kills"  # Channel name for kill events
 
+    # Stripe (Payments)
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_PUBLISHABLE_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_MONTHLY_PRICE_ID: str | None = None  # Stripe Price ID for $2.99/month
+    STRIPE_ANNUAL_PRICE_ID: str | None = None  # Stripe Price ID for $29.99/year
+    STRIPE_SUCCESS_URL: str = "http://localhost:3000/settings?subscription=success"
+    STRIPE_CANCEL_URL: str = "http://localhost:3000/pricing"
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):

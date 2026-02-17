@@ -273,3 +273,33 @@ export interface TestAlertResponse {
 
 // Route profile type
 export type RouteProfile = 'shortest' | 'safer' | 'paranoid';
+
+// Subscription types
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  interval: string;
+}
+
+export interface PlansResponse {
+  plans: SubscriptionPlan[];
+  publishable_key: string | null;
+}
+
+export interface SubscriptionStatus {
+  subscribed: boolean;
+  plan: string | null;
+  status: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+}
+
+export interface CheckoutResponse {
+  checkout_url: string;
+}
+
+export interface PortalResponse {
+  portal_url: string;
+}

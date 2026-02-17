@@ -11,6 +11,7 @@ import {
   Bell,
   Radar,
   Settings,
+  CreditCard,
   Menu,
   X,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { href: '/fitting', label: 'Fitting', icon: Wrench },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
+  { href: '/pricing', label: 'Pro', icon: CreditCard },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

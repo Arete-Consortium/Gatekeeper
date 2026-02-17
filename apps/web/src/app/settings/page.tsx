@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { GatekeeperAPI } from '@/lib/api';
-import { Card, CardTitle, CardDescription, Button, Input } from '@/components/ui';
-import { Settings, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Card, CardTitle, CardDescription, Button, Input, Badge } from '@/components/ui';
+import { Settings, CheckCircle, AlertCircle, Loader2, RefreshCw, CreditCard, ExternalLink } from 'lucide-react';
 
 export default function SettingsPage() {
   const [apiUrl, setApiUrl] = useState('');
@@ -125,6 +126,9 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* Subscription */}
+      <SubscriptionCard />
+
       {/* About */}
       <Card>
         <CardTitle>About EVE Gatekeeper</CardTitle>
@@ -181,5 +185,88 @@ export default function SettingsPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function SubscriptionCard() {
+  // TODO: Replace 0 with actual character_id from auth context
+  const characterId = 0;
+
+  const { data: subscription, isLoading } = useQuery({
+    queryKey: ['subscription-status', characterId],
+    queryFn: () => GatekeeperAPI.getSubscriptionStatus(characterId),
+    enabled: characterId > 0,
+  });
+
+  const manageSubscription = useMutation({
+    mutationFn: () => GatekeeperAPI.createPortal(characterId),
+    onSuccess: (data) => {
+      window.location.href = data.portal_url;
+    },
+  });
+
+  const isActive = subscription?.subscribed;
+  const planLabel = subscription?.plan === 'annual' ? 'Annual' : 'Monthly';
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div>
+          <CardTitle>
+            <span className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Subscription
+            </span>
+          </CardTitle>
+          <CardDescription>
+            Manage your EVE Gatekeeper Pro subscription
+          </CardDescription>
+        </div>
+        {isActive && (
+          <Badge variant="success">
+            {planLabel} - Active
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-text-secondary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading subscription status...
+          </div>
+        ) : isActive ? (
+          <div className="space-y-3">
+            {subscription?.current_period_end && (
+              <p className="text-sm text-text-secondary">
+                {subscription.cancel_at_period_end
+                  ? `Access until ${new Date(subscription.current_period_end).toLocaleDateString()}`
+                  : `Renews on ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+              </p>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => manageSubscription.mutate()}
+              loading={manageSubscription.isPending}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Manage Subscription
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Subscribe to unlock all premium features including AI analysis,
+              priority alerts, and more.
+            </p>
+            <Link href="/pricing">
+              <Button variant="primary">
+                View Plans
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

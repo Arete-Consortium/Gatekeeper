@@ -23,6 +23,7 @@ from .sessions import router as sessions_router
 from .sharing import router as sharing_router
 from .stats import router as stats_router
 from .status import router as status_router
+from .subscriptions import router as subscriptions_router
 from .systems import router as systems_router
 from .thera import router as thera_router
 from .webhooks import router as webhooks_router
@@ -55,5 +56,6 @@ router.include_router(thera_router, prefix="/thera", tags=["thera"])
 router.include_router(pochven_router, prefix="/pochven", tags=["pochven"])
 router.include_router(wormholes_router)
 router.include_router(status_router, prefix="/status", tags=["status"])
+router.include_router(subscriptions_router)
 router.include_router(websocket_router, tags=["websocket"])
 router.include_router(links_router)

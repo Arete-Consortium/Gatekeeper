@@ -6,7 +6,7 @@ Currently, the app uses JSON files for data storage.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -173,3 +173,42 @@ class RouteBookmark(Base):
 
     def __repr__(self) -> str:
         return f"<RouteBookmark(id={self.id}, name={self.name})>"
+
+
+class Subscription(Base):
+    """User subscription for premium features."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    character_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    stripe_customer_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    plan: Mapped[str] = mapped_column(String(50), nullable=False)  # "monthly" or "annual"
+    status: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="inactive"
+    )  # active, canceled, past_due, inactive
+    current_period_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    __table_args__ = (
+        Index("ix_subscriptions_character", "character_id"),
+        Index("ix_subscriptions_stripe_customer", "stripe_customer_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Subscription(id={self.id}, character_id={self.character_id}, status={self.status})>"

@@ -20,6 +20,10 @@ import {
   CreateAlertSubscriptionRequest,
   TestAlertResponse,
   RouteProfile,
+  PlansResponse,
+  SubscriptionStatus,
+  CheckoutResponse,
+  PortalResponse,
 } from './types';
 
 const DEFAULT_API_URL =
@@ -291,6 +295,52 @@ class GatekeeperAPIService {
         ship_type: shipType,
         total_value: totalValue,
       }),
+    });
+  }
+
+  // ==================== Subscriptions ====================
+
+  /**
+   * Get available subscription plans
+   */
+  async getPlans(): Promise<PlansResponse> {
+    return this.request<PlansResponse>('/api/v1/subscriptions/plans');
+  }
+
+  /**
+   * Get subscription status for a character
+   */
+  async getSubscriptionStatus(characterId: number): Promise<SubscriptionStatus> {
+    return this.request<SubscriptionStatus>(
+      `/api/v1/subscriptions/status/${characterId}`
+    );
+  }
+
+  /**
+   * Create a checkout session to subscribe
+   */
+  async createCheckout(
+    characterId: number,
+    characterName: string,
+    plan: string
+  ): Promise<CheckoutResponse> {
+    return this.request<CheckoutResponse>('/api/v1/subscriptions/checkout', {
+      method: 'POST',
+      body: JSON.stringify({
+        character_id: characterId,
+        character_name: characterName,
+        plan,
+      }),
+    });
+  }
+
+  /**
+   * Create a portal session to manage subscription
+   */
+  async createPortal(characterId: number): Promise<PortalResponse> {
+    return this.request<PortalResponse>('/api/v1/subscriptions/portal', {
+      method: 'POST',
+      body: JSON.stringify({ character_id: characterId }),
     });
   }
 
