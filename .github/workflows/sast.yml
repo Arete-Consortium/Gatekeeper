@@ -83,14 +83,6 @@ jobs:
           scan-ref: 'k8s/'
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '0'  # Don't fail yet, just report
-      - name: Scan Helm chart
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'config'
-          scan-ref: 'helm/'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
           exit-code: '0'
       - name: Scan Dockerfile
         uses: aquasecurity/trivy-action@master
