@@ -67,11 +67,10 @@ test.describe('Route Planner', () => {
     const profileSelect = page.locator('select').first();
     await expect(profileSelect).toBeVisible();
 
-    // Verify each profile option text exists somewhere in the select's HTML
-    const selectHTML = await profileSelect.innerHTML();
-    expect(selectHTML).toContain('Safer');
-    expect(selectHTML).toContain('Balanced');
-    expect(selectHTML).toContain('Shortest');
+    // Use auto-retrying assertions (innerHTML is immediate, won't wait for hydration)
+    await expect(profileSelect).toContainText('Safer');
+    await expect(profileSelect).toContainText('Balanced');
+    await expect(profileSelect).toContainText('Shortest');
   });
 
   test('should have jump bridges toggle', async ({ page }) => {
