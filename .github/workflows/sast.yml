@@ -17,7 +17,7 @@ jobs:
     name: Bandit (Python Security)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -43,7 +43,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run Semgrep
         run: semgrep scan --config=auto --config=p/security-audit --config=p/python --json --output=semgrep-report.json backend/
         continue-on-error: true
@@ -61,7 +61,7 @@ jobs:
     name: Trivy (Code Scanning)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@master
         with:
@@ -75,7 +75,7 @@ jobs:
     name: Trivy (K8s/IaC Scanning)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Scan Kubernetes manifests
         uses: aquasecurity/trivy-action@master
         with:
