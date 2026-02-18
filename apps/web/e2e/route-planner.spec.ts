@@ -67,16 +67,12 @@ test.describe('Route Planner', () => {
     const profileSelect = page.locator('select');
     await expect(profileSelect).toBeVisible();
 
-    // Verify options exist by selecting each one (native <select> options
-    // aren't visible in the DOM — use selectOption API instead)
-    await profileSelect.selectOption({ label: 'Safer' });
-    await expect(profileSelect).toHaveValue('safer');
-
-    await profileSelect.selectOption({ label: 'Balanced' });
-    await expect(profileSelect).toHaveValue('balanced');
-
-    await profileSelect.selectOption({ label: 'Shortest' });
-    await expect(profileSelect).toHaveValue('shortest');
+    // Verify all three profile options exist in the DOM
+    const options = profileSelect.locator('option');
+    await expect(options).toHaveCount(3);
+    await expect(options.nth(0)).toHaveText('Safer');
+    await expect(options.nth(1)).toHaveText('Balanced');
+    await expect(options.nth(2)).toHaveText('Shortest');
   });
 
   test('should have jump bridges toggle', async ({ page }) => {
