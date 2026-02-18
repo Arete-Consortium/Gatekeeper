@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useState, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { MapSystem, MapViewport, SystemRisk } from './types';
 import { getSecurityColor, RISK_COLORS } from './types';
 
@@ -68,7 +68,6 @@ export const SystemTooltip = memo(function SystemTooltip({
   onClose,
 }: SystemTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   // Calculate tooltip position to stay within viewport
   useEffect(() => {
@@ -95,7 +94,8 @@ export const SystemTooltip = memo(function SystemTooltip({
     x = Math.max(padding, x);
     y = Math.max(padding, y);
 
-    setPosition({ x, y });
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
   }, [system, mousePosition, viewport]);
 
   if (!system) return null;
@@ -109,8 +109,8 @@ export const SystemTooltip = memo(function SystemTooltip({
       className="system-tooltip"
       style={{
         position: 'absolute',
-        left: position.x,
-        top: position.y,
+        left: 0,
+        top: 0,
         backgroundColor: 'rgba(17, 24, 39, 0.98)',
         borderRadius: 10,
         border: '1px solid rgba(75, 85, 99, 0.6)',

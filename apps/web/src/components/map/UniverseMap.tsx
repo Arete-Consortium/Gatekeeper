@@ -119,18 +119,22 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       return () => resizeObserver.disconnect();
     }, []);
 
-    // Center on systems when they first load
+    // Center on systems when they first load (deferred to avoid synchronous setState in effect)
+    const initializedRef = useRef(false);
     useEffect(() => {
-      if (systems.length > 0 && viewport.x === 0 && viewport.y === 0) {
-        const fit = calculateFitZoom(systems, viewport.width, viewport.height);
+      if (initializedRef.current || systems.length === 0 || viewport.width === 0) return;
+      initializedRef.current = true;
+      const fit = calculateFitZoom(systems, viewport.width, viewport.height);
+      const frameId = requestAnimationFrame(() => {
         setViewport((prev) => ({
           ...prev,
           x: fit.x,
           y: fit.y,
           zoom: fit.zoom,
         }));
-      }
-    }, [systems, viewport.width, viewport.height, viewport.x, viewport.y]);
+      });
+      return () => cancelAnimationFrame(frameId);
+    }, [systems, viewport.width, viewport.height]);
 
     // Animate viewport to target
     const animateViewport = useCallback(

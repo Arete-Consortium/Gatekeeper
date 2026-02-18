@@ -306,7 +306,7 @@ class RedisTokenStore(TokenStore):
     def __init__(self, redis_url: str, encrypt: bool = True) -> None:
         import redis.asyncio as redis
 
-        self._redis = redis.from_url(redis_url)
+        self._redis: Any = redis.from_url(redis_url)
         self._prefix = "eve_gatekeeper:token:"
         self.encrypt_tokens = encrypt
 

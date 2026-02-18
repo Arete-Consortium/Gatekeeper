@@ -29,8 +29,8 @@ class RedisPubSub:
         self._channel = channel or settings.REDIS_PUBSUB_CHANNEL
         self._running = False
         self._subscribe_task: asyncio.Task | None = None
-        self._redis = None
-        self._pubsub = None
+        self._redis: Any = None
+        self._pubsub: Any = None
         self._connected = False
         self._instance_id = self._generate_instance_id()
 
@@ -72,7 +72,7 @@ class RedisPubSub:
             import redis.asyncio as aioredis
 
             self._redis = aioredis.from_url(
-                settings.REDIS_URL,
+                str(settings.REDIS_URL),
                 encoding="utf-8",
                 decode_responses=True,
             )

@@ -57,10 +57,11 @@ vi.stubGlobal('WebSocket', class extends MockWebSocket {
 });
 
 // Also set the static properties on the global
-(globalThis as unknown as Record<string, unknown>).WebSocket.CONNECTING = 0;
-(globalThis as unknown as Record<string, unknown>).WebSocket.OPEN = 1;
-(globalThis as unknown as Record<string, unknown>).WebSocket.CLOSING = 2;
-(globalThis as unknown as Record<string, unknown>).WebSocket.CLOSED = 3;
+const MockWS = (globalThis as unknown as Record<string, Record<string, unknown>>).WebSocket;
+MockWS.CONNECTING = 0;
+MockWS.OPEN = 1;
+MockWS.CLOSING = 2;
+MockWS.CLOSED = 3;
 
 describe('useKillStream', () => {
   beforeEach(() => {
