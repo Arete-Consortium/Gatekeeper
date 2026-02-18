@@ -12,10 +12,10 @@ test.describe('Route Planner', () => {
     // Check page description
     await expect(page.getByText('Find the safest path between solar systems')).toBeVisible();
 
-    // Check form elements
-    await expect(page.getByLabel('From')).toBeVisible();
-    await expect(page.getByLabel('To')).toBeVisible();
-    await expect(page.getByLabel('Route Profile')).toBeVisible();
+    // Check form elements via placeholder (avoids label duplication from SSR)
+    await expect(page.getByPlaceholder('Origin system...')).toBeVisible();
+    await expect(page.getByPlaceholder('Destination system...')).toBeVisible();
+    await expect(page.locator('select')).toBeVisible();
 
     // Check Calculate Route button exists and is disabled (no inputs)
     const calculateButton = page.getByRole('button', { name: /Calculate Route/i });
@@ -48,10 +48,12 @@ test.describe('Route Planner', () => {
     const originInput = page.getByPlaceholder('Origin system...');
     const destInput = page.getByPlaceholder('Destination system...');
 
-    // Type in origin
+    // Type in origin and press Enter to commit to parent state
     await originInput.fill('Jita');
-    // Type in destination
+    await originInput.press('Enter');
+    // Type in destination and press Enter to commit
     await destInput.fill('Amarr');
+    await destInput.press('Enter');
 
     // Click swap
     await page.getByRole('button', { name: /Swap origin and destination/i }).click();
@@ -62,16 +64,19 @@ test.describe('Route Planner', () => {
   });
 
   test('should have route profile dropdown with options', async ({ page }) => {
-    const profileSelect = page.getByLabel('Route Profile');
+    const profileSelect = page.locator('select');
     await expect(profileSelect).toBeVisible();
 
-    // Click to open and verify options exist
-    await profileSelect.click();
+    // Verify options exist by selecting each one (native <select> options
+    // aren't visible in the DOM — use selectOption API instead)
+    await profileSelect.selectOption({ label: 'Safer' });
+    await expect(profileSelect).toHaveValue('safer');
 
-    // The options should be Safer, Balanced, Shortest based on ROUTE_PROFILES
-    await expect(page.getByRole('option', { name: 'Safer' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Balanced' })).toBeVisible();
-    await expect(page.getByRole('option', { name: 'Shortest' })).toBeVisible();
+    await profileSelect.selectOption({ label: 'Balanced' });
+    await expect(profileSelect).toHaveValue('balanced');
+
+    await profileSelect.selectOption({ label: 'Shortest' });
+    await expect(profileSelect).toHaveValue('shortest');
   });
 
   test('should have jump bridges toggle', async ({ page }) => {
