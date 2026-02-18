@@ -11,17 +11,22 @@ export function StatusIndicator() {
   const [status, setStatus] = useState<ApiStatus>('checking');
 
   useEffect(() => {
-    checkStatus();
-    // Check every 30 seconds
-    const interval = setInterval(checkStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    let cancelled = false;
 
-  const checkStatus = async () => {
-    setStatus('checking');
-    const isOnline = await GatekeeperAPI.testConnection();
-    setStatus(isOnline ? 'online' : 'offline');
-  };
+    const checkStatus = async () => {
+      const isOnline = await GatekeeperAPI.testConnection();
+      if (!cancelled) {
+        setStatus(isOnline ? 'online' : 'offline');
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const statusConfig = {
     checking: {

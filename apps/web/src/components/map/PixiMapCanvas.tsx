@@ -96,12 +96,7 @@ export function PixiMapCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
-  const [isClient, setIsClient] = useState(false);
-
-  // Ensure we're on the client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const [isClient] = useState(() => typeof window !== 'undefined');
 
   // Build system map for quick lookup
   const systemMap = React.useMemo(() => {

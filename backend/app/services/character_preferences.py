@@ -202,7 +202,7 @@ class RedisPreferencesStore(CharacterPreferencesStore):
     def __init__(self, redis_url: str) -> None:
         import redis.asyncio as redis
 
-        self._redis = redis.from_url(redis_url)
+        self._redis: Any = redis.from_url(redis_url)
         self._prefix = "eve_gatekeeper:prefs:"
 
     async def get_preferences(self, character_id: int) -> CharacterPreferences | None:

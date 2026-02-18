@@ -19,28 +19,17 @@ const profileOptions = Object.entries(ROUTE_PROFILES).map(([value, config]) => (
 function RoutePageContent() {
   const searchParams = useSearchParams();
 
-  const [fromSystem, setFromSystem] = useState('');
-  const [toSystem, setToSystem] = useState('');
-  const [profile, setProfile] = useState<RouteProfile>('safer');
+  const [fromSystem, setFromSystem] = useState(() => searchParams.get('from') ?? '');
+  const [toSystem, setToSystem] = useState(() => searchParams.get('to') ?? '');
+  const [profile, setProfile] = useState<RouteProfile>(() => {
+    const p = searchParams.get('profile') as RouteProfile | null;
+    return p && p in ROUTE_PROFILES ? p : 'safer';
+  });
   const [includeBridges, setIncludeBridges] = useState(false);
   const [includeThera, setIncludeThera] = useState(false);
-  const [shouldFetch, setShouldFetch] = useState(false);
-
-  // Initialize from URL params
-  useEffect(() => {
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const p = searchParams.get('profile') as RouteProfile | null;
-
-    if (from) setFromSystem(from);
-    if (to) setToSystem(to);
-    if (p && p in ROUTE_PROFILES) setProfile(p);
-
-    // Auto-search if both params provided
-    if (from && to) {
-      setShouldFetch(true);
-    }
-  }, [searchParams]);
+  const [shouldFetch, setShouldFetch] = useState(
+    () => !!(searchParams.get('from') && searchParams.get('to'))
+  );
 
   const {
     data: route,

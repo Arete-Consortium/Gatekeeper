@@ -28,8 +28,8 @@ function getMarkerSize(value: number): number {
 /**
  * Calculate opacity based on age
  */
-function getOpacity(timestamp: number, maxAge: number): number {
-  const age = Date.now() - timestamp;
+function getOpacity(timestamp: number, maxAge: number, now: number): number {
+  const age = now - timestamp;
   const ageRatio = age / maxAge;
   // Fade from 1 to 0.3 over lifetime
   return Math.max(0.3, 1 - ageRatio * 0.7);
@@ -70,13 +70,14 @@ interface KillMarkerProps {
   system: MapSystem;
   viewport: MapViewport;
   maxAge: number;
+  now: number;
 }
 
 /**
  * Individual kill marker with pulse animation
  * Memoized to prevent unnecessary re-renders when viewport changes don't affect visibility
  */
-const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge }: KillMarkerProps) {
+const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge, now }: KillMarkerProps) {
   const screenPos = worldToScreen(system.x, system.y, viewport);
 
   // Skip if not visible
@@ -85,12 +86,12 @@ const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge }: 
   }
 
   const size = getMarkerSize(kill.value);
-  const opacity = getOpacity(kill.timestamp, maxAge);
+  const opacity = getOpacity(kill.timestamp, maxAge, now);
   const color = kill.isPod ? KILL_COLORS.pod : KILL_COLORS.ship;
   const glowColor = kill.isPod ? KILL_COLORS.podGlow : KILL_COLORS.glow;
 
   // Age in minutes for tooltip
-  const ageMinutes = Math.floor((Date.now() - kill.timestamp) / 60000);
+  const ageMinutes = Math.floor((now - kill.timestamp) / 60000);
   const ageText = ageMinutes < 1 ? 'Just now' : `${ageMinutes}m ago`;
 
   return (
@@ -217,16 +218,19 @@ export function KillMarkers({
   viewport,
   maxAge = 60 * 60 * 1000, // 1 hour default
 }: KillFeedProps) {
+  // Capture current time once per render for consistent age calculations
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally recompute when kills change
+  const now = useMemo(() => Date.now(), [kills.length]);
+
   // Filter kills that have valid systems and are within maxAge
   const visibleKills = useMemo(() => {
-    const now = Date.now();
     return kills.filter((kill) => {
       const system = systems.get(kill.systemId);
       if (!system) return false;
       if (now - kill.timestamp > maxAge) return false;
       return true;
     });
-  }, [kills, systems, maxAge]);
+  }, [kills, systems, maxAge, now]);
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -242,6 +246,7 @@ export function KillMarkers({
               system={system}
               viewport={viewport}
               maxAge={maxAge}
+              now={now}
             />
           );
         })}

@@ -14,7 +14,7 @@ from ..services.fitting import (
 from ..services.fitting import (
     get_ship_info as _get_ship_info,
 )
-from ..services.intel_parser import parse_intel_text, submit_intel as _submit_intel
+from ..services.intel_parser import submit_intel as _submit_intel
 from ..services.jump_fatigue import (
     calculate_jump_timers,
     format_timer,
@@ -900,17 +900,19 @@ async def get_hot_systems(hours: int = 24, limit: int = 10) -> dict[str, Any]:
         name = id_to_name.get(system_id, f"System-{system_id}")
         security = id_to_security.get(system_id, 0.0)
         total = stats.recent_kills + stats.recent_pods
-        systems.append({
-            "system_name": name,
-            "system_id": system_id,
-            "security": round(security, 1),
-            "kills": stats.recent_kills,
-            "pods": stats.recent_pods,
-            "total": total,
-        })
+        systems.append(
+            {
+                "system_name": name,
+                "system_id": system_id,
+                "security": round(security, 1),
+                "kills": stats.recent_kills,
+                "pods": stats.recent_pods,
+                "total": total,
+            }
+        )
 
     # Sort by total activity descending
-    systems.sort(key=lambda s: s["total"], reverse=True)
+    systems.sort(key=lambda s: int(str(s["total"])), reverse=True)
 
     return {
         "hours": validated_hours,
@@ -963,12 +965,14 @@ def get_system_neighbors(system_name: str) -> dict[str, Any]:
         for name in sorted(neighbor_names):
             neighbor_sys = universe.systems.get(name)
             if neighbor_sys:
-                neighbors.append({
-                    "system_name": name,
-                    "security": round(neighbor_sys.security, 1),
-                    "security_level": get_security_level(neighbor_sys.security).value,
-                    "region_name": neighbor_sys.region_name,
-                })
+                neighbors.append(
+                    {
+                        "system_name": name,
+                        "security": round(neighbor_sys.security, 1),
+                        "security_level": get_security_level(neighbor_sys.security).value,
+                        "region_name": neighbor_sys.region_name,
+                    }
+                )
 
         return {
             "system_name": validated_name,
@@ -1112,9 +1116,7 @@ def calculate_fatigue(
     """
     # Input validation
     try:
-        validated_ly = _validate_float(
-            light_years, "light_years", min_val=0.1, max_val=500.0
-        )
+        validated_ly = _validate_float(light_years, "light_years", min_val=0.1, max_val=500.0)
     except ValidationError as e:
         return _validation_error_to_dict(e)
 
