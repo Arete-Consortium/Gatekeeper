@@ -13,9 +13,9 @@ test.describe('Route Planner', () => {
     await expect(page.getByText('Find the safest path between solar systems')).toBeVisible();
 
     // Check form elements
-    await expect(page.getByText('From')).toBeVisible();
-    await expect(page.getByText('To')).toBeVisible();
-    await expect(page.getByText('Route Profile')).toBeVisible();
+    await expect(page.getByLabel('From')).toBeVisible();
+    await expect(page.getByLabel('To')).toBeVisible();
+    await expect(page.getByLabel('Route Profile')).toBeVisible();
 
     // Check Calculate Route button exists and is disabled (no inputs)
     const calculateButton = page.getByRole('button', { name: /Calculate Route/i });
