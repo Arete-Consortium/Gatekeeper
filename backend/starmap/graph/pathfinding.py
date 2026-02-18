@@ -364,6 +364,7 @@ async def find_route_avoid(
     if avoid_regions:
         async with aiosqlite.connect(db_path or str(get_db_path())) as db:
             placeholders = ",".join("?" * len(avoid_regions))
+            # nosemgrep: sqlalchemy-execute-raw-query — placeholders are ? params, not user input
             cursor = await db.execute(
                 f"SELECT system_id FROM solar_systems WHERE region_id IN ({placeholders})",
                 avoid_regions,

@@ -114,7 +114,7 @@ def _build_route_cache_key(
     raw_key = ":".join(key_parts)
     if len(raw_key) > 200:
         # Hash the avoid portion to keep key manageable
-        avoid_hash = hashlib.md5(avoid_str.encode()).hexdigest()[:8]
+        avoid_hash = hashlib.md5(avoid_str.encode(), usedforsecurity=False).hexdigest()[:8]
         key_parts[4] = f"avoid_hash:{avoid_hash}"
         raw_key = ":".join(key_parts)
     return raw_key

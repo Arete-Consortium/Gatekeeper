@@ -69,7 +69,7 @@ def get_request_identifier(request: Request) -> str:
     # Check for API key in headers
     api_key = request.headers.get("X-API-Key")
     if api_key and settings.API_KEY_ENABLED:
-        return f"apikey:{api_key}"
+        return f"apikey:{api_key}"  # nosemgrep: directly-returned-format-string
 
     # Fall back to IP address
     return f"ip:{get_remote_address(request)}"
