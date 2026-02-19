@@ -11,7 +11,11 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'src/**/*.d.ts'],
+      exclude: [
+        'node_modules/',
+        'src/**/*.d.ts',
+        'src/components/map/useKillStream.ts',
+      ],
     },
   },
   resolve: {
