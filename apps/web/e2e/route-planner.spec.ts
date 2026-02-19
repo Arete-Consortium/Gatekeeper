@@ -68,9 +68,9 @@ test.describe('Route Planner', () => {
     await expect(profileSelect).toBeVisible();
 
     // Use auto-retrying assertions (innerHTML is immediate, won't wait for hydration)
-    await expect(profileSelect).toContainText('Safer');
-    await expect(profileSelect).toContainText('Balanced');
     await expect(profileSelect).toContainText('Shortest');
+    await expect(profileSelect).toContainText('Safer');
+    await expect(profileSelect).toContainText('Paranoid');
   });
 
   test('should have jump bridges toggle', async ({ page }) => {
