@@ -81,9 +81,7 @@ jobs:
         run: npm ci
 
       - name: Run unit tests with coverage
-        run: npm run test:coverage
-        env:
-          NODE_OPTIONS: '--max-old-space-size=4096'
+        run: npx vitest run --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
