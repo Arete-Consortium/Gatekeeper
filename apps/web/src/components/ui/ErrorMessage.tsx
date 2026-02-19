@@ -51,6 +51,8 @@ const ERROR_MESSAGES: Record<string, string> = {
  * Transform technical error messages to user-friendly ones
  */
 export function getUserFriendlyError(error: unknown): string {
+  const DEFAULT_MESSAGE = 'An unexpected error occurred. Please try again.';
+
   if (error instanceof Error) {
     // Check for known error patterns
     for (const [pattern, friendlyMessage] of Object.entries(ERROR_MESSAGES)) {
@@ -58,8 +60,9 @@ export function getUserFriendlyError(error: unknown): string {
         return friendlyMessage;
       }
     }
-    // Return original message if no pattern matches
-    return error.message;
+    // Don't leak raw error messages — log for debugging, return safe default
+    console.error('Unhandled API error:', error);
+    return DEFAULT_MESSAGE;
   }
   if (typeof error === 'string') {
     for (const [pattern, friendlyMessage] of Object.entries(ERROR_MESSAGES)) {
@@ -67,9 +70,10 @@ export function getUserFriendlyError(error: unknown): string {
         return friendlyMessage;
       }
     }
-    return error;
+    console.error('Unhandled API error:', error);
+    return DEFAULT_MESSAGE;
   }
-  return 'An unexpected error occurred. Please try again.';
+  return DEFAULT_MESSAGE;
 }
 
 export function ErrorMessage({

@@ -1,7 +1,6 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import type { KillFeedProps, MapKill, MapSystem, MapViewport } from './types';
 import { formatIsk } from '@/lib/utils';
 
@@ -95,27 +94,18 @@ const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge, no
   const ageText = ageMinutes < 1 ? 'Just now' : `${ageMinutes}m ago`;
 
   return (
-    <motion.div
-      key={kill.killId}
-      className="absolute pointer-events-auto cursor-pointer group"
+    <div
+      className="absolute pointer-events-auto cursor-pointer group animate-scale-in"
       style={{
         left: screenPos.x,
         top: screenPos.y,
         transform: 'translate(-50%, -50%)',
-      }}
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity }}
-      exit={{ scale: 0, opacity: 0 }}
-      transition={{
-        type: 'spring',
-        stiffness: 500,
-        damping: 25,
-        mass: 0.5,
+        opacity,
       }}
     >
       {/* Outer pulse ring */}
-      <motion.div
-        className="absolute rounded-full"
+      <div
+        className="absolute rounded-full animate-ping-slow"
         style={{
           width: size * 3,
           height: size * 3,
@@ -123,57 +113,16 @@ const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge, no
           top: -(size * 3) / 2 + size / 2,
           background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
         }}
-        initial={{ scale: 0.5, opacity: 0.8 }}
-        animate={{
-          scale: [0.5, 1.5],
-          opacity: [0.8, 0],
-        }}
-        transition={{
-          duration: 1.5,
-          repeat: Infinity,
-          ease: 'easeOut',
-        }}
-      />
-
-      {/* Secondary pulse ring (delayed) */}
-      <motion.div
-        className="absolute rounded-full"
-        style={{
-          width: size * 2.5,
-          height: size * 2.5,
-          left: -(size * 2.5) / 2 + size / 2,
-          top: -(size * 2.5) / 2 + size / 2,
-          background: `radial-gradient(circle, ${glowColor} 0%, transparent 60%)`,
-        }}
-        initial={{ scale: 0.5, opacity: 0.6 }}
-        animate={{
-          scale: [0.5, 1.3],
-          opacity: [0.6, 0],
-        }}
-        transition={{
-          duration: 1.5,
-          repeat: Infinity,
-          ease: 'easeOut',
-          delay: 0.3,
-        }}
       />
 
       {/* Core marker */}
-      <motion.div
-        className="relative rounded-full"
+      <div
+        className="relative rounded-full animate-pulse-slow"
         style={{
           width: size,
           height: size,
           backgroundColor: color,
           boxShadow: `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${glowColor}`,
-        }}
-        animate={{
-          scale: [1, 1.1, 1],
-        }}
-        transition={{
-          duration: 0.5,
-          repeat: Infinity,
-          repeatDelay: 1,
         }}
       />
 
@@ -191,7 +140,7 @@ const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge, no
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });
 
@@ -234,23 +183,21 @@ export function KillMarkers({
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      <AnimatePresence mode="popLayout">
-        {visibleKills.map((kill) => {
-          const system = systems.get(kill.systemId);
-          if (!system) return null;
+      {visibleKills.map((kill) => {
+        const system = systems.get(kill.systemId);
+        if (!system) return null;
 
-          return (
-            <KillMarker
-              key={kill.killId}
-              kill={kill}
-              system={system}
-              viewport={viewport}
-              maxAge={maxAge}
-              now={now}
-            />
-          );
-        })}
-      </AnimatePresence>
+        return (
+          <KillMarker
+            key={kill.killId}
+            kill={kill}
+            system={system}
+            viewport={viewport}
+            maxAge={maxAge}
+            now={now}
+          />
+        );
+      })}
     </div>
   );
 }

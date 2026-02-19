@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest",
@@ -18,7 +19,6 @@
     "@pixi/react": "^7.1.0",
     "@tanstack/react-query": "^5.28.0",
     "clsx": "^2.1.0",
-    "framer-motion": "^11.18.2",
     "lucide-react": "^0.363.0",
     "next": "^16.1.6",
     "pixi.js": "^7.4.0",
@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
+    "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -35,6 +36,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.18",
     "autoprefixer": "^10.4.0",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6",
@@ -42,7 +44,6 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.4.0",
-    "@vitest/coverage-v8": "^4.0.18",
     "vitest": "^4.0.18"
   }
 }

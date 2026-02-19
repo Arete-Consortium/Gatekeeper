@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
   Eye,
@@ -83,48 +82,42 @@ function TimeRangeSelect({
         )}
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setIsOpen(false)}
-            />
-            {/* Dropdown */}
-            <motion.div
-              className={cn(
-                'absolute top-full left-0 mt-1 z-50',
-                'bg-surface-elevated border border-border rounded-lg shadow-lg',
-                'overflow-hidden min-w-[120px]'
-              )}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
-            >
-              {TIME_RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    onChange(option.value);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    'w-full px-3 py-2 text-left text-sm',
-                    'hover:bg-surface transition-colors',
-                    option.value === value
-                      ? 'text-primary bg-primary/10'
-                      : 'text-text'
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+          {/* Dropdown */}
+          <div
+            className={cn(
+              'absolute top-full left-0 mt-1 z-50',
+              'bg-surface-elevated border border-border rounded-lg shadow-lg',
+              'overflow-hidden min-w-[120px] animate-fade-in'
+            )}
+          >
+            {TIME_RANGE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  'w-full px-3 py-2 text-left text-sm',
+                  'hover:bg-surface transition-colors',
+                  option.value === value
+                    ? 'text-primary bg-primary/10'
+                    : 'text-text'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -279,15 +272,8 @@ export function IntelControls({
       </div>
 
       {/* Expandable content */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
+      {isExpanded && (
+          <div className="overflow-hidden animate-fade-in">
             <div className="px-4 pb-4 space-y-4 border-t border-border pt-3">
               {/* Time range and summary row */}
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -332,26 +318,22 @@ export function IntelControls({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      <motion.div
-                        className="w-3 h-3 rounded-full"
+                      <div
+                        className="w-3 h-3 rounded-full animate-pulse-slow"
                         style={{
                           backgroundColor: RISK_COLORS.red,
                           boxShadow: `0 0 6px ${RISK_COLORS.red}`,
                         }}
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 1, repeat: Infinity }}
                       />
                       <span className="text-sm text-text">Ship kills</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <motion.div
-                        className="w-3 h-3 rounded-full"
+                      <div
+                        className="w-3 h-3 rounded-full animate-pulse-slow"
                         style={{
                           backgroundColor: RISK_COLORS.orange,
                           boxShadow: `0 0 6px ${RISK_COLORS.orange}`,
                         }}
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 1, repeat: Infinity, delay: 0.5 }}
                       />
                       <span className="text-sm text-text">Pod kills</span>
                     </div>
@@ -362,9 +344,8 @@ export function IntelControls({
                 </div>
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

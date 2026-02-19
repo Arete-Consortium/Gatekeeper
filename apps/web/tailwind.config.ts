@@ -30,6 +30,14 @@ const config: Config = {
         'risk-yellow': '#ffd60a',
         'risk-orange': '#ff9f0a',
         'risk-red': '#ff453a',
+
+        // Canvas/map colors
+        canvas: {
+          bg: '#000000',
+          grid: '#222222',
+          highlight: '#00ffff',
+          label: '#ffffff',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

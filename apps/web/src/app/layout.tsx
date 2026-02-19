@@ -17,6 +17,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="http://localhost:8000" />
+        <link rel="dns-prefetch" href="http://localhost:8000" />
+      </head>
       <body className="min-h-screen bg-background">
         <Providers>
           <Navbar />

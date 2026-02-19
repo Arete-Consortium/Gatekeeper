@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import type { RiskHeatmapProps, SystemRisk, MapSystem, MapViewport } from './types';
 import { RISK_COLORS, getRiskColor } from './types';
 
@@ -80,8 +79,8 @@ function RiskGlow({ risk, system, viewport, opacity }: RiskGlowProps) {
   const finalOpacity = opacity * riskOpacity;
 
   return (
-    <motion.div
-      className="absolute pointer-events-none"
+    <div
+      className="absolute pointer-events-none animate-fade-in"
       style={{
         left: screenPos.x - size / 2,
         top: screenPos.y - size / 2,
@@ -89,13 +88,6 @@ function RiskGlow({ risk, system, viewport, opacity }: RiskGlowProps) {
         height: size,
         background: getGradientStops(color, finalOpacity),
         filter: `blur(${intensity * 0.3}px)`,
-      }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{
-        duration: 0.5,
-        ease: 'easeOut',
       }}
       key={risk.systemId}
     />

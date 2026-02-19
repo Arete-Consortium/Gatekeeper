@@ -28,6 +28,7 @@ Small Gravity Capacitor Upgrade I
 
 export default function FittingPage() {
   const [eftText, setEftText] = useState('');
+  const [clipboardError, setClipboardError] = useState(false);
 
   const {
     mutate: analyzeFitting,
@@ -47,11 +48,12 @@ export default function FittingPage() {
 
   const handlePaste = async () => {
     try {
+      setClipboardError(false);
       const text = await navigator.clipboard.readText();
       setEftText(text);
       reset();
     } catch {
-      // Clipboard access denied
+      setClipboardError(true);
     }
   };
 
@@ -113,6 +115,12 @@ export default function FittingPage() {
             </div>
           </div>
 
+          {clipboardError && (
+            <p className="text-xs text-risk-orange">
+              Clipboard access denied. Try Ctrl+V to paste directly into the text area.
+            </p>
+          )}
+
           <Textarea
             value={eftText}
             onChange={(e) => {
@@ -149,7 +157,7 @@ High Slot Module
       {error && (
         <ErrorMessage
           title="Unable to analyze fitting"
-          message={error.message || 'Could not parse the fitting. Please check the EFT format and try again.'}
+          message={getUserFriendlyError(error)}
           onRetry={handleAnalyze}
         />
       )}

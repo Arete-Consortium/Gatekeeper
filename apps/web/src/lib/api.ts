@@ -35,13 +35,30 @@ class GatekeeperAPIService {
 
   private getStoredApiUrl(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('gatekeeper_api_url');
+    const stored = localStorage.getItem('gatekeeper_api_url');
+    if (stored && this.isValidApiUrl(stored)) return stored;
+    return null;
+  }
+
+  /**
+   * Validate that a URL is safe to use as an API endpoint.
+   */
+  private isValidApiUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Update the API base URL (for settings)
    */
   setBaseUrl(url: string): void {
+    if (!this.isValidApiUrl(url)) {
+      throw new Error('Invalid API URL: must be an HTTP or HTTPS URL');
+    }
     this.baseUrl = url;
     if (typeof window !== 'undefined') {
       localStorage.setItem('gatekeeper_api_url', url);

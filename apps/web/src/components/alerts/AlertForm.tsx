@@ -5,6 +5,24 @@ import { Card, CardTitle, Button, Input, Select, Toggle } from '@/components/ui'
 import type { CreateAlertSubscriptionRequest } from '@/lib/types';
 import { Plus, Send } from 'lucide-react';
 
+const ALLOWED_WEBHOOK_HOSTS = ['discord.com', 'hooks.slack.com', 'api.slack.com'];
+
+function validateWebhookUrl(url: string): string | undefined {
+  if (!url.trim()) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      return 'Webhook URL must use HTTPS';
+    }
+    if (!ALLOWED_WEBHOOK_HOSTS.some((host) => parsed.hostname.endsWith(host))) {
+      return 'Only Discord and Slack webhook URLs are supported';
+    }
+    return undefined;
+  } catch {
+    return 'Invalid URL format';
+  }
+}
+
 interface AlertFormProps {
   onSubmit: (data: CreateAlertSubscriptionRequest) => void;
   onTest: () => void;
@@ -43,7 +61,8 @@ export function AlertForm({
     onSubmit(data);
   };
 
-  const isValid = webhookUrl.trim().length > 0;
+  const webhookError = validateWebhookUrl(webhookUrl);
+  const isValid = webhookUrl.trim().length > 0 && !webhookError;
 
   return (
     <Card>
@@ -63,6 +82,7 @@ export function AlertForm({
           onChange={(e) => setWebhookUrl(e.target.value)}
           placeholder="https://discord.com/api/webhooks/..."
           type="url"
+          error={webhookUrl ? webhookError : undefined}
         />
 
         <Select

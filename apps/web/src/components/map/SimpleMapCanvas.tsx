@@ -31,7 +31,7 @@ interface SimpleMapCanvasProps {
   regions?: MapRegion[];
 }
 
-export function SimpleMapCanvas({
+export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   systems,
   gates,
   viewport,
@@ -80,13 +80,21 @@ export function SimpleMapCanvas({
     [viewport]
   );
 
-  // Find system at screen position
+  // Find system at screen position (viewport-filtered for performance)
   const findSystemAt = useCallback(
     (sx: number, sy: number): MapSystem | null => {
       const hitRadius = 10 / viewport.zoom;
       const world = screenToWorld(sx, sy);
 
+      // Only check systems within the viewport bounds (+ margin)
+      const margin = 50 / viewport.zoom;
+      const viewLeft = (0 - viewport.width / 2) / viewport.zoom + viewport.x - margin;
+      const viewRight = (viewport.width - viewport.width / 2) / viewport.zoom + viewport.x + margin;
+      const viewTop = (0 - viewport.height / 2) / viewport.zoom + viewport.y - margin;
+      const viewBottom = (viewport.height - viewport.height / 2) / viewport.zoom + viewport.y + margin;
+
       for (const system of systems) {
+        if (system.x < viewLeft || system.x > viewRight || system.y < viewTop || system.y > viewBottom) continue;
         const dx = system.x - world.x;
         const dy = system.y - world.y;
         if (dx * dx + dy * dy < hitRadius * hitRadius) {
@@ -338,6 +346,6 @@ export function SimpleMapCanvas({
       className="w-full h-full"
     />
   );
-}
+});
 
 export default SimpleMapCanvas;
