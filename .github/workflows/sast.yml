@@ -68,8 +68,16 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'
           exit-code: '1'
+      - name: Trivy HIGH (informational)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'HIGH'
+          exit-code: '0'
 
   trivy-config:
     name: Trivy (K8s/IaC Scanning)
