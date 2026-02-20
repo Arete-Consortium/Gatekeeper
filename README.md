@@ -4,7 +4,7 @@
 
 A production-ready toolkit combining real-time map visualization, risk-aware routing, capital jump planning, and live kill feed streaming. Built with FastAPI, WebSocket support, and modern Python best practices.
 
-[![CI](https://github.com/AreteDriver/EVE_Gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/AreteDriver/EVE_Gatekeeper/actions/workflows/ci.yml)
+[![CI](https://github.com/Arete-Consortium/EVE_Gatekeeper/actions/workflows/ci.yml/badge.svg)](https://github.com/Arete-Consortium/EVE_Gatekeeper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docs.docker.com/)
@@ -24,7 +24,7 @@ A production-ready toolkit combining real-time map visualization, risk-aware rou
 
 ```bash
 # Clone the repository
-git clone https://github.com/AreteDriver/EVE_Gatekeeper.git
+git clone https://github.com/Arete-Consortium/EVE_Gatekeeper.git
 cd EVE_Gatekeeper
 
 # Copy environment template
@@ -374,4 +374,4 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**Built for the EVE Online community** | [Report Issues](https://github.com/AreteDriver/EVE_Gatekeeper/issues)
+**Built for the EVE Online community** | [Report Issues](https://github.com/Arete-Consortium/EVE_Gatekeeper/issues)

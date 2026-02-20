@@ -419,7 +419,7 @@ View:
         {
           label: 'GitHub Repository',
           click: () => {
-            shell.openExternal('https://github.com/AreteDriver/EVE_Gatekeeper');
+            shell.openExternal('https://github.com/Arete-Consortium/EVE_Gatekeeper');
           },
         },
       ],

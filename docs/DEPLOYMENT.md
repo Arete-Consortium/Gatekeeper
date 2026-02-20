@@ -12,7 +12,7 @@ This guide covers deploying EVE Gatekeeper in various environments.
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/AreteDriver/EVE_Gatekeeper.git
+git clone https://github.com/Arete-Consortium/EVE_Gatekeeper.git
 cd EVE_Gatekeeper
 
 # Create environment file

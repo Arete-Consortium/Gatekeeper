@@ -450,5 +450,5 @@ with GatekeeperClient(BASE_URL) as client:
 ## Support
 
 - **API Documentation**: http://localhost:8000/docs
-- **GitHub Issues**: https://github.com/AreteDriver/EVE_Gatekeeper/issues
+- **GitHub Issues**: https://github.com/Arete-Consortium/EVE_Gatekeeper/issues
 - **Status Endpoint**: `GET /api/v1/status/`

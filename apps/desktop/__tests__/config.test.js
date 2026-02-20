@@ -192,7 +192,7 @@ describe('Desktop App Configuration', () => {
 
     it('should have external links in Help menu', () => {
       expect(mainJsContent).toContain('zkillboard.com');
-      expect(mainJsContent).toContain('github.com/AreteDriver/EVE_Gatekeeper');
+      expect(mainJsContent).toContain('github.com/Arete-Consortium/EVE_Gatekeeper');
     });
 
     it('should have keyboard shortcuts', () => {

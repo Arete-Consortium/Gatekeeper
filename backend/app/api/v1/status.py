@@ -281,7 +281,7 @@ async def get_version() -> dict[str, Any]:
         ),
         "author": "AreteDriver",
         "license": "MIT",
-        "repository": "https://github.com/AreteDriver/EVE_Gatekeeper",
+        "repository": "https://github.com/Arete-Consortium/EVE_Gatekeeper",
         "components": {
             "api": {
                 "name": "EVE Gatekeeper API",
