@@ -33,8 +33,20 @@ def get_database_url() -> str:
     url = settings.database_url
 
     # Convert to async driver
+    # Fly.io uses postgres:// which is the old libpq scheme — normalize first
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # asyncpg doesn't support sslmode as a URL param — strip it
+        if "sslmode=" in url:
+            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+            parsed = urlparse(url)
+            params = parse_qs(parsed.query)
+            params.pop("sslmode", None)
+            clean_query = urlencode(params, doseq=True)
+            url = urlunparse(parsed._replace(query=clean_query))
     elif url.startswith("sqlite:///"):
         url = url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
 
