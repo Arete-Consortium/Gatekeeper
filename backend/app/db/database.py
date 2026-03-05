@@ -81,6 +81,9 @@ def get_engine() -> AsyncEngine:
                     "pool_recycle": 3600,  # Recycle connections after 1 hour
                 }
             )
+            # Fly.io internal Postgres doesn't use SSL — disable it for asyncpg
+            if ".flycast" in database_url or ".internal" in database_url:
+                engine_kwargs["connect_args"] = {"ssl": False}
 
         _engine = create_async_engine(database_url, **engine_kwargs)
 

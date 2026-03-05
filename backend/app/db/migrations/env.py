@@ -56,10 +56,19 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
+    engine_kwargs = {
+        "poolclass": pool.NullPool,
+    }
+
+    # Fly.io internal Postgres doesn't use SSL — disable for asyncpg
+    db_url = get_database_url()
+    if ".flycast" in db_url or ".internal" in db_url:
+        engine_kwargs["connect_args"] = {"ssl": False}
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+        **engine_kwargs,
     )
 
     async with connectable.connect() as connection:
