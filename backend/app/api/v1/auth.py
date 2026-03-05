@@ -23,8 +23,12 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.config import settings
+from ...db.database import get_db
+from ...db.models import User
 from ...services.jwt_service import (
     cleanup_revoked_tokens,
     generate_client_fingerprint,
@@ -256,6 +260,7 @@ async def callback(
     code: str = Query(..., description="Authorization code from EVE SSO"),
     state: str = Query(..., description="State parameter for CSRF validation"),
     token_store: TokenStore = Depends(get_token_store),
+    db: AsyncSession = Depends(get_db),
 ) -> CharacterInfo:
     """
     Handle OAuth callback from EVE SSO.
@@ -331,6 +336,20 @@ async def callback(
         character_name=verify_data["CharacterName"],
         scopes=verify_data.get("Scopes", "").split(),
     )
+
+    # Upsert User row (auto-create on first login)
+    result = await db.execute(select(User).where(User.character_id == character_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        user = User(
+            character_id=character_id,
+            character_name=verify_data["CharacterName"],
+            subscription_tier="free",
+        )
+        db.add(user)
+    else:
+        user.character_name = verify_data["CharacterName"]
+    await db.flush()
 
     logger.info(
         "OAuth callback successful",
@@ -529,6 +548,7 @@ async def clear_all_tokens(
 async def issue_jwt_token(
     character_id: int = Query(..., description="Character ID to issue token for"),
     token_store: TokenStore = Depends(get_token_store),
+    db: AsyncSession = Depends(get_db),
     request: Request = None,  # type: ignore[assignment]
     user_agent: str | None = Header(None),
 ) -> JWTTokenResponse:
@@ -566,12 +586,19 @@ async def issue_jwt_token(
         client_ip = request.client.host if request.client else None
     fingerprint = generate_client_fingerprint(user_agent, client_ip)
 
+    # Look up subscription tier
+    tier_result = await db.execute(
+        select(User.subscription_tier).where(User.character_id == stored["character_id"])
+    )
+    tier = tier_result.scalar_one_or_none() or "free"
+
     # Generate JWT
     jwt_token = generate_jwt(
         character_id=stored["character_id"],
         character_name=stored["character_name"],
         scopes=stored["scopes"],
         fingerprint=fingerprint,
+        tier=tier,
     )
 
     # Check if ESI token needs refresh

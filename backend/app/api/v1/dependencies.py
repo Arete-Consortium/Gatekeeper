@@ -13,7 +13,11 @@ from typing import Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...db.database import get_db
+from ...db.models import User
 from ...services.jwt_service import (
     generate_client_fingerprint,
     is_token_revoked,
@@ -31,6 +35,22 @@ class AuthenticatedCharacter(BaseModel):
     scopes: list[str]
     expires_at: datetime
     auth_method: str = "query"  # "query" or "bearer"
+    subscription_tier: str = "free"  # "free" or "pro"
+
+
+async def _get_subscription_tier(character_id: int, db: AsyncSession) -> str:
+    """Look up subscription tier from the users table.
+
+    Returns "free" if the user doesn't exist or the DB isn't available.
+    """
+    try:
+        result = await db.execute(
+            select(User.subscription_tier).where(User.character_id == character_id)
+        )
+        tier = result.scalar_one_or_none()
+        return tier or "free"
+    except Exception:
+        return "free"
 
 
 async def get_character_from_bearer(
@@ -38,6 +58,7 @@ async def get_character_from_bearer(
     authorization: str | None = Header(None),
     user_agent: str | None = Header(None),
     token_store: TokenStore = Depends(get_token_store),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthenticatedCharacter | None:
     """
     Extract character from JWT Bearer token.
@@ -88,6 +109,8 @@ async def get_character_from_bearer(
             detail="ESI token expired. Please refresh via /api/v1/auth/refresh",
         )
 
+    tier = await _get_subscription_tier(stored["character_id"], db)
+
     return AuthenticatedCharacter(
         character_id=stored["character_id"],
         character_name=stored["character_name"],
@@ -95,6 +118,7 @@ async def get_character_from_bearer(
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
         auth_method="bearer",
+        subscription_tier=tier,
     )
 
 
@@ -104,6 +128,7 @@ async def get_current_character(
     authorization: str | None = Header(None),
     user_agent: str | None = Header(None),
     token_store: TokenStore = Depends(get_token_store),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthenticatedCharacter:
     """
     Dependency to get the current authenticated character.
@@ -131,6 +156,7 @@ async def get_current_character(
             authorization=authorization,
             user_agent=user_agent,
             token_store=token_store,
+            db=db,
         )
         if bearer_char:
             return bearer_char
@@ -156,6 +182,8 @@ async def get_current_character(
             detail="Token expired. Please refresh via /api/v1/auth/refresh",
         )
 
+    tier = await _get_subscription_tier(stored["character_id"], db)
+
     return AuthenticatedCharacter(
         character_id=stored["character_id"],
         character_name=stored["character_name"],
@@ -163,6 +191,7 @@ async def get_current_character(
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
         auth_method="query",
+        subscription_tier=tier,
     )
 
 
@@ -196,12 +225,25 @@ def require_scopes(
     return verify_scopes
 
 
+async def require_pro(
+    character: AuthenticatedCharacter = Depends(get_current_character),
+) -> AuthenticatedCharacter:
+    """Dependency that requires Pro subscription. Returns 402 if free tier."""
+    if character.subscription_tier != "pro":
+        raise HTTPException(
+            status_code=402,
+            detail="Pro subscription required. Upgrade at /pricing",
+        )
+    return character
+
+
 async def get_optional_character(
     request: Request,
     character_id: int | None = Query(None, description="Optional character ID"),
     authorization: str | None = Header(None),
     user_agent: str | None = Header(None),
     token_store: TokenStore = Depends(get_token_store),
+    db: AsyncSession = Depends(get_db),
 ) -> AuthenticatedCharacter | None:
     """
     Dependency to optionally get authenticated character.
@@ -230,6 +272,7 @@ async def get_optional_character(
                 authorization=authorization,
                 user_agent=user_agent,
                 token_store=token_store,
+                db=db,
             )
             if bearer_char:
                 return bearer_char
@@ -247,6 +290,8 @@ async def get_optional_character(
     if datetime.now(UTC) >= stored["expires_at"]:
         return None
 
+    tier = await _get_subscription_tier(stored["character_id"], db)
+
     return AuthenticatedCharacter(
         character_id=stored["character_id"],
         character_name=stored["character_name"],
@@ -254,6 +299,7 @@ async def get_optional_character(
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
         auth_method="query",
+        subscription_tier=tier,
     )
 
 
@@ -301,6 +347,7 @@ async def get_authenticated_esi_client(
 # Use these in route parameters for cleaner code
 CurrentCharacter = Annotated[AuthenticatedCharacter, Depends(get_current_character)]
 OptionalCharacter = Annotated[AuthenticatedCharacter | None, Depends(get_optional_character)]
+ProCharacter = Annotated[AuthenticatedCharacter, Depends(require_pro)]
 
 # Scope-specific dependencies
 LocationScope = Annotated[

@@ -63,7 +63,8 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 100  # Default for unauthenticated (IP-based)
-    RATE_LIMIT_PER_MINUTE_USER: int = 200  # Per authenticated user (character_id)
+    RATE_LIMIT_PER_MINUTE_USER: int = 100  # Per authenticated free user
+    RATE_LIMIT_PER_MINUTE_PRO: int = 300  # Per authenticated Pro user
     RATE_LIMIT_PER_MINUTE_APIKEY: int = 300  # Per API key
 
     # CORS
@@ -77,6 +78,11 @@ class Settings(BaseSettings):
     # Monitoring
     SENTRY_DSN: str | None = None
     METRICS_ENABLED: bool = True
+
+    # Stripe Billing
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_PRO_MONTHLY_PRICE_ID: str | None = None
 
     # Webhooks (Discord/Slack)
     DISCORD_WEBHOOK_URL: str | None = None

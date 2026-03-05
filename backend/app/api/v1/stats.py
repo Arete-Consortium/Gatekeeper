@@ -1,7 +1,9 @@
 """Kill statistics API endpoints."""
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from .dependencies import AuthenticatedCharacter, require_pro
 
 from ...models.risk import ZKillStats
 from ...services.data_loader import load_universe
@@ -88,7 +90,10 @@ async def get_system_stats(
     summary="Get kill stats for multiple systems",
     description="Returns recent kill statistics for multiple systems. Limited to 50 systems per request.",
 )
-async def get_bulk_stats(request: BulkStatsRequest) -> BulkStatsResponse:
+async def get_bulk_stats(
+    request: BulkStatsRequest,
+    _character: AuthenticatedCharacter = Depends(require_pro),
+) -> BulkStatsResponse:
     """Get kill statistics for multiple systems."""
     universe = load_universe()
 

@@ -6,8 +6,10 @@ Provides endpoints for managing kill alert subscriptions via webhooks.
 import secrets
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
+
+from .dependencies import AuthenticatedCharacter, require_pro
 
 from ...services.webhooks import (
     KillAlert,
@@ -123,7 +125,10 @@ class SendTestAlertResponse(BaseModel):
     summary="Create subscription",
     description="Create a webhook subscription for kill alerts.",
 )
-async def create_subscription(request: CreateSubscriptionRequest) -> SubscriptionResponse:
+async def create_subscription(
+    request: CreateSubscriptionRequest,
+    _character: AuthenticatedCharacter = Depends(require_pro),
+) -> SubscriptionResponse:
     """
     Create a new webhook subscription.
 

@@ -9,6 +9,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from .dependencies import AuthenticatedCharacter, require_pro
+
 from ...core.pagination import (
     PaginationMeta,
     PaginationParams,
@@ -236,6 +238,7 @@ async def calculate_route(
 )
 def get_history(
     pagination: PaginationParams = Depends(get_pagination_params),
+    _character: AuthenticatedCharacter = Depends(require_pro),
 ) -> RouteHistoryResponse:
     """Get recently calculated routes with pagination."""
     history = list(_route_history)
@@ -418,7 +421,10 @@ def _generate_recommendation(routes: list[RouteSummary]) -> str:
     summary="Calculate routes to multiple destinations",
     description="Calculate routes from one origin to multiple destinations.",
 )
-def bulk_routes(request: BulkRouteRequest) -> BulkRouteResponse:
+def bulk_routes(
+    request: BulkRouteRequest,
+    _character: AuthenticatedCharacter = Depends(require_pro),
+) -> BulkRouteResponse:
     """
     Calculate routes from one origin to multiple destinations.
 

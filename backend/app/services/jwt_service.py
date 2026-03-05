@@ -45,6 +45,7 @@ class JWTPayload(BaseModel):
     exp: datetime  # expiration
     jti: str  # unique token ID for revocation
     fingerprint: str | None = None  # optional client fingerprint
+    tier: str = "free"  # subscription tier
 
 
 class JWTToken(BaseModel):
@@ -148,6 +149,7 @@ def generate_jwt(
     scopes: list[str],
     expiry_hours: int = JWT_EXPIRY_HOURS,
     fingerprint: str | None = None,
+    tier: str = "free",
 ) -> JWTToken:
     """Generate a JWT session token.
 
@@ -173,6 +175,7 @@ def generate_jwt(
         exp=expires,
         jti=jti,
         fingerprint=fingerprint,
+        tier=tier,
     )
 
     # Create JWT

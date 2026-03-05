@@ -19,16 +19,16 @@ from ..services.jwt_service import validate_jwt
 logger = logging.getLogger(__name__)
 
 
-def extract_character_id_from_request(request: Request) -> int | None:
+def extract_character_from_request(request: Request) -> tuple[int | None, str]:
     """
-    Extract character_id from an authenticated request.
+    Extract character_id and subscription tier from an authenticated request.
 
     Checks (in order):
     1. JWT Bearer token in Authorization header
     2. character_id query parameter
 
     Returns:
-        Character ID if found and valid, None otherwise.
+        Tuple of (character_id, tier). tier defaults to "free".
     """
     # Try Bearer token first
     authorization = request.headers.get("Authorization", "")
@@ -36,17 +36,17 @@ def extract_character_id_from_request(request: Request) -> int | None:
         token = authorization[7:]  # Remove "Bearer " prefix
         payload, error = validate_jwt(token, verify_fingerprint=None)
         if payload and not error:
-            return payload.sub  # character_id is stored as 'sub' in JWT
+            return payload.sub, getattr(payload, "tier", "free")
 
     # Fall back to query parameter
     character_id = request.query_params.get("character_id")
     if character_id:
         try:
-            return int(character_id)
+            return int(character_id), "free"
         except ValueError:
             pass
 
-    return None
+    return None, "free"
 
 
 def get_request_identifier(request: Request) -> str:
@@ -62,8 +62,10 @@ def get_request_identifier(request: Request) -> str:
         String identifier for rate limiting bucket.
     """
     # Check for authenticated user (character_id)
-    character_id = extract_character_id_from_request(request)
+    character_id, tier = extract_character_from_request(request)
     if character_id is not None:
+        if tier == "pro":
+            return f"user:pro:{character_id}"
         return f"user:{character_id}"
 
     # Check for API key in headers
@@ -86,6 +88,12 @@ def get_rate_limit_for_identifier(identifier: str) -> str:
         Rate limit string (e.g., "200/minute")
     """
     if identifier.startswith("user:"):
+        # Free users get RATE_LIMIT_PER_MINUTE_USER, Pro users get RATE_LIMIT_PER_MINUTE_PRO.
+        # Tier-aware limiting is handled via the default limits — SlowAPI applies
+        # the default limit uniformly per key. Pro users get higher limits via
+        # the user:pro: prefix set in get_request_identifier.
+        if identifier.startswith("user:pro:"):
+            return f"{settings.RATE_LIMIT_PER_MINUTE_PRO}/minute"
         return f"{settings.RATE_LIMIT_PER_MINUTE_USER}/minute"
     elif identifier.startswith("apikey:"):
         return f"{settings.RATE_LIMIT_PER_MINUTE_APIKEY}/minute"
@@ -111,7 +119,10 @@ def rate_limit_exceeded_handler(request: Request, exc: Exception) -> Response:
 
     # Determine which limit was exceeded based on the identifier
     identifier = get_request_identifier(request)
-    if identifier.startswith("user:"):
+    if identifier.startswith("user:pro:"):
+        limit = settings.RATE_LIMIT_PER_MINUTE_PRO
+        user_type = "pro"
+    elif identifier.startswith("user:"):
         limit = settings.RATE_LIMIT_PER_MINUTE_USER
         user_type = "authenticated"
     elif identifier.startswith("apikey:"):

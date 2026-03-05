@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from fastapi import FastAPI, Request
 
 from backend.app.middleware.rate_limit import (
-    extract_character_id_from_request,
+    extract_character_from_request,
     get_rate_limit_for_identifier,
     get_request_identifier,
     limiter,
@@ -30,9 +30,9 @@ class TestExtractCharacterIdFromRequest:
         with patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate:
             mock_validate.return_value = (mock_payload, None)
 
-            result = extract_character_id_from_request(mock_request)
+            result = extract_character_from_request(mock_request)
 
-            assert result == 12345678
+            assert result[0] == 12345678
             mock_validate.assert_called_once_with("valid-token", verify_fingerprint=None)
 
     def test_extracts_from_query_param(self):
@@ -41,9 +41,9 @@ class TestExtractCharacterIdFromRequest:
         mock_request.headers = {}
         mock_request.query_params = {"character_id": "98765432"}
 
-        result = extract_character_id_from_request(mock_request)
+        result = extract_character_from_request(mock_request)
 
-        assert result == 98765432
+        assert result[0] == 98765432
 
     def test_returns_none_for_invalid_bearer_token(self):
         """Test returns None when Bearer token is invalid."""
@@ -54,9 +54,9 @@ class TestExtractCharacterIdFromRequest:
         with patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate:
             mock_validate.return_value = (None, "Invalid token")
 
-            result = extract_character_id_from_request(mock_request)
+            result = extract_character_from_request(mock_request)
 
-            assert result is None
+            assert result[0] is None
 
     def test_returns_none_for_invalid_query_param(self):
         """Test returns None when character_id query param is not a number."""
@@ -64,9 +64,9 @@ class TestExtractCharacterIdFromRequest:
         mock_request.headers = {}
         mock_request.query_params = {"character_id": "not-a-number"}
 
-        result = extract_character_id_from_request(mock_request)
+        result = extract_character_from_request(mock_request)
 
-        assert result is None
+        assert result[0] is None
 
     def test_returns_none_for_no_auth(self):
         """Test returns None when no authentication is present."""
@@ -74,9 +74,9 @@ class TestExtractCharacterIdFromRequest:
         mock_request.headers = {}
         mock_request.query_params = {}
 
-        result = extract_character_id_from_request(mock_request)
+        result = extract_character_from_request(mock_request)
 
-        assert result is None
+        assert result[0] is None
 
     def test_prefers_bearer_token_over_query_param(self):
         """Test that Bearer token takes precedence over query param."""
@@ -86,14 +86,15 @@ class TestExtractCharacterIdFromRequest:
 
         mock_payload = MagicMock()
         mock_payload.sub = 22222222
+        mock_payload.tier = "free"
 
         with patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate:
             mock_validate.return_value = (mock_payload, None)
 
-            result = extract_character_id_from_request(mock_request)
+            result = extract_character_from_request(mock_request)
 
             # Should use Bearer token's character_id, not query param
-            assert result == 22222222
+            assert result[0] == 22222222
 
     def test_falls_back_to_query_when_bearer_invalid(self):
         """Test falls back to query param when Bearer token is invalid."""
@@ -104,9 +105,9 @@ class TestExtractCharacterIdFromRequest:
         with patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate:
             mock_validate.return_value = (None, "Invalid")
 
-            result = extract_character_id_from_request(mock_request)
+            result = extract_character_from_request(mock_request)
 
-            assert result == 33333333
+            assert result[0] == 33333333
 
     def test_handles_bearer_prefix_case_insensitive(self):
         """Test that 'bearer' prefix is case-insensitive."""
@@ -116,13 +117,14 @@ class TestExtractCharacterIdFromRequest:
 
         mock_payload = MagicMock()
         mock_payload.sub = 44444444
+        mock_payload.tier = "free"
 
         with patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate:
             mock_validate.return_value = (mock_payload, None)
 
-            result = extract_character_id_from_request(mock_request)
+            result = extract_character_from_request(mock_request)
 
-            assert result == 44444444
+            assert result[0] == 44444444
 
 
 class TestGetRequestIdentifier:
@@ -137,6 +139,7 @@ class TestGetRequestIdentifier:
 
         mock_payload = MagicMock()
         mock_payload.sub = 12345678
+        mock_payload.tier = "free"
 
         with (
             patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate,
@@ -207,6 +210,7 @@ class TestGetRequestIdentifier:
 
         mock_payload = MagicMock()
         mock_payload.sub = 55555555
+        mock_payload.tier = "free"
 
         with (
             patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate,
@@ -276,6 +280,7 @@ class TestRateLimitExceededHandler:
         with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = False
 
@@ -295,6 +300,7 @@ class TestRateLimitExceededHandler:
         with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = False
 
@@ -315,6 +321,7 @@ class TestRateLimitExceededHandler:
         with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = False
 
@@ -337,6 +344,7 @@ class TestRateLimitExceededHandler:
         with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = False
 
@@ -358,6 +366,7 @@ class TestRateLimitExceededHandler:
 
         mock_payload = MagicMock()
         mock_payload.sub = 12345678
+        mock_payload.tier = "free"
 
         with (
             patch("backend.app.middleware.rate_limit.validate_jwt") as mock_validate,
@@ -366,6 +375,7 @@ class TestRateLimitExceededHandler:
             mock_validate.return_value = (mock_payload, None)
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = False
 
@@ -388,6 +398,7 @@ class TestRateLimitExceededHandler:
         with patch("backend.app.middleware.rate_limit.settings") as mock_settings:
             mock_settings.RATE_LIMIT_PER_MINUTE = 100
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
+            mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
             mock_settings.API_KEY_ENABLED = True
 

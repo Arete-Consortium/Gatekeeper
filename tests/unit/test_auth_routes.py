@@ -285,10 +285,24 @@ class TestCallbackEndpoint:
         """Clear state storage before each test."""
         _oauth_states.clear()
 
-    def test_callback_success(self, test_client):
+    def test_callback_success(self, test_client, app):
         """Test successful OAuth callback flow."""
         # Generate valid state
         state = generate_state()
+
+        # Mock DB session for user upsert (callback now queries users table)
+        from backend.app.db.database import get_db
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None  # New user
+        mock_db.execute.return_value = mock_result
+        mock_db.add = MagicMock()  # add() is sync, not async
+
+        async def mock_get_db():
+            yield mock_db
+
+        app.dependency_overrides[get_db] = mock_get_db
 
         # Mock the HTTP calls to EVE SSO
         mock_token_response = MagicMock()
@@ -307,31 +321,34 @@ class TestCallbackEndpoint:
             "Scopes": "esi-location.read_location.v1 esi-ui.write_waypoint.v1",
         }
 
-        with (
-            patch("backend.app.api.v1.auth.settings") as mock_settings,
-            patch("httpx.AsyncClient") as mock_client_class,
-        ):
-            mock_settings.ESI_CLIENT_ID = "test_client_id"
-            mock_settings.ESI_SECRET_KEY = "test_secret"
+        try:
+            with (
+                patch("backend.app.api.v1.auth.settings") as mock_settings,
+                patch("httpx.AsyncClient") as mock_client_class,
+            ):
+                mock_settings.ESI_CLIENT_ID = "test_client_id"
+                mock_settings.ESI_SECRET_KEY = "test_secret"
 
-            # Setup async client mock
-            mock_client = AsyncMock()
-            mock_client.post.return_value = mock_token_response
-            mock_client.get.return_value = mock_verify_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_client.__aexit__.return_value = None
-            mock_client_class.return_value = mock_client
+                # Setup async client mock
+                mock_client = AsyncMock()
+                mock_client.post.return_value = mock_token_response
+                mock_client.get.return_value = mock_verify_response
+                mock_client.__aenter__.return_value = mock_client
+                mock_client.__aexit__.return_value = None
+                mock_client_class.return_value = mock_client
 
-            response = test_client.get(
-                "/api/v1/auth/callback",
-                params={"code": "test_auth_code", "state": state},
-            )
+                response = test_client.get(
+                    "/api/v1/auth/callback",
+                    params={"code": "test_auth_code", "state": state},
+                )
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["character_id"] == 12345
-            assert data["character_name"] == "Test Pilot"
-            assert "esi-location.read_location.v1" in data["scopes"]
+                assert response.status_code == 200
+                data = response.json()
+                assert data["character_id"] == 12345
+                assert data["character_name"] == "Test Pilot"
+                assert "esi-location.read_location.v1" in data["scopes"]
+        finally:
+            app.dependency_overrides.pop(get_db, None)
 
     def test_callback_esi_not_configured(self, test_client):
         """Test callback returns 503 when ESI not configured."""

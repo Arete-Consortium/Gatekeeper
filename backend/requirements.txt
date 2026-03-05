@@ -27,6 +27,9 @@ redis>=5.0.0
 # In-memory cache (fallback)
 cachetools>=5.3.0
 
+# Payments
+stripe>=8.0.0
+
 # Rate Limiting
 slowapi>=0.1.9
 

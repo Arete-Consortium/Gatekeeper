@@ -6,10 +6,36 @@ Currently, the app uses JSON files for data storage.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
+
+
+class User(Base):
+    """Registered user with subscription info."""
+
+    __tablename__ = "users"
+
+    character_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    character_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    subscription_tier: Mapped[str] = mapped_column(String(20), default="free", nullable=False)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<User(character_id={self.character_id}, tier={self.subscription_tier})>"
 
 
 class Region(Base):

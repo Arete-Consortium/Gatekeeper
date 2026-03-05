@@ -1,6 +1,8 @@
 """AI route analysis API v1 endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from .dependencies import AuthenticatedCharacter, require_pro
 
 from ...models.ai import (
     DangerThresholdsResponse,
@@ -19,7 +21,10 @@ router = APIRouter()
     description="Analyzes a route and provides human-readable danger assessment, "
     "warnings for dangerous systems, and alternative route suggestions.",
 )
-def analyze_route_endpoint(request: RouteAnalysisRequest) -> RouteAnalysisResponse:
+def analyze_route_endpoint(
+    request: RouteAnalysisRequest,
+    _character: AuthenticatedCharacter = Depends(require_pro),
+) -> RouteAnalysisResponse:
     """
     Analyze a route with AI-powered danger assessment.
 
