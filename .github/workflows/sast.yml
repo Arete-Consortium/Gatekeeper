@@ -28,7 +28,7 @@ jobs:
         run: bandit -r backend/app -f json -o bandit-report.json --severity-level medium
         continue-on-error: true
       - name: Upload Bandit Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: bandit-report
@@ -48,7 +48,7 @@ jobs:
         run: semgrep scan --config=auto --config=p/security-audit --config=p/python --json --output=semgrep-report.json backend/
         continue-on-error: true
       - name: Upload Semgrep Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: semgrep-report
