@@ -1,0 +1,42 @@
+# EVE Gatekeeper — Fly.io Configuration
+# https://fly.io/docs/reference/configuration/
+
+app = "eve-gatekeeper"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "sh -c 'cd /app/backend && python -m alembic upgrade head'"
+
+[env]
+  PORT = "8000"
+  LOG_LEVEL = "INFO"
+  LOG_FORMAT = "json"
+  PYTHONPATH = "/app"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
