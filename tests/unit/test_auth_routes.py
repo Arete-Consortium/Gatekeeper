@@ -328,6 +328,7 @@ class TestCallbackEndpoint:
             ):
                 mock_settings.ESI_CLIENT_ID = "test_client_id"
                 mock_settings.ESI_SECRET_KEY = "test_secret"
+                mock_settings.API_BASE_URL = None  # No frontend redirect in test
 
                 # Setup async client mock
                 mock_client = AsyncMock()

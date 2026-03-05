@@ -355,6 +355,19 @@ async def callback(
         "OAuth callback successful",
         extra={"character_id": character_id, "character_name": verify_data["CharacterName"]},
     )
+
+    # If a frontend base URL is configured, redirect to the frontend callback
+    # with character_id so the SPA can exchange it for a JWT.
+    if settings.API_BASE_URL:
+        from urllib.parse import urlencode
+
+        frontend_url = settings.API_BASE_URL.rstrip("/")
+        params = urlencode({"character_id": character_id})
+        return RedirectResponse(
+            url=f"{frontend_url}/auth/callback?{params}",
+            status_code=302,
+        )
+
     return CharacterInfo(
         character_id=character_id,
         character_name=verify_data["CharacterName"],

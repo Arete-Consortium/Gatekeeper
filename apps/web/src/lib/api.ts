@@ -21,6 +21,7 @@ import {
   TestAlertResponse,
   RouteProfile,
 } from './types';
+import { getStoredToken } from './auth';
 
 const DEFAULT_API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -79,12 +80,22 @@ class GatekeeperAPIService {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    // Attach JWT if available
+    const token = getStoredToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         signal: controller.signal,
         headers: {
-          'Content-Type': 'application/json',
+          ...headers,
           ...options.headers,
         },
       });
