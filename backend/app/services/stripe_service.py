@@ -227,8 +227,8 @@ async def get_subscription_status(
             "status": sub.status,
             "subscription_id": sub.id,
             "current_period_end": datetime.fromtimestamp(
-                sub.current_period_end,
-                tz=UTC,  # type: ignore[arg-type]
+                sub.current_period_end,  # type: ignore[attr-defined]
+                tz=UTC,
             ).isoformat(),
             "cancel_at_period_end": sub.cancel_at_period_end,
         }

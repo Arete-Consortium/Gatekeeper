@@ -255,7 +255,7 @@ async def login_redirect(
     return RedirectResponse(url=login_response.auth_url, status_code=302)
 
 
-@router.get("/callback")
+@router.get("/callback", response_model=None)
 async def callback(
     code: str = Query(..., description="Authorization code from EVE SSO"),
     state: str = Query(..., description="State parameter for CSRF validation"),
