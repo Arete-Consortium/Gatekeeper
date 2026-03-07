@@ -9,8 +9,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .dependencies import AuthenticatedCharacter, require_pro
-
 from ...core.pagination import (
     PaginationMeta,
     PaginationParams,
@@ -34,6 +32,7 @@ from ...services.data_loader import load_risk_config, load_universe
 from ...services.risk_engine import compute_risk, risk_to_color
 from ...services.routing import compute_route, compute_waypoint_route
 from ..metrics import record_route_cache_hit, record_route_cache_miss
+from .dependencies import AuthenticatedCharacter, require_pro
 
 logger = logging.getLogger(__name__)
 

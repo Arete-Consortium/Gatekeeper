@@ -56,7 +56,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    engine_kwargs = {
+    engine_kwargs: dict[str, object] = {
         "poolclass": pool.NullPool,
     }
 

@@ -9,8 +9,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
 
-from .dependencies import AuthenticatedCharacter, require_pro
-
 from ...services.webhooks import (
     KillAlert,
     WebhookSubscription,
@@ -21,6 +19,7 @@ from ...services.webhooks import (
     list_subscriptions,
     remove_subscription,
 )
+from .dependencies import AuthenticatedCharacter, require_pro
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 

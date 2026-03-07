@@ -261,7 +261,7 @@ async def callback(
     state: str = Query(..., description="State parameter for CSRF validation"),
     token_store: TokenStore = Depends(get_token_store),
     db: AsyncSession = Depends(get_db),
-) -> CharacterInfo:
+) -> CharacterInfo | RedirectResponse:
     """
     Handle OAuth callback from EVE SSO.
 

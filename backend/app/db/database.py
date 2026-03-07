@@ -40,7 +40,7 @@ def get_database_url() -> str:
         url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         # asyncpg doesn't support sslmode as a URL param — strip it
         if "sslmode=" in url:
-            from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+            from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
             parsed = urlparse(url)
             params = parse_qs(parsed.query)

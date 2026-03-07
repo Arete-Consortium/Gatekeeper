@@ -3,8 +3,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .dependencies import AuthenticatedCharacter, require_pro
-
 from ...models.risk import ZKillStats
 from ...services.data_loader import load_universe
 from ...services.zkill_stats import (
@@ -12,6 +10,7 @@ from ...services.zkill_stats import (
     fetch_system_kills,
     get_zkill_preloader,
 )
+from .dependencies import AuthenticatedCharacter, require_pro
 
 router = APIRouter()
 

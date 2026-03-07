@@ -109,6 +109,8 @@ async def create_checkout_session(
     )
 
     logger.info("Created checkout session for character %d", character_id)
+    if not session.url:
+        raise ValueError("Stripe checkout session did not return a URL")
     return session.url
 
 
@@ -225,7 +227,8 @@ async def get_subscription_status(
             "status": sub.status,
             "subscription_id": sub.id,
             "current_period_end": datetime.fromtimestamp(
-                sub.current_period_end, tz=UTC
+                sub.current_period_end,
+                tz=UTC,  # type: ignore[arg-type]
             ).isoformat(),
             "cancel_at_period_end": sub.cancel_at_period_end,
         }

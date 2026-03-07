@@ -2,14 +2,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .dependencies import AuthenticatedCharacter, require_pro
-
 from ...models.ai import (
     DangerThresholdsResponse,
     RouteAnalysisRequest,
     RouteAnalysisResponse,
 )
 from ...services.ai_analyzer import analyze_route, get_danger_thresholds
+from .dependencies import AuthenticatedCharacter, require_pro
 
 router = APIRouter()
 
