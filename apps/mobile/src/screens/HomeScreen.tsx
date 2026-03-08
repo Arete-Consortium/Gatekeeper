@@ -138,6 +138,12 @@ export const HomeScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <TouchableOpacity
           style={styles.primaryButton}
+          onPress={() => navigation.navigate('Map')}
+        >
+          <Text style={styles.primaryButtonText}>Open Map</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.primaryButton, styles.secondaryButton]}
           onPress={() => navigation.navigate('Route')}
         >
           <Text style={styles.primaryButtonText}>Plan Route</Text>
@@ -298,6 +304,10 @@ const styles = StyleSheet.create({
     color: THEME.colors.text,
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  secondaryButton: {
+    backgroundColor: THEME.colors.card,
+    marginTop: THEME.spacing.sm,
   },
   profilesGrid: {
     gap: THEME.spacing.sm,

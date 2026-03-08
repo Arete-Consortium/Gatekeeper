@@ -45,6 +45,7 @@ export const THEME = {
     card: '#1c1c1e',
     text: '#ffffff',
     textSecondary: '#8e8e93',
+    cardHover: '#2c2c2e',
     border: '#38383a',
 
     // Security status colors

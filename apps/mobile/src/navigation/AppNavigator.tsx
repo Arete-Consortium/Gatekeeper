@@ -6,6 +6,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import {
   HomeScreen,
+  MapScreen,
   RouteScreen,
   SettingsScreen,
   FittingScreen,
@@ -40,6 +41,11 @@ export const AppNavigator: React.FC = () => {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Map"
+        component={MapScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen

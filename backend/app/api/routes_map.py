@@ -27,9 +27,15 @@ async def map_config() -> dict:
             "risk_color": color,
         }
 
+    gates_payload = [
+        {"from_system": g.from_system, "to_system": g.to_system}
+        for g in universe.gates
+    ]
+
     return {
         "metadata": universe.metadata.dict(),
         "systems": systems_payload,
+        "gates": gates_payload,
         "layers": cfg.map_layers,
     }
 
