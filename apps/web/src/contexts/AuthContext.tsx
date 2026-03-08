@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -31,55 +30,49 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Restore session from localStorage on mount
-  useEffect(() => {
-    const storedToken = getStoredToken();
-    if (storedToken && !isTokenExpired(storedToken)) {
-      const storedUser = getStoredUser() || userFromToken(storedToken);
-      if (storedUser) {
-        setToken(storedToken);
-        setUser(storedUser);
-      } else {
-        clearStoredToken();
-      }
-    } else if (storedToken) {
-      // Expired — clean up
-      clearStoredToken();
+function restoreSession(): { token: string | null; user: AuthUser | null } {
+  if (typeof window === 'undefined') return { token: null, user: null };
+  const storedToken = getStoredToken();
+  if (storedToken && !isTokenExpired(storedToken)) {
+    const storedUser = getStoredUser() || userFromToken(storedToken);
+    if (storedUser) {
+      return { token: storedToken, user: storedUser };
     }
-    setIsLoading(false);
-  }, []);
+    clearStoredToken();
+  } else if (storedToken) {
+    clearStoredToken();
+  }
+  return { token: null, user: null };
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState(() => restoreSession());
+  const isLoading = false;
 
   const login = useCallback((newToken: string) => {
     const newUser = userFromToken(newToken);
     if (!newUser) return;
     setStoredToken(newToken);
     setStoredUser(newUser);
-    setToken(newToken);
-    setUser(newUser);
+    setSession({ token: newToken, user: newUser });
   }, []);
 
   const logout = useCallback(() => {
     clearStoredToken();
-    setToken(null);
-    setUser(null);
+    setSession({ token: null, user: null });
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
-      token,
-      isAuthenticated: !!user,
-      isPro: user?.subscription_tier === 'pro',
+      user: session.user,
+      token: session.token,
+      isAuthenticated: !!session.user,
+      isPro: session.user?.subscription_tier === 'pro',
       isLoading,
       login,
       logout,
     }),
-    [user, token, isLoading, login, logout]
+    [session, isLoading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
