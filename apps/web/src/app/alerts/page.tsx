@@ -11,6 +11,7 @@ import type {
 } from '@/lib/types';
 import { Bell, Loader2 } from 'lucide-react';
 import { ErrorMessage, SkeletonCard, getUserFriendlyError } from '@/components/ui';
+import { ProGate } from '@/components/ProGate';
 
 export default function AlertsPage() {
   const queryClient = useQueryClient();
@@ -63,12 +64,14 @@ export default function AlertsPage() {
       </div>
 
       {/* Create Form */}
-      <AlertForm
-        onSubmit={(data) => createMutation.mutate(data)}
-        onTest={() => testMutation.mutate()}
-        isSubmitting={createMutation.isPending}
-        isTesting={testMutation.isPending}
-      />
+      <ProGate feature="Kill Alerts">
+        <AlertForm
+          onSubmit={(data) => createMutation.mutate(data)}
+          onTest={() => testMutation.mutate()}
+          isSubmitting={createMutation.isPending}
+          isTesting={testMutation.isPending}
+        />
+      </ProGate>
 
       {/* Success/Error Messages */}
       {createMutation.isSuccess && (

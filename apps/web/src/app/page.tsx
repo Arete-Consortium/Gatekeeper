@@ -12,6 +12,7 @@ import {
   Bell,
   Radar,
   ArrowRight,
+  Zap,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -166,6 +167,10 @@ export default function DashboardPage() {
                   <Bell className="h-5 w-5 text-risk-orange" />
                 </div>
                 <CardTitle className="text-base">Kill Alerts</CardTitle>
+                <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/20 text-primary">
+                  <Zap className="h-2.5 w-2.5" />
+                  PRO
+                </span>
               </div>
               <CardDescription>
                 Discord & Slack kill notifications

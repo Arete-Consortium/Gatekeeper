@@ -61,7 +61,7 @@ export default function PricingPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center py-8">
-        <h1 className="text-3xl font-bold text-text">Choose Your Plan</h1>
+        <h1 className="text-3xl font-bold text-text">Navigate New Eden Safely</h1>
         <p className="text-text-secondary mt-2">
           Free for core navigation. Pro for the full tactical advantage.
         </p>
@@ -108,7 +108,7 @@ export default function PricingPage() {
             Pro
           </CardTitle>
           <div className="text-3xl font-bold text-text mb-1">
-            $4.99<span className="text-sm font-normal text-text-secondary">/mo</span>
+            $3<span className="text-sm font-normal text-text-secondary">/mo</span>
           </div>
           <CardDescription className="mb-6">
             Full tactical suite for serious pilots.

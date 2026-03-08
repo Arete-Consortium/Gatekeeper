@@ -21,7 +21,7 @@ import {
   TestAlertResponse,
   RouteProfile,
 } from './types';
-import { getStoredToken } from './auth';
+import { getStoredToken, BillingStatus } from './auth';
 
 const DEFAULT_API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -99,6 +99,13 @@ class GatekeeperAPIService {
           ...options.headers,
         },
       });
+
+      if (response.status === 402) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/pricing';
+        }
+        throw new Error('Pro subscription required');
+      }
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -320,6 +327,49 @@ class GatekeeperAPIService {
         total_value: totalValue,
       }),
     });
+  }
+
+  // ==================== Billing ====================
+
+  /**
+   * Get current subscription/billing status
+   */
+  async getSubscriptionStatus(): Promise<BillingStatus> {
+    return this.request<BillingStatus>('/api/v1/billing/status');
+  }
+
+  /**
+   * Create a Stripe checkout session for Pro upgrade
+   */
+  async createCheckoutSession(
+    successUrl: string,
+    cancelUrl: string
+  ): Promise<{ checkout_url: string }> {
+    return this.request<{ checkout_url: string }>(
+      '/api/v1/billing/create-checkout',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+        }),
+      }
+    );
+  }
+
+  /**
+   * Create a Stripe portal session for billing management
+   */
+  async createPortalSession(
+    returnUrl: string
+  ): Promise<{ portal_url: string }> {
+    return this.request<{ portal_url: string }>(
+      '/api/v1/billing/create-portal',
+      {
+        method: 'POST',
+        body: JSON.stringify({ return_url: returnUrl }),
+      }
+    );
   }
 
   // ==================== Utility ====================

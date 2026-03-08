@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/pricing', label: 'Pricing', icon: Zap },
 ];
 
 export function Navbar() {

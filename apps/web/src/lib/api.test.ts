@@ -277,6 +277,96 @@ describe('GatekeeperAPI', () => {
     });
   });
 
+  describe('402 redirect', () => {
+    it('redirects to /pricing on 402 response', async () => {
+      const originalLocation = window.location.href;
+      // Mock window.location.href setter
+      const locationSpy = vi.spyOn(window, 'location', 'get').mockReturnValue({
+        ...window.location,
+        href: originalLocation,
+      } as Location);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        statusText: 'Payment Required',
+      });
+
+      await expect(GatekeeperAPI.getHealth()).rejects.toThrow(
+        'Pro subscription required'
+      );
+
+      locationSpy.mockRestore();
+    });
+  });
+
+  describe('getSubscriptionStatus', () => {
+    it('fetches billing status', async () => {
+      mockSuccessResponse({
+        tier: 'pro',
+        status: 'active',
+        character_id: 12345,
+        character_name: 'Test Pilot',
+        subscription_id: 'sub_abc',
+        current_period_end: '2026-04-01T00:00:00Z',
+        cancel_at_period_end: false,
+      });
+
+      const result = await GatekeeperAPI.getSubscriptionStatus();
+
+      expect(result.tier).toBe('pro');
+      expect(result.status).toBe('active');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/billing/status'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('createCheckoutSession', () => {
+    it('sends correct URLs for checkout', async () => {
+      mockSuccessResponse({ checkout_url: 'https://checkout.stripe.com/abc' });
+
+      const result = await GatekeeperAPI.createCheckoutSession(
+        'https://example.com/account?checkout=success',
+        'https://example.com/pricing?checkout=cancelled'
+      );
+
+      expect(result.checkout_url).toBe('https://checkout.stripe.com/abc');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/billing/create-checkout'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            success_url: 'https://example.com/account?checkout=success',
+            cancel_url: 'https://example.com/pricing?checkout=cancelled',
+          }),
+        })
+      );
+    });
+  });
+
+  describe('createPortalSession', () => {
+    it('sends correct return URL', async () => {
+      mockSuccessResponse({ portal_url: 'https://billing.stripe.com/xyz' });
+
+      const result = await GatekeeperAPI.createPortalSession(
+        'https://example.com/account'
+      );
+
+      expect(result.portal_url).toBe('https://billing.stripe.com/xyz');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/billing/create-portal'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            return_url: 'https://example.com/account',
+          }),
+        })
+      );
+    });
+  });
+
   describe('setBaseUrl', () => {
     it('updates base URL and stores in localStorage', () => {
       const newUrl = 'http://custom-api.example.com';
