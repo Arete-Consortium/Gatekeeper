@@ -17,7 +17,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
-import type { System, Gate } from '@/lib/types';
+import type { MapConfig, MapConfigSystem } from '@/lib/types';
 import { useMapRoute } from '@/components/map/useMapRoute';
 import { useIntelData } from '@/components/map/useIntelData';
 import { useKillStream } from '@/components/map/useKillStream';
@@ -40,28 +40,41 @@ const UniverseMap = dynamic(
   }
 );
 
-// Transform API System to MapSystem
-function transformSystem(system: System): MapSystem {
-  return {
-    systemId: system.system_id ?? 0,
-    name: system.name ?? 'Unknown',
-    x: (system.x ?? 0) / 1e16, // Scale down EVE coordinates
-    y: (system.y ?? 0) / 1e16,
-    security: system.security_status ?? 0,
-    regionId: system.region_id ?? 0,
-    constellationId: system.constellation_id ?? 0,
-  };
-}
+// Transform /map/config response to map component types
+function transformMapConfig(config: MapConfig): {
+  systems: MapSystem[];
+  gates: MapGate[];
+  systemMap: globalThis.Map<number, MapSystem>;
+} {
+  const nameToId = new globalThis.Map<string, number>();
+  const idToSystem = new globalThis.Map<number, MapSystem>();
+  const mapSystems: MapSystem[] = [];
 
-// Transform API Gate to MapGate
-function transformGate(gate: Gate, systemNameToId: Map<string, number>): MapGate | null {
-  const fromId = systemNameToId.get(gate.from_system);
-  const toId = systemNameToId.get(gate.to_system);
-  if (!fromId || !toId) return null;
-  return {
-    fromSystemId: fromId,
-    toSystemId: toId,
-  };
+  for (const [name, sys] of Object.entries(config.systems)) {
+    const mapSystem: MapSystem = {
+      systemId: sys.id,
+      name,
+      x: sys.position.x,
+      y: sys.position.y,
+      security: sys.security,
+      regionId: sys.region_id,
+      constellationId: sys.constellation_id,
+    };
+    nameToId.set(name, sys.id);
+    idToSystem.set(sys.id, mapSystem);
+    mapSystems.push(mapSystem);
+  }
+
+  const mapGates: MapGate[] = [];
+  for (const gate of config.gates) {
+    const fromId = nameToId.get(gate.from_system);
+    const toId = nameToId.get(gate.to_system);
+    if (fromId && toId) {
+      mapGates.push({ fromSystemId: fromId, toSystemId: toId });
+    }
+  }
+
+  return { systems: mapSystems, gates: mapGates, systemMap: idToSystem };
 }
 
 export default function MapPage() {
@@ -79,18 +92,7 @@ export default function MapPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRoutePanel, setShowRoutePanel] = useState(false);
 
-  // Fetch systems from API
-  const {
-    data: systemsData,
-    isLoading: loadingSystems,
-    error: systemsError,
-  } = useQuery({
-    queryKey: ['systems'],
-    queryFn: () => GatekeeperAPI.getSystems(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Fetch map config (includes gates)
+  // Fetch map config (systems + gates in one call)
   const {
     data: mapConfig,
     isLoading: loadingConfig,
@@ -98,36 +100,18 @@ export default function MapPage() {
   } = useQuery({
     queryKey: ['mapConfig'],
     queryFn: () => GatekeeperAPI.getMapConfig(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Transform data for the map
   const { systems, gates, systemMap } = useMemo(() => {
-    if (!systemsData) return {
+    if (!mapConfig) return {
       systems: [] as MapSystem[],
       gates: [] as MapGate[],
       systemMap: new globalThis.Map<number, MapSystem>(),
     };
-
-    const nameToId: globalThis.Map<string, number> = new globalThis.Map();
-    const idToSystem: globalThis.Map<number, MapSystem> = new globalThis.Map();
-    const mapSystems = systemsData.map((s) => {
-      nameToId.set(s.name, s.system_id);
-      const mapSystem = transformSystem(s);
-      idToSystem.set(s.system_id, mapSystem);
-      return mapSystem;
-    });
-
-    const mapGates: MapGate[] = [];
-    if (mapConfig?.gates) {
-      for (const gate of mapConfig.gates) {
-        const mapped = transformGate(gate, nameToId);
-        if (mapped) mapGates.push(mapped);
-      }
-    }
-
-    return { systems: mapSystems, gates: mapGates, systemMap: idToSystem };
-  }, [systemsData, mapConfig]);
+    return transformMapConfig(mapConfig);
+  }, [mapConfig]);
 
   // Kill stream for live kill data
   // Set NEXT_PUBLIC_USE_MOCK_KILLS=true in .env.local for mock data
@@ -168,7 +152,6 @@ export default function MapPage() {
     getSystemName,
   } = useMapRoute({
     systems: systemMap,
-    systemData: systemsData,
     compareProfiles: true,
   });
 
@@ -230,8 +213,8 @@ export default function MapPage() {
     setLayers((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const isLoading = loadingSystems || loadingConfig;
-  const error = systemsError || configError;
+  const isLoading = loadingConfig;
+  const error = configError;
 
   return (
     <div className="h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">

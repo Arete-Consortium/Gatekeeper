@@ -108,11 +108,26 @@ export interface RiskConfig {
   routing_profiles: Record<string, RoutingProfile>;
 }
 
-// Map configuration response
+// System data from /map/config endpoint
+export interface MapConfigSystem {
+  id: number;
+  region_id: number;
+  region_name: string;
+  constellation_id: number;
+  constellation_name: string;
+  security: number;
+  category: string;
+  position: { x: number; y: number };
+  risk_score: number;
+  risk_color: string;
+}
+
+// Map configuration response from /map/config
 export interface MapConfig {
-  systems: Record<string, System>;
+  metadata: { version: string; source: string; last_updated: string };
+  systems: Record<string, MapConfigSystem>;
   gates: Gate[];
-  risk_config: RiskConfig;
+  layers: Record<string, boolean>;
 }
 
 // Capital ship data
