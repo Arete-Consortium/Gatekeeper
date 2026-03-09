@@ -1,9 +1,9 @@
 {
   "security_category_weights": {
     "highsec": 1.0,
-    "lowsec": 3.0,
-    "nullsec": 5.0,
-    "wh": 4.0
+    "lowsec": 5.0,
+    "nullsec": 6.0,
+    "wh": 5.0
   },
   "kill_weights": {
     "recent_kills": 0.05,
@@ -31,10 +31,10 @@
       "risk_factor": 0.0
     },
     "safer": {
-      "risk_factor": 1.0
+      "risk_factor": 3.0
     },
     "paranoid": {
-      "risk_factor": 2.0
+      "risk_factor": 8.0
     }
   },
   "danger_thresholds": {

@@ -226,6 +226,64 @@ async def get_thera_connections() -> dict:
     return {"connections": result}
 
 
+@router.get("/activity")
+async def get_system_activity() -> dict:
+    """Fetch system jumps + kills from ESI (Dotlan-style activity data)."""
+    async with httpx.AsyncClient(timeout=15) as client:
+        jumps_data = {}
+        kills_data = {}
+        incursions_data = []
+
+        # Fetch jumps
+        try:
+            resp = await client.get(f"{ESI_BASE}/universe/system_jumps/")
+            resp.raise_for_status()
+            for entry in resp.json():
+                sid = entry.get("system_id")
+                if sid:
+                    jumps_data[str(sid)] = entry.get("ship_jumps", 0)
+        except httpx.HTTPError:
+            logger.warning("Failed to fetch system jumps from ESI")
+
+        # Fetch kills
+        try:
+            resp = await client.get(f"{ESI_BASE}/universe/system_kills/")
+            resp.raise_for_status()
+            for entry in resp.json():
+                sid = entry.get("system_id")
+                if sid:
+                    kills_data[str(sid)] = {
+                        "ship_kills": entry.get("ship_kills", 0),
+                        "npc_kills": entry.get("npc_kills", 0),
+                        "pod_kills": entry.get("pod_kills", 0),
+                    }
+        except httpx.HTTPError:
+            logger.warning("Failed to fetch system kills from ESI")
+
+        # Fetch incursions
+        try:
+            resp = await client.get(f"{ESI_BASE}/incursions/")
+            resp.raise_for_status()
+            for inc in resp.json():
+                incursions_data.append({
+                    "type": inc.get("type"),
+                    "state": inc.get("state"),
+                    "staging_system_id": inc.get("staging_solar_system_id"),
+                    "constellation_id": inc.get("constellation_id"),
+                    "infested_systems": inc.get("infested_solar_systems", []),
+                    "has_boss": inc.get("has_boss", False),
+                    "influence": inc.get("influence", 0),
+                })
+        except httpx.HTTPError:
+            logger.warning("Failed to fetch incursions from ESI")
+
+    return {
+        "jumps": jumps_data,
+        "kills": kills_data,
+        "incursions": incursions_data,
+    }
+
+
 @router.get("/route", response_model=RouteResponse)
 def get_route(
     from_system: str = Query(..., alias="from"),

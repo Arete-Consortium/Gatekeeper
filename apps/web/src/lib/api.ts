@@ -24,6 +24,7 @@ import {
   FWResponse,
   SovStructuresResponse,
   TheraResponse,
+  SystemActivityResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -239,6 +240,10 @@ class GatekeeperAPIService {
 
   async getTheraConnections(): Promise<TheraResponse> {
     return this.request<TheraResponse>('/map/thera');
+  }
+
+  async getSystemActivity(): Promise<SystemActivityResponse> {
+    return this.request<SystemActivityResponse>('/map/activity');
   }
 
   /**

@@ -212,6 +212,29 @@ export interface TheraResponse {
   connections: TheraConnection[];
 }
 
+// System activity data (Dotlan-style)
+export interface SystemActivityKills {
+  ship_kills: number;
+  npc_kills: number;
+  pod_kills: number;
+}
+
+export interface Incursion {
+  type: string;
+  state: string;
+  staging_system_id: number;
+  constellation_id: number;
+  infested_systems: number[];
+  has_boss: boolean;
+  influence: number;
+}
+
+export interface SystemActivityResponse {
+  jumps: Record<string, number>;
+  kills: Record<string, SystemActivityKills>;
+  incursions: Incursion[];
+}
+
 // Capital ship data
 export interface CapitalShip {
   name: string;

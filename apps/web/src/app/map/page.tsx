@@ -15,14 +15,19 @@ import {
   Maximize2,
   Loader2,
   Navigation,
+  ChevronDown,
+  ChevronRight,
+  Palette,
+  Info,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
-import type { MapConfig, MapConfigSystem } from '@/lib/types';
+import type { MapConfig } from '@/lib/types';
 import { useMapRoute } from '@/components/map/useMapRoute';
 import { useIntelData } from '@/components/map/useIntelData';
 import { useKillStream } from '@/components/map/useKillStream';
 import { IntelControls } from '@/components/map/IntelControls';
 import { RouteControls } from '@/components/map/RouteControls';
+import { SystemDetailPanel } from '@/components/map/SystemDetailPanel';
 
 // Dynamically import the UniverseMap to avoid SSR issues with PixiJS
 const UniverseMap = dynamic(
@@ -39,6 +44,38 @@ const UniverseMap = dynamic(
     ),
   }
 );
+
+// Collapsible section component for sidebar
+function CollapsibleSection({
+  title,
+  icon,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        {icon}
+        <span className="text-sm font-medium text-text flex-1">{title}</span>
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5 text-text-secondary" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5 text-text-secondary" />
+        )}
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </Card>
+  );
+}
 
 // Transform /map/config response to map component types
 function transformMapConfig(config: MapConfig): {
@@ -70,7 +107,6 @@ function transformMapConfig(config: MapConfig): {
     idToSystem.set(sys.id, mapSystem);
     mapSystems.push(mapSystem);
 
-    // Collect region names
     if (sys.region_name && !regionNames.has(sys.region_id)) {
       regionNames.set(sys.region_id, sys.region_name);
     }
@@ -97,13 +133,19 @@ export default function MapPage() {
     showKills: true,
     showHeatmap: false,
     showRegionLabels: true,
+    showSovereignty: false,
+    showThera: true,
+    showFW: false,
+    showLandmarks: true,
+    showSovStructures: false,
   });
   const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>('security');
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showRoutePanel, setShowRoutePanel] = useState(false);
 
-  // Fetch map config (systems + gates in one call)
+  // === Data Fetching ===
+
   const {
     data: mapConfig,
     isLoading: loadingConfig,
@@ -111,10 +153,46 @@ export default function MapPage() {
   } = useQuery({
     queryKey: ['mapConfig'],
     queryFn: () => GatekeeperAPI.getMapConfig(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Transform data for the map
+  const { data: sovData } = useQuery({
+    queryKey: ['sovereignty'],
+    queryFn: () => GatekeeperAPI.getSovereignty(),
+    staleTime: 10 * 60 * 1000,
+    enabled: !!mapConfig,
+  });
+
+  const { data: theraData } = useQuery({
+    queryKey: ['thera'],
+    queryFn: () => GatekeeperAPI.getTheraConnections(),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!mapConfig,
+  });
+
+  const { data: fwData } = useQuery({
+    queryKey: ['fw'],
+    queryFn: () => GatekeeperAPI.getFWStatus(),
+    staleTime: 10 * 60 * 1000,
+    enabled: !!mapConfig,
+  });
+
+  const { data: sovStructData } = useQuery({
+    queryKey: ['sovStructures'],
+    queryFn: () => GatekeeperAPI.getSovStructures(),
+    staleTime: 30 * 60 * 1000,
+    enabled: !!mapConfig,
+  });
+
+  const { data: activityData } = useQuery({
+    queryKey: ['systemActivity'],
+    queryFn: () => GatekeeperAPI.getSystemActivity(),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!mapConfig,
+  });
+
+  // === Transform ===
+
   const { systems, gates, systemMap, regionNames } = useMemo(() => {
     if (!mapConfig) return {
       systems: [] as MapSystem[],
@@ -125,14 +203,13 @@ export default function MapPage() {
     return transformMapConfig(mapConfig);
   }, [mapConfig]);
 
-  // Kill stream for live kill data
-  // Set NEXT_PUBLIC_USE_MOCK_KILLS=true in .env.local for mock data
+  // Kill stream
   const { kills, isConnected: killsConnected, isMock, reconnectAttempts, error: killStreamError } = useKillStream({
-    maxAge: 60 * 60 * 1000, // 1 hour
+    maxAge: 60 * 60 * 1000,
     maxReconnectAttempts: 5,
   });
 
-  // Intel data for risk assessment
+  // Intel data
   const {
     risks,
     totalKills,
@@ -167,58 +244,61 @@ export default function MapPage() {
     compareProfiles: true,
   });
 
-  // Filter systems by search - memoized for performance
+  // === Derived ===
+
+  const sovOverlay = useMemo(() => {
+    if (!sovData) return { sovereignty: undefined, alliances: undefined };
+    const sovereignty: Record<string, { alliance_id: number | null; faction_id: number | null }> = {};
+    for (const [sid, entry] of Object.entries(sovData.sovereignty)) {
+      sovereignty[sid] = {
+        alliance_id: entry.alliance_id ?? null,
+        faction_id: entry.faction_id ?? null,
+      };
+    }
+    const alliances: Record<string, { name: string }> = {};
+    for (const [aid, info] of Object.entries(sovData.alliances)) {
+      alliances[aid] = { name: info.name };
+    }
+    return { sovereignty, alliances };
+  }, [sovData]);
+
   const filteredSystems = useMemo(() => {
     if (!searchQuery) return [];
     const lowerQuery = searchQuery.toLowerCase();
     return systems.filter((s) => s.name.toLowerCase().includes(lowerQuery));
   }, [systems, searchQuery]);
 
-  // Memoized handlers to prevent unnecessary re-renders
+  // === Handlers ===
+
   const handleZoomIn = useCallback(() => {
     const viewport = mapRef.current?.getViewport();
-    if (viewport) {
-      mapRef.current?.zoomTo(viewport.zoom * 1.5);
-    }
+    if (viewport) mapRef.current?.zoomTo(viewport.zoom * 1.5);
   }, []);
 
   const handleZoomOut = useCallback(() => {
     const viewport = mapRef.current?.getViewport();
-    if (viewport) {
-      mapRef.current?.zoomTo(viewport.zoom / 1.5);
-    }
+    if (viewport) mapRef.current?.zoomTo(viewport.zoom / 1.5);
   }, []);
 
   const handleFullscreen = useCallback(() => {
     const container = document.getElementById('map-container');
     if (container) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        container.requestFullscreen();
-      }
+      if (document.fullscreenElement) document.exitFullscreen();
+      else container.requestFullscreen();
     }
   }, []);
 
   const handleSystemSelect = useCallback((systemId: number) => {
     setSelectedSystem(systemId);
     mapRef.current?.panTo(systemId);
-
-    // If in route selection mode, handle route selection
-    if (routeState.mode !== 'idle') {
-      selectRouteSystem(systemId);
-    }
+    if (routeState.mode !== 'idle') selectRouteSystem(systemId);
   }, [routeState.mode, selectRouteSystem]);
 
   const handleSearchSelect = useCallback((system: MapSystem) => {
     setSearchQuery('');
     setSelectedSystem(system.systemId);
     mapRef.current?.panTo(system.systemId);
-
-    // If in route selection mode, handle route selection
-    if (routeState.mode !== 'idle') {
-      selectRouteSystem(system.systemId);
-    }
+    if (routeState.mode !== 'idle') selectRouteSystem(system.systemId);
   }, [routeState.mode, selectRouteSystem]);
 
   const updateLayer = useCallback((key: keyof MapLayers, value: boolean) => {
@@ -262,7 +342,6 @@ export default function MapPage() {
             />
             <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" aria-hidden="true" />
 
-            {/* Search Results Dropdown */}
             {searchQuery && filteredSystems.length > 0 && (
               <div
                 id="search-results"
@@ -280,15 +359,9 @@ export default function MapPage() {
                     aria-label={`${system.name}, security ${system.security.toFixed(1)}`}
                   >
                     <span className="text-text">{system.name}</span>
-                    <span
-                      className={`text-xs ${
-                        system.security >= 0.5
-                          ? 'text-high-sec'
-                          : system.security > 0
-                            ? 'text-low-sec'
-                            : 'text-null-sec'
-                      }`}
-                    >
+                    <span className={`text-xs ${
+                      system.security >= 0.5 ? 'text-high-sec' : system.security > 0 ? 'text-low-sec' : 'text-null-sec'
+                    }`}>
                       {system.security.toFixed(1)}
                     </span>
                   </button>
@@ -351,6 +424,12 @@ export default function MapPage() {
                 routes={mapRoutes}
                 kills={kills}
                 risks={risks}
+                sovereignty={sovOverlay.sovereignty}
+                alliances={sovOverlay.alliances}
+                theraConnections={theraData?.connections}
+                fwSystems={fwData?.fw_systems}
+                landmarks={mapConfig?.landmarks}
+                sovStructures={sovStructData?.structures}
                 layers={layers}
                 colorMode={colorMode}
                 selectedSystem={selectedSystem}
@@ -400,120 +479,69 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Side Panel - hidden on mobile, shown on lg+ screens */}
-        <aside className="hidden lg:flex w-72 flex-col gap-4 overflow-y-auto" aria-label="Map controls">
-          {/* Layer Controls */}
-          <Card>
-            <div className="flex items-center gap-2 mb-3">
-              <Layers className="h-4 w-4 text-text-secondary" aria-hidden="true" />
-              <span className="text-sm font-medium text-text">Layers</span>
+        {/* Side Panel — collapsible sections */}
+        <aside className="hidden lg:flex w-72 flex-col gap-3 overflow-y-auto" aria-label="Map controls">
+          {/* Layers — collapsible */}
+          <CollapsibleSection
+            title="Layers"
+            icon={<Layers className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+          >
+            <div className="space-y-2.5">
+              <Toggle checked={layers.showGates} onChange={(v) => updateLayer('showGates', v)} label="Gate connections" />
+              <Toggle checked={layers.showLabels} onChange={(v) => updateLayer('showLabels', v)} label="System labels" />
+              <Toggle checked={layers.showRegionLabels} onChange={(v) => updateLayer('showRegionLabels', v)} label="Region labels" />
+              <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
+              <Toggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" />
+              <Toggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" />
+              <Toggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" />
+              <Toggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" />
+              <Toggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" />
+              <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
+              <Toggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" />
             </div>
-            <div className="space-y-3">
-              <Toggle
-                checked={layers.showGates}
-                onChange={(v) => updateLayer('showGates', v)}
-                label="Gate connections"
-              />
-              <Toggle
-                checked={layers.showLabels}
-                onChange={(v) => updateLayer('showLabels', v)}
-                label="System labels"
-              />
-              <Toggle
-                checked={layers.showRoute}
-                onChange={(v) => updateLayer('showRoute', v)}
-                label="Route overlay"
-              />
-              <Toggle
-                checked={layers.showKills}
-                onChange={(v) => updateLayer('showKills', v)}
-                label="Kill markers"
-              />
-              <Toggle
-                checked={layers.showHeatmap}
-                onChange={(v) => updateLayer('showHeatmap', v)}
-                label="Risk heatmap"
-              />
-            </div>
-          </Card>
+          </CollapsibleSection>
 
-          {/* Color Mode */}
-          <Card>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-3 w-3 rounded-full bg-gradient-to-r from-high-sec via-low-sec to-null-sec" />
-              <span className="text-sm font-medium text-text">Color Mode</span>
-            </div>
+          {/* Color Mode — collapsible */}
+          <CollapsibleSection
+            title="Color Mode"
+            icon={<Palette className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+            defaultOpen={false}
+          >
             <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={colorMode === 'security' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setColorMode('security')}
-                className="flex-1"
-              >
-                Security
-              </Button>
-              <Button
-                variant={colorMode === 'risk' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setColorMode('risk')}
-                className="flex-1"
-              >
-                Risk
-              </Button>
-              <Button
-                variant={colorMode === 'star' ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setColorMode('star')}
-                className="flex-1"
-              >
-                Star
-              </Button>
+              <Button variant={colorMode === 'security' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('security')} className="flex-1">Security</Button>
+              <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('risk')} className="flex-1">Risk</Button>
+              <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('star')} className="flex-1">Star</Button>
             </div>
-          </Card>
+          </CollapsibleSection>
 
-          {/* Selected System Info */}
-          {selectedSystem && (
-            <Card>
-              <span className="text-sm font-medium text-text mb-2 block">
-                Selected System
-              </span>
-              {(() => {
-                const system = systems.find((s) => s.systemId === selectedSystem);
-                if (!system) return null;
-                return (
-                  <div className="space-y-2">
-                    <p className="text-lg font-bold text-text">{system.name}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-text-secondary text-sm">Security:</span>
-                      <span
-                        className={`font-mono ${
-                          system.security >= 0.5
-                            ? 'text-high-sec'
-                            : system.security > 0
-                              ? 'text-low-sec'
-                              : 'text-null-sec'
-                        }`}
-                      >
-                        {system.security.toFixed(2)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setSelectedSystem(null)}
-                      className="w-full mt-2"
-                    >
-                      Clear Selection
-                    </Button>
-                  </div>
-                );
-              })()}
-            </Card>
-          )}
+          {/* System Detail Panel — replaces old inline info */}
+          {selectedSystem && (() => {
+            const system = systems.find((s) => s.systemId === selectedSystem);
+            if (!system) return null;
+            return (
+              <Card>
+                <SystemDetailPanel
+                  system={system}
+                  gates={gates}
+                  systemMap={systemMap}
+                  sovData={sovData}
+                  fwData={fwData?.fw_systems}
+                  theraConnections={theraData?.connections}
+                  activityData={activityData}
+                  kills={kills}
+                  onClose={() => setSelectedSystem(null)}
+                  onSystemClick={handleSystemSelect}
+                />
+              </Card>
+            );
+          })()}
 
-          {/* Legend */}
-          <Card>
-            <span className="text-sm font-medium text-text mb-3 block">Legend</span>
+          {/* Legend — collapsed by default */}
+          <CollapsibleSection
+            title="Legend"
+            icon={<Info className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+            defaultOpen={false}
+          >
             <div className="space-y-2 text-xs">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-high-sec" aria-hidden="true" />
@@ -527,8 +555,16 @@ export default function MapPage() {
                 <div className="h-3 w-3 rounded-full bg-null-sec" aria-hidden="true" />
                 <span className="text-text-secondary">Null Sec (0.0 and below)</span>
               </div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="h-3 w-3 rounded-full border-2 border-yellow-500" aria-hidden="true" />
+                <span className="text-text-secondary">Trade Hub</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-4 border border-cyan-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
+                <span className="text-text-secondary">Thera Connection</span>
+              </div>
             </div>
-          </Card>
+          </CollapsibleSection>
         </aside>
       </div>
     </div>

@@ -30,6 +30,11 @@ import { RouteOverlay } from './RouteOverlay';
 import { KillMarkers } from './KillMarkers';
 import { RiskHeatmap } from './RiskHeatmap';
 import { Minimap } from './Minimap';
+import { SovereigntyOverlay } from './SovereigntyOverlay';
+import { TheraOverlay } from './TheraOverlay';
+import { FWOverlay } from './FWOverlay';
+import { LandmarksOverlay } from './LandmarksOverlay';
+import { SovStructuresOverlay } from './SovStructuresOverlay';
 
 // Default layer visibility
 const DEFAULT_LAYERS: MapLayers = {
@@ -39,6 +44,11 @@ const DEFAULT_LAYERS: MapLayers = {
   showKills: false,
   showHeatmap: false,
   showRegionLabels: true,
+  showSovereignty: false,
+  showThera: true,
+  showFW: false,
+  showLandmarks: true,
+  showSovStructures: false,
 };
 
 // Animation duration in ms
@@ -57,6 +67,13 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       routes = [],
       kills = [],
       risks = [],
+      sovereignty,
+      alliances,
+      factions,
+      theraConnections = [],
+      fwSystems,
+      landmarks = [],
+      sovStructures,
       selectedSystem,
       highlightedSystems = [],
       onSystemClick,
@@ -224,16 +241,12 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       setViewport(newViewport);
     }, []);
 
-    // Handle minimap navigation (partial viewport updates)
+    // Handle minimap navigation — animate to clicked location (#8)
     const handleMinimapViewportChange = useCallback(
       (partial: Partial<MapViewport>) => {
-        if (animationRef.current) {
-          cancelAnimationFrame(animationRef.current);
-          animationRef.current = null;
-        }
-        setViewport((prev) => ({ ...prev, ...partial }));
+        animateViewport(partial, 300);
       },
-      []
+      [animateViewport]
     );
 
     // Handle system hover
@@ -279,6 +292,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           layers={layers}
           colorMode={colorMode}
           regions={regions}
+          hoveredSystemId={hoveredSystem}
         />
 
         {/* Risk Heatmap (renders behind other overlays) */}
@@ -307,6 +321,53 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
             systems={systemMap}
             viewport={viewport}
             maxAge={60 * 60 * 1000}
+          />
+        )}
+
+        {/* Sovereignty Overlay */}
+        {layers.showSovereignty && sovereignty && (
+          <SovereigntyOverlay
+            sovereignty={sovereignty}
+            alliances={alliances || {}}
+            systems={systemMap}
+            viewport={viewport}
+            factions={factions || {}}
+          />
+        )}
+
+        {/* Thera/Turnur Connections */}
+        {layers.showThera && theraConnections.length > 0 && (
+          <TheraOverlay
+            connections={theraConnections}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Faction Warfare Overlay */}
+        {layers.showFW && fwSystems && (
+          <FWOverlay
+            fwSystems={fwSystems}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Sov Structures (iHub ADM) */}
+        {layers.showSovStructures && sovStructures && (
+          <SovStructuresOverlay
+            structures={sovStructures}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Landmarks */}
+        {layers.showLandmarks && landmarks.length > 0 && (
+          <LandmarksOverlay
+            landmarks={landmarks}
+            systems={systemMap}
+            viewport={viewport}
           />
         )}
 
@@ -347,12 +408,10 @@ interface SystemTooltipProps {
 const SystemTooltip = memo(function SystemTooltip({ system, viewport }: SystemTooltipProps) {
   if (!system) return null;
 
-  // Calculate screen position
   const x = (system.x - viewport.x) * viewport.zoom + viewport.width / 2;
   const y = (system.y - viewport.y) * viewport.zoom + viewport.height / 2;
 
-  // Security status formatting
-  const secStatus = system.security.toFixed(1);
+  const secStatus = system.security.toFixed(2);
   const secColor =
     system.security >= 0.5
       ? 'text-green-400'
@@ -360,18 +419,48 @@ const SystemTooltip = memo(function SystemTooltip({ system, viewport }: SystemTo
         ? 'text-yellow-400'
         : 'text-red-400';
 
+  // Flip tooltip to left side if near right edge
+  const flipLeft = x > viewport.width - 200;
+  const tooltipX = flipLeft ? x - 15 : x + 15;
+  const transform = flipLeft
+    ? 'translateY(-50%) translateX(-100%)'
+    : 'translateY(-50%)';
+
   return (
     <div
-      className="absolute pointer-events-none bg-gray-900/95 border border-gray-700 rounded-lg px-3 py-2 text-sm shadow-lg z-50"
+      className="absolute pointer-events-none z-50 transition-opacity duration-150"
       style={{
-        left: x + 15,
-        top: y - 10,
-        transform: 'translateY(-50%)',
+        left: tooltipX,
+        top: y,
+        transform,
       }}
     >
-      <div className="font-semibold text-white">{system.name}</div>
-      <div className="text-gray-400 text-xs mt-1">
-        Security: <span className={secColor}>{secStatus}</span>
+      {/* Arrow */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 w-0 h-0"
+        style={flipLeft ? {
+          right: -4,
+          borderTop: '5px solid transparent',
+          borderBottom: '5px solid transparent',
+          borderLeft: '5px solid rgba(55, 65, 81, 0.95)',
+        } : {
+          left: -4,
+          borderTop: '5px solid transparent',
+          borderBottom: '5px solid transparent',
+          borderRight: '5px solid rgba(55, 65, 81, 0.95)',
+        }}
+      />
+      <div className="bg-gray-800/95 border border-gray-600 rounded-lg px-3 py-2 text-sm shadow-xl backdrop-blur-sm">
+        <div className="font-semibold text-white text-xs">{system.name}</div>
+        <div className="flex items-center gap-3 mt-1">
+          <span className={`font-mono text-xs ${secColor}`}>{secStatus}</span>
+          {system.spectralClass && (
+            <span className="text-gray-500 text-[10px]">Class {system.spectralClass}</span>
+          )}
+          {system.npcStations != null && system.npcStations > 0 && (
+            <span className="text-gray-500 text-[10px]">{system.npcStations} stn</span>
+          )}
+        </div>
       </div>
     </div>
   );
