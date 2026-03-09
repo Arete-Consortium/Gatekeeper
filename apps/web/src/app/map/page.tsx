@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { Suspense, useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -43,7 +43,7 @@ const UniverseMap = dynamic(
       <div className="absolute inset-0 flex items-center justify-center bg-black">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-text-secondary text-sm">Loading Universe Map...</p>
+          <p className="text-text-secondary text-sm">Loading New Eden Map...</p>
         </div>
       </div>
     ),
@@ -130,6 +130,18 @@ function transformMapConfig(config: MapConfig): {
 }
 
 export default function MapPage() {
+  return (
+    <Suspense fallback={
+      <div className="h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <MapPageContent />
+    </Suspense>
+  );
+}
+
+function MapPageContent() {
   const mapRef = useRef<UniverseMapRef>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -517,7 +529,7 @@ export default function MapPage() {
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-bold text-text flex items-center gap-2">
             <Map className="h-5 w-5" />
-            Universe Map
+            New Eden Map
           </h1>
           <Badge variant="info">Beta</Badge>
           {systems.length > 0 && (
