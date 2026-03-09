@@ -82,6 +82,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       onSetRouteOrigin,
       onSetRouteDestination,
       onAvoidSystem,
+      onDeselect,
       layers: layersProp,
       colorMode = 'security',
       className,
@@ -299,6 +300,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           onSetRouteOrigin={onSetRouteOrigin}
           onSetRouteDestination={onSetRouteDestination}
           onAvoidSystem={onAvoidSystem}
+          onDeselect={onDeselect}
         />
 
         {/* Risk Heatmap (renders behind other overlays) */}

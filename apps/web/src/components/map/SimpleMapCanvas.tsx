@@ -40,6 +40,7 @@ interface SimpleMapCanvasProps {
   onSetRouteOrigin?: (systemId: number) => void;
   onSetRouteDestination?: (systemId: number) => void;
   onAvoidSystem?: (systemId: number) => void;
+  onDeselect?: () => void;
   layers: MapLayers;
   colorMode: 'security' | 'risk' | 'star';
   regions?: MapRegion[];
@@ -58,11 +59,13 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   onSetRouteOrigin,
   onSetRouteDestination,
   onAvoidSystem,
+  onDeselect,
   layers,
   colorMode,
   regions = [],
   hoveredSystemId,
 }: SimpleMapCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const isDraggingRef = useRef(false);
@@ -86,6 +89,57 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     systemMapRef.current = map;
     quadtreeRef.current = systems.length > 0 ? buildQuadtree(systems) : null;
   }, [systems]);
+
+  // Keyboard shortcuts for pan, zoom, and dismiss
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const delta = 50 / viewport.zoom;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          onViewportChange({ ...viewport, y: viewport.y - delta });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          onViewportChange({ ...viewport, y: viewport.y + delta });
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          onViewportChange({ ...viewport, x: viewport.x - delta });
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          onViewportChange({ ...viewport, x: viewport.x + delta });
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          onViewportChange({
+            ...viewport,
+            zoom: Math.min(MAX_ZOOM, viewport.zoom * 1.5),
+          });
+          break;
+        case '-':
+          e.preventDefault();
+          onViewportChange({
+            ...viewport,
+            zoom: Math.max(MIN_ZOOM, viewport.zoom / 1.5),
+          });
+          break;
+        case 'Escape':
+          setContextMenu(null);
+          onDeselect?.();
+          break;
+      }
+    };
+
+    container.addEventListener('keydown', handleKeyDown);
+    return () => container.removeEventListener('keydown', handleKeyDown);
+  }, [viewport, onViewportChange, onDeselect]);
 
   // Build highlighted systems set for O(1) lookup
   const highlightedSet = useMemo(
@@ -503,7 +557,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   );
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} tabIndex={0} className="relative w-full h-full outline-none">
       <canvas
         ref={canvasRef}
         width={viewport.width}

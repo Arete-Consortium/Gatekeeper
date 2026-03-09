@@ -129,6 +129,7 @@ export interface UniverseMapProps {
   onSetRouteOrigin?: (systemId: number) => void;
   onSetRouteDestination?: (systemId: number) => void;
   onAvoidSystem?: (systemId: number) => void;
+  onDeselect?: () => void;
 
   // Display options
   layers?: Partial<MapLayers>;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button, Badge, ErrorMessage, getUserFriendlyError } from '@/components/ui';
@@ -19,6 +20,10 @@ import {
   ChevronRight,
   Palette,
   Info,
+  Menu,
+  X,
+  Link2,
+  Check,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
 import type { MapConfig } from '@/lib/types';
@@ -126,6 +131,10 @@ function transformMapConfig(config: MapConfig): {
 
 export default function MapPage() {
   const mapRef = useRef<UniverseMapRef>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [linkCopied, setLinkCopied] = useState(false);
+  const initializedFromUrl = useRef(false);
   const [layers, setLayers] = useState<MapLayers>({
     showGates: true,
     showLabels: true,
@@ -143,6 +152,7 @@ export default function MapPage() {
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showRoutePanel, setShowRoutePanel] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   // === Data Fetching ===
 
@@ -238,6 +248,7 @@ export default function MapPage() {
     selectSystem: selectRouteSystem,
     setOrigin: setRouteOrigin,
     setDestination: setRouteDestination,
+    addAvoidSystem,
     clearRoute,
     swapOriginDestination,
     getSystemName,
@@ -270,6 +281,88 @@ export default function MapPage() {
     return systems.filter((s) => s.name.toLowerCase().includes(lowerQuery));
   }, [systems, searchQuery]);
 
+  // === URL Permalink Support ===
+
+  // On mount (once systems are loaded), restore state from URL params
+  useEffect(() => {
+    if (initializedFromUrl.current || systems.length === 0) return;
+    initializedFromUrl.current = true;
+
+    const systemParam = searchParams.get('system');
+    const xParam = searchParams.get('x');
+    const yParam = searchParams.get('y');
+    const zoomParam = searchParams.get('zoom');
+
+    // Restore viewport if x/y/zoom are present
+    if (xParam && yParam && zoomParam) {
+      const x = parseFloat(xParam);
+      const y = parseFloat(yParam);
+      const zoom = parseFloat(zoomParam);
+      if (!isNaN(x) && !isNaN(y) && !isNaN(zoom)) {
+        // Small delay to ensure map is mounted
+        requestAnimationFrame(() => {
+          mapRef.current?.setViewport({ x, y, zoom });
+        });
+      }
+    }
+
+    // Restore selected system
+    if (systemParam) {
+      const systemId = parseInt(systemParam, 10);
+      if (!isNaN(systemId) && systemMap.has(systemId)) {
+        setSelectedSystem(systemId);
+        // Only pan if no explicit viewport was provided
+        if (!xParam) {
+          requestAnimationFrame(() => {
+            mapRef.current?.panTo(systemId);
+          });
+        }
+      }
+    }
+  }, [systems.length, systemMap, searchParams]);
+
+  // Update URL when selectedSystem changes (shallow, no reload)
+  useEffect(() => {
+    if (!initializedFromUrl.current) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedSystem !== null) {
+      params.set('system', String(selectedSystem));
+    } else {
+      params.delete('system');
+    }
+
+    // Remove viewport params from auto-update (only set by Copy Link)
+    params.delete('x');
+    params.delete('y');
+    params.delete('zoom');
+
+    const newUrl = params.toString() ? `?${params.toString()}` : '/map';
+    router.replace(`/map${newUrl}`, { scroll: false });
+  }, [selectedSystem, router, searchParams]);
+
+  // Copy permalink handler
+  const handleCopyLink = useCallback(() => {
+    const viewport = mapRef.current?.getViewport();
+    const params = new URLSearchParams();
+
+    if (viewport) {
+      params.set('x', viewport.x.toFixed(1));
+      params.set('y', viewport.y.toFixed(1));
+      params.set('zoom', viewport.zoom.toFixed(4));
+    }
+
+    if (selectedSystem !== null) {
+      params.set('system', String(selectedSystem));
+    }
+
+    const url = `${window.location.origin}/map?${params.toString()}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }, [selectedSystem]);
+
   // === Context Menu Handlers ===
 
   const handleSetRouteOrigin = useCallback((systemId: number) => {
@@ -283,9 +376,9 @@ export default function MapPage() {
   }, [setRouteDestination]);
 
   const handleAvoidSystem = useCallback((systemId: number) => {
-    // TODO: Wire to route avoidance list when useMapRoute supports it
-    console.log('Avoid system:', systemId);
-  }, []);
+    addAvoidSystem(systemId);
+    setShowRoutePanel(true);
+  }, [addAvoidSystem]);
 
   // === Handlers ===
 
@@ -326,6 +419,96 @@ export default function MapPage() {
 
   const isLoading = loadingConfig;
   const error = configError;
+
+  // Shared sidebar content used in both desktop aside and mobile overlay
+  const sidebarContent = (
+    <>
+      {/* Layers — collapsible */}
+      <CollapsibleSection
+        title="Layers"
+        icon={<Layers className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+      >
+        <div className="space-y-2.5">
+          <Toggle checked={layers.showGates} onChange={(v) => updateLayer('showGates', v)} label="Gate connections" />
+          <Toggle checked={layers.showLabels} onChange={(v) => updateLayer('showLabels', v)} label="System labels" />
+          <Toggle checked={layers.showRegionLabels} onChange={(v) => updateLayer('showRegionLabels', v)} label="Region labels" />
+          <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
+          <Toggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" />
+          <Toggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" />
+          <Toggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" />
+          <Toggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" />
+          <Toggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" />
+          <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
+          <Toggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" />
+        </div>
+      </CollapsibleSection>
+
+      {/* Color Mode — collapsible */}
+      <CollapsibleSection
+        title="Color Mode"
+        icon={<Palette className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+        defaultOpen={false}
+      >
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={colorMode === 'security' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('security')} className="flex-1">Security</Button>
+          <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('risk')} className="flex-1">Risk</Button>
+          <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('star')} className="flex-1">Star</Button>
+        </div>
+      </CollapsibleSection>
+
+      {/* System Detail Panel — replaces old inline info */}
+      {selectedSystem && (() => {
+        const system = systems.find((s) => s.systemId === selectedSystem);
+        if (!system) return null;
+        return (
+          <Card>
+            <SystemDetailPanel
+              system={system}
+              gates={gates}
+              systemMap={systemMap}
+              sovData={sovData}
+              fwData={fwData?.fw_systems}
+              theraConnections={theraData?.connections}
+              activityData={activityData}
+              kills={kills}
+              onClose={() => setSelectedSystem(null)}
+              onSystemClick={handleSystemSelect}
+            />
+          </Card>
+        );
+      })()}
+
+      {/* Legend — collapsed by default */}
+      <CollapsibleSection
+        title="Legend"
+        icon={<Info className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+        defaultOpen={false}
+      >
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-high-sec" aria-hidden="true" />
+            <span className="text-text-secondary">High Sec (0.5 - 1.0)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-low-sec" aria-hidden="true" />
+            <span className="text-text-secondary">Low Sec (0.1 - 0.4)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-null-sec" aria-hidden="true" />
+            <span className="text-text-secondary">Null Sec (0.0 and below)</span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <div className="h-3 w-3 rounded-full border-2 border-yellow-500" aria-hidden="true" />
+            <span className="text-text-secondary">Trade Hub</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-4 border border-cyan-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
+            <span className="text-text-secondary">Thera Connection</span>
+          </div>
+        </div>
+      </CollapsibleSection>
+    </>
+  );
 
   return (
     <div className="h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">
@@ -406,6 +589,28 @@ export default function MapPage() {
           <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode">
             <Maximize2 className="h-4 w-4" aria-hidden="true" />
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyLink}
+            aria-label="Copy map link to clipboard"
+            title="Copy link"
+          >
+            {linkCopied ? (
+              <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
+            ) : (
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            aria-label={showMobileSidebar ? 'Close sidebar' : 'Open sidebar'}
+          >
+            <Menu className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
@@ -456,6 +661,7 @@ export default function MapPage() {
                 onSetRouteOrigin={handleSetRouteOrigin}
                 onSetRouteDestination={handleSetRouteDestination}
                 onAvoidSystem={handleAvoidSystem}
+                onDeselect={() => setSelectedSystem(null)}
               />
 
               {/* Route Controls Panel */}
@@ -497,96 +703,59 @@ export default function MapPage() {
                   className="w-72"
                 />
               </div>
+
+              {/* Kill Stream Status Indicator */}
+              <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-black/70 rounded-lg px-3 py-1.5 text-xs">
+                <div
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    killsConnected && !isMock
+                      ? 'bg-green-500'
+                      : isMock
+                        ? 'bg-yellow-500'
+                        : 'bg-red-500'
+                  }`}
+                  aria-hidden="true"
+                />
+                <span className="text-text-secondary">
+                  {killsConnected && !isMock ? 'Live' : isMock ? 'Mock' : 'Offline'}
+                </span>
+                {killStreamError && (
+                  <span className="text-red-400 ml-1">{killStreamError}</span>
+                )}
+              </div>
             </>
           )}
         </div>
 
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+              onClick={() => setShowMobileSidebar(false)}
+              aria-hidden="true"
+            />
+            <div className="fixed right-0 top-0 h-full w-72 bg-card border-l border-border z-50 overflow-y-auto p-4 lg:hidden">
+              <div className="flex justify-end mb-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowMobileSidebar(false)}
+                  aria-label="Close sidebar"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {sidebarContent}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* Side Panel — collapsible sections */}
         <aside className="hidden lg:flex w-72 flex-col gap-3 overflow-y-auto" aria-label="Map controls">
-          {/* Layers — collapsible */}
-          <CollapsibleSection
-            title="Layers"
-            icon={<Layers className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
-          >
-            <div className="space-y-2.5">
-              <Toggle checked={layers.showGates} onChange={(v) => updateLayer('showGates', v)} label="Gate connections" />
-              <Toggle checked={layers.showLabels} onChange={(v) => updateLayer('showLabels', v)} label="System labels" />
-              <Toggle checked={layers.showRegionLabels} onChange={(v) => updateLayer('showRegionLabels', v)} label="Region labels" />
-              <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
-              <Toggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" />
-              <Toggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" />
-              <Toggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" />
-              <Toggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" />
-              <Toggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" />
-              <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
-              <Toggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" />
-            </div>
-          </CollapsibleSection>
-
-          {/* Color Mode — collapsible */}
-          <CollapsibleSection
-            title="Color Mode"
-            icon={<Palette className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
-            defaultOpen={false}
-          >
-            <div className="flex gap-2 flex-wrap">
-              <Button variant={colorMode === 'security' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('security')} className="flex-1">Security</Button>
-              <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('risk')} className="flex-1">Risk</Button>
-              <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('star')} className="flex-1">Star</Button>
-            </div>
-          </CollapsibleSection>
-
-          {/* System Detail Panel — replaces old inline info */}
-          {selectedSystem && (() => {
-            const system = systems.find((s) => s.systemId === selectedSystem);
-            if (!system) return null;
-            return (
-              <Card>
-                <SystemDetailPanel
-                  system={system}
-                  gates={gates}
-                  systemMap={systemMap}
-                  sovData={sovData}
-                  fwData={fwData?.fw_systems}
-                  theraConnections={theraData?.connections}
-                  activityData={activityData}
-                  kills={kills}
-                  onClose={() => setSelectedSystem(null)}
-                  onSystemClick={handleSystemSelect}
-                />
-              </Card>
-            );
-          })()}
-
-          {/* Legend — collapsed by default */}
-          <CollapsibleSection
-            title="Legend"
-            icon={<Info className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-high-sec" aria-hidden="true" />
-                <span className="text-text-secondary">High Sec (0.5 - 1.0)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-low-sec" aria-hidden="true" />
-                <span className="text-text-secondary">Low Sec (0.1 - 0.4)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-null-sec" aria-hidden="true" />
-                <span className="text-text-secondary">Null Sec (0.0 and below)</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="h-3 w-3 rounded-full border-2 border-yellow-500" aria-hidden="true" />
-                <span className="text-text-secondary">Trade Hub</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-4 border border-cyan-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
-                <span className="text-text-secondary">Thera Connection</span>
-              </div>
-            </div>
-          </CollapsibleSection>
+          {sidebarContent}
         </aside>
       </div>
     </div>

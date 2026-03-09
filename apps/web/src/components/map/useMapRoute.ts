@@ -73,6 +73,12 @@ export interface UseMapRouteResult {
   /** Routes formatted for MapRoute overlay */
   mapRoutes: MapRoute[];
 
+  /** Avoid systems */
+  avoidSystems: Set<number>;
+  addAvoidSystem: (systemId: number) => void;
+  removeAvoidSystem: (systemId: number) => void;
+  clearAvoidSystems: () => void;
+
   /** Actions */
   setMode: (mode: RouteSelectionMode) => void;
   setProfile: (profile: RouteProfile) => void;
@@ -117,6 +123,7 @@ export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult
   const [profile, setProfile] = useState<RouteProfile>('safer');
   const [bridges, setBridges] = useState(defaultBridges);
   const [thera, setThera] = useState(defaultThera);
+  const [avoidSystems, setAvoidSystems] = useState<Set<number>>(new Set());
 
   // Build system name lookup
   const systemNameLookup = useMemo(() => {
@@ -325,11 +332,29 @@ export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult
     [mode]
   );
 
+  // Avoid system management
+  const addAvoidSystem = useCallback((systemId: number) => {
+    setAvoidSystems((prev) => new Set(prev).add(systemId));
+  }, []);
+
+  const removeAvoidSystem = useCallback((systemId: number) => {
+    setAvoidSystems((prev) => {
+      const next = new Set(prev);
+      next.delete(systemId);
+      return next;
+    });
+  }, []);
+
+  const clearAvoidSystems = useCallback(() => {
+    setAvoidSystems(new Set());
+  }, []);
+
   // Clear route
   const clearRoute = useCallback(() => {
     setOriginId(null);
     setDestinationId(null);
     setMode('idle');
+    setAvoidSystems(new Set());
   }, []);
 
   // Swap origin and destination
@@ -364,6 +389,11 @@ export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult
 
     comparisons,
     mapRoutes,
+
+    avoidSystems,
+    addAvoidSystem,
+    removeAvoidSystem,
+    clearAvoidSystems,
 
     setMode,
     setProfile,
