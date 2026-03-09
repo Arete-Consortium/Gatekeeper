@@ -61,6 +61,10 @@ function transformMapConfig(config: MapConfig): {
       security: sys.security,
       regionId: sys.region_id,
       constellationId: sys.constellation_id,
+      hub: sys.hub,
+      border: sys.border,
+      spectralClass: sys.spectral_class,
+      npcStations: sys.npc_stations,
     };
     nameToId.set(name, sys.id);
     idToSystem.set(sys.id, mapSystem);
@@ -94,7 +98,7 @@ export default function MapPage() {
     showHeatmap: false,
     showRegionLabels: true,
   });
-  const [colorMode, setColorMode] = useState<'security' | 'risk'>('security');
+  const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>('security');
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showRoutePanel, setShowRoutePanel] = useState(false);
@@ -439,7 +443,7 @@ export default function MapPage() {
               <div className="h-3 w-3 rounded-full bg-gradient-to-r from-high-sec via-low-sec to-null-sec" />
               <span className="text-sm font-medium text-text">Color Mode</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant={colorMode === 'security' ? 'primary' : 'secondary'}
                 size="sm"
@@ -455,6 +459,14 @@ export default function MapPage() {
                 className="flex-1"
               >
                 Risk
+              </Button>
+              <Button
+                variant={colorMode === 'star' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setColorMode('star')}
+                className="flex-1"
+              >
+                Star
               </Button>
             </div>
           </Card>

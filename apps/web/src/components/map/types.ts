@@ -12,6 +12,15 @@ export interface MapSystem {
   security: number;
   regionId: number;
   constellationId: number;
+  // SDE enhancements
+  hub?: boolean;
+  border?: boolean;
+  spectralClass?: string;
+  npcStations?: number;
+  // Live data (populated by overlays)
+  sovAllianceId?: number;
+  sovFactionId?: number;
+  fwContested?: string;
 }
 
 // Gate connection between systems
@@ -106,7 +115,7 @@ export interface UniverseMapProps {
 
   // Display options
   layers?: Partial<MapLayers>;
-  colorMode?: 'security' | 'risk';
+  colorMode?: 'security' | 'risk' | 'star';
 
   // Sizing
   className?: string;
@@ -163,6 +172,21 @@ export function getSecurityColor(security: number): string {
   if (security >= 0.5) return SECURITY_COLORS.highSec;
   if (security > 0) return SECURITY_COLORS.lowSec;
   return SECURITY_COLORS.nullSec;
+}
+
+// Star spectral class colors (astronomically accurate)
+export const SPECTRAL_COLORS: Record<string, string> = {
+  O: '#9bb0ff', // Blue
+  B: '#aabfff', // Blue-white
+  A: '#cad7ff', // White
+  F: '#f8f7ff', // Yellow-white
+  G: '#fff4ea', // Yellow (Sol-like)
+  K: '#ffd2a1', // Orange
+  M: '#ffcc6f', // Red-orange
+} as const;
+
+export function getSpectralColor(spectralClass: string): string {
+  return SPECTRAL_COLORS[spectralClass] || SPECTRAL_COLORS.G;
 }
 
 export function getRiskColor(riskColor: 'green' | 'yellow' | 'orange' | 'red'): string {

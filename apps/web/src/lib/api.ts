@@ -20,6 +20,10 @@ import {
   CreateAlertSubscriptionRequest,
   TestAlertResponse,
   RouteProfile,
+  SovereigntyResponse,
+  FWResponse,
+  SovStructuresResponse,
+  TheraResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -219,6 +223,22 @@ class GatekeeperAPIService {
    */
   async getMapConfig(): Promise<MapConfig> {
     return this.request<MapConfig>('/map/config');
+  }
+
+  async getSovereignty(): Promise<SovereigntyResponse> {
+    return this.request<SovereigntyResponse>('/map/sovereignty');
+  }
+
+  async getFWStatus(): Promise<FWResponse> {
+    return this.request<FWResponse>('/map/fw');
+  }
+
+  async getSovStructures(): Promise<SovStructuresResponse> {
+    return this.request<SovStructuresResponse>('/map/sovereignty/structures');
+  }
+
+  async getTheraConnections(): Promise<TheraResponse> {
+    return this.request<TheraResponse>('/map/thera');
   }
 
   /**

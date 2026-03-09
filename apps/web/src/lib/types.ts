@@ -120,6 +120,29 @@ export interface MapConfigSystem {
   position: { x: number; y: number };
   risk_score: number;
   risk_color: string;
+  // SDE enhancement fields
+  hub: boolean;
+  border: boolean;
+  corridor: boolean;
+  fringe: boolean;
+  spectral_class: string;
+  npc_stations: number;
+}
+
+// Landmark from SDE
+export interface Landmark {
+  id: number;
+  name: string;
+  description: string;
+  system_id: number | null;
+  icon_id: number | null;
+}
+
+// Faction data
+export interface Faction {
+  name: string;
+  home_system_id: number | null;
+  militia_corp_id: number | null;
 }
 
 // Map configuration response from /map/config
@@ -128,6 +151,65 @@ export interface MapConfig {
   systems: Record<string, MapConfigSystem>;
   gates: Gate[];
   layers: Record<string, boolean>;
+  landmarks: Landmark[];
+  factions: Record<string, Faction>;
+}
+
+// Sovereignty data
+export interface SovereigntyEntry {
+  alliance_id: number | null;
+  corporation_id: number | null;
+  faction_id: number | null;
+}
+
+export interface SovereigntyResponse {
+  sovereignty: Record<string, SovereigntyEntry>;
+  alliances: Record<string, { name: string; category: string }>;
+}
+
+// Faction warfare system
+export interface FWSystem {
+  occupier_faction_id: number;
+  owner_faction_id: number;
+  contested: string;
+  victory_points: number;
+  victory_points_threshold: number;
+}
+
+export interface FWResponse {
+  fw_systems: Record<string, FWSystem>;
+}
+
+// Sovereignty structures
+export interface SovStructure {
+  alliance_id: number;
+  structure_type_id: number;
+  vulnerability_occupancy_level: number | null;
+  vulnerable_start_time: string | null;
+  vulnerable_end_time: string | null;
+}
+
+export interface SovStructuresResponse {
+  structures: Record<string, SovStructure[]>;
+}
+
+// EVE Scout Thera connection
+export interface TheraConnection {
+  id: number;
+  source_system_id: number;
+  source_system_name: string;
+  dest_system_id: number;
+  dest_system_name: string;
+  dest_region_name: string;
+  wh_type: string;
+  max_ship_size: string;
+  remaining_hours: number;
+  signature_id: string;
+  completed: boolean;
+}
+
+export interface TheraResponse {
+  connections: TheraConnection[];
 }
 
 // Capital ship data

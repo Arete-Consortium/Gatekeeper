@@ -19,6 +19,16 @@ class System(BaseModel):
     # Station data for jump planning (cyno lighting)
     has_npc_station: bool = False
     station_count: int = 0
+    # SDE classification flags
+    hub: bool = False
+    border: bool = False
+    corridor: bool = False
+    fringe: bool = False
+    luminosity: float = 0.0
+    # Star data
+    spectral_class: str = "G"
+    # NPC station count
+    npc_stations: int = 0
 
 
 class Gate(BaseModel):

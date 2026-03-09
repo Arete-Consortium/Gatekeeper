@@ -320,7 +320,10 @@ export function calculateFitZoom(
 
   const zoomX = (viewportWidth - padding * 2) / (width || 1);
   const zoomY = (viewportHeight - padding * 2) / (height || 1);
-  const zoom = Math.min(zoomX, zoomY);
+  // On wide viewports, prefer fitting to width so the map fills the screen
+  // Users can scroll vertically to see the full extent
+  const isWide = viewportWidth / viewportHeight > 1.2;
+  const zoom = isWide ? Math.max(zoomX * 0.85, zoomY) : Math.min(zoomX, zoomY);
 
   return { x: centerX, y: centerY, zoom: Math.max(zoom, 0.01) };
 }

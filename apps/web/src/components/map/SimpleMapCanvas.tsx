@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion } from './types';
-import { getSecurityColor } from './types';
+import { getSecurityColor, getSpectralColor } from './types';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 20;
@@ -27,7 +27,7 @@ interface SimpleMapCanvasProps {
   onSystemClick?: (systemId: number) => void;
   onSystemHover?: (systemId: number | null) => void;
   layers: MapLayers;
-  colorMode: 'security' | 'risk';
+  colorMode: 'security' | 'risk' | 'star';
   regions?: MapRegion[];
 }
 
@@ -163,10 +163,14 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
       const isHighlighted = highlightedSet.has(system.systemId);
       const isSelected = system.systemId === selectedSystem;
-      const color = getSecurityColor(system.security);
-      // Scale radius: smaller when zoomed out to show structure, larger when zoomed in
+      const color = colorMode === 'star'
+        ? getSpectralColor(system.spectralClass || 'G')
+        : getSecurityColor(system.security);
+      // Scale radius: hubs are larger, scale with zoom
+      const isHub = system.hub || (system.npcStations && system.npcStations >= 5);
       const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 2)));
-      const radius = isSelected ? baseRadius * 2 : baseRadius;
+      const hubBonus = isHub ? baseRadius * 0.8 : 0;
+      const radius = isSelected ? (baseRadius + hubBonus) * 2 : baseRadius + hubBonus;
 
       // Draw highlight glow for search results
       if (isHighlighted) {
