@@ -236,6 +236,8 @@ export default function MapPage() {
     setBridges: setRouteBridges,
     setThera: setRouteThera,
     selectSystem: selectRouteSystem,
+    setOrigin: setRouteOrigin,
+    setDestination: setRouteDestination,
     clearRoute,
     swapOriginDestination,
     getSystemName,
@@ -267,6 +269,23 @@ export default function MapPage() {
     const lowerQuery = searchQuery.toLowerCase();
     return systems.filter((s) => s.name.toLowerCase().includes(lowerQuery));
   }, [systems, searchQuery]);
+
+  // === Context Menu Handlers ===
+
+  const handleSetRouteOrigin = useCallback((systemId: number) => {
+    setRouteOrigin(systemId);
+    setShowRoutePanel(true);
+  }, [setRouteOrigin]);
+
+  const handleSetRouteDestination = useCallback((systemId: number) => {
+    setRouteDestination(systemId);
+    setShowRoutePanel(true);
+  }, [setRouteDestination]);
+
+  const handleAvoidSystem = useCallback((systemId: number) => {
+    // TODO: Wire to route avoidance list when useMapRoute supports it
+    console.log('Avoid system:', systemId);
+  }, []);
 
   // === Handlers ===
 
@@ -434,6 +453,9 @@ export default function MapPage() {
                 colorMode={colorMode}
                 selectedSystem={selectedSystem}
                 onSystemClick={handleSystemSelect}
+                onSetRouteOrigin={handleSetRouteOrigin}
+                onSetRouteDestination={handleSetRouteDestination}
+                onAvoidSystem={handleAvoidSystem}
               />
 
               {/* Route Controls Panel */}

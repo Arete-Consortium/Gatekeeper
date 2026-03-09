@@ -416,13 +416,20 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     [viewport, onViewportChange, screenToWorld]
   );
 
+  // Helper: update cursor directly on the canvas element (avoids re-render)
+  const setCursor = useCallback((cursor: string) => {
+    const canvas = canvasRef.current;
+    if (canvas) canvas.style.cursor = cursor;
+  }, []);
+
   // Mouse down - start drag
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 2) return; // Right-click handled by context menu
     isDraggingRef.current = true;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
+    setCursor('grabbing');
     setContextMenu(null);
-  }, []);
+  }, [setCursor]);
 
   // Mouse move - drag pan + hover
   const handleMouseMove = useCallback(
@@ -439,13 +446,14 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       } else {
         // Hover detection using quadtree (#6)
         const rect = canvasRef.current?.getBoundingClientRect();
-        if (rect && onSystemHover) {
+        if (rect) {
           const system = findSystemAt(e.clientX - rect.left, e.clientY - rect.top);
-          onSystemHover(system?.systemId ?? null);
+          setCursor(system ? 'pointer' : 'grab');
+          onSystemHover?.(system?.systemId ?? null);
         }
       }
     },
-    [viewport, onViewportChange, findSystemAt, onSystemHover]
+    [viewport, onViewportChange, findSystemAt, onSystemHover, setCursor]
   );
 
   // Mouse up - end drag or click
@@ -453,6 +461,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     (e: React.MouseEvent) => {
       if (isDraggingRef.current) {
         isDraggingRef.current = false;
+        setCursor('grab');
 
         // If didn't move much, treat as click
         const dx = Math.abs(e.clientX - dragStartRef.current.x);
@@ -468,7 +477,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         }
       }
     },
-    [onSystemClick, findSystemAt]
+    [onSystemClick, findSystemAt, setCursor]
   );
 
   // Right-click context menu (#10)
@@ -493,13 +502,6 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     [findSystemAt]
   );
 
-  // Determine cursor
-  const cursorStyle = isDraggingRef.current
-    ? 'grabbing'
-    : hoveredSystemId
-      ? 'pointer'
-      : 'grab';
-
   return (
     <div className="relative w-full h-full">
       <canvas
@@ -512,10 +514,11 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         onMouseUp={handleMouseUp}
         onMouseLeave={() => {
           isDraggingRef.current = false;
+          setCursor('grab');
           onSystemHover?.(null);
         }}
         onContextMenu={handleContextMenu}
-        style={{ cursor: cursorStyle }}
+        style={{ cursor: 'grab' }}
         className="w-full h-full"
       />
 
