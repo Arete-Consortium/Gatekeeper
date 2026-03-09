@@ -186,7 +186,6 @@ def get_state_count() -> int:
 DEFAULT_SCOPES = [
     "esi-location.read_location.v1",  # Current system
     "esi-ui.write_waypoint.v1",  # Set autopilot
-    "esi-characters.read_standings.v1",  # Faction standings for route safety
     "esi-search.search_structures.v1",  # Search for structures
 ]
 
