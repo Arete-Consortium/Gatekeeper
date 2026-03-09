@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import { Navbar } from '@/components/layout';
 import { Providers } from '@/components/Providers';
 import '@/styles/globals.css';
@@ -26,6 +27,7 @@ export default function RootLayout({
           <Navbar />
           <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );

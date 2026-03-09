@@ -20,6 +20,9 @@ async def map_config() -> dict:
         systems_payload[name] = {
             "id": sys.id,
             "region_id": sys.region_id,
+            "region_name": sys.region_name,
+            "constellation_id": sys.constellation_id,
+            "constellation_name": sys.constellation_name,
             "security": sys.security,
             "category": sys.category,
             "position": sys.position.dict(),
