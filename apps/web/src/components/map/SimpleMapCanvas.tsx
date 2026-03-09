@@ -9,13 +9,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion } from './types';
 import { getSecurityColor } from './types';
 
-const MIN_ZOOM = 0.01;
-const MAX_ZOOM = 5;
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 50;
 const SYSTEM_RADIUS = 3;
 
 // Zoom thresholds for showing different label types
-const REGION_LABEL_MAX_ZOOM = 0.15; // Show region labels when zoomed out
-const SYSTEM_LABEL_MIN_ZOOM = 0.3; // Show system labels when zoomed in
+const REGION_LABEL_MAX_ZOOM = 3; // Show region labels when zoomed out
+const SYSTEM_LABEL_MIN_ZOOM = 8; // Show system labels when zoomed in
 
 interface SimpleMapCanvasProps {
   systems: MapSystem[];
@@ -120,8 +120,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
     // Draw gates
     if (layers.showGates) {
-      ctx.strokeStyle = '#222222';
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = '#4a5568';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.6;
       ctx.beginPath();
 
       for (const gate of gates) {
@@ -144,6 +145,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       }
 
       ctx.stroke();
+      ctx.globalAlpha = 1.0;
     }
 
     // Draw systems
@@ -162,7 +164,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       const isHighlighted = highlightedSet.has(system.systemId);
       const isSelected = system.systemId === selectedSystem;
       const color = getSecurityColor(system.security);
-      const radius = isSelected ? SYSTEM_RADIUS * 2 : SYSTEM_RADIUS;
+      // Scale radius: smaller when zoomed out to show structure, larger when zoomed in
+      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 8)));
+      const radius = isSelected ? baseRadius * 2 : baseRadius;
 
       // Draw highlight glow for search results
       if (isHighlighted) {
@@ -201,8 +205,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     // Draw region labels when zoomed out
     if (layers.showRegionLabels && viewport.zoom < REGION_LABEL_MAX_ZOOM && regions.length > 0) {
       ctx.save();
-      // Scale font size based on zoom - larger when zoomed out more
-      const fontSize = Math.max(14, Math.min(24, 3 / viewport.zoom));
+      // Scale font size inversely with zoom so labels stay readable
+      const fontSize = Math.max(12, Math.min(20, 60 / viewport.zoom));
       ctx.font = `bold ${fontSize}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

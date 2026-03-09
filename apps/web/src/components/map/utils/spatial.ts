@@ -320,7 +320,7 @@ export function calculateFitZoom(
 
   const zoomX = (viewportWidth - padding * 2) / (width || 1);
   const zoomY = (viewportHeight - padding * 2) / (height || 1);
-  const zoom = Math.min(zoomX, zoomY, 2); // Cap at 2x zoom
+  const zoom = Math.min(zoomX, zoomY);
 
   return { x: centerX, y: centerY, zoom: Math.max(zoom, 0.01) };
 }
