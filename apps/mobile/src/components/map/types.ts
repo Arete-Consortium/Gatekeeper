@@ -10,7 +10,9 @@ export interface MapNode {
   security: number;
   category: string;
   regionId: number;
+  regionName: string;
   constellationId: number;
+  constellationName: string;
   riskScore: number;
   riskColor: string;
 }
@@ -51,6 +53,14 @@ export interface RegionCentroid {
   systemCount: number;
 }
 
+export interface ConstellationCentroid {
+  constellationId: number;
+  name: string;
+  x: number;
+  y: number;
+  systemCount: number;
+}
+
 /** Response shape from /map/config backend endpoint */
 export interface MapConfigResponse {
   metadata: {
@@ -63,11 +73,11 @@ export interface MapConfigResponse {
     {
       id: number;
       region_id: number;
+      region_name: string;
+      constellation_id: number;
+      constellation_name: string;
       security: number;
       category: string;
-      constellation_id?: number;
-      region_name?: string;
-      constellation_name?: string;
       position: { x: number; y: number };
       risk_score: number;
       risk_color: string;

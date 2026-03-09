@@ -35,8 +35,8 @@
       "expo-web-browser"
     ],
     "extra": {
-      "GATEKEEPER_URL": "http://localhost:8000",
-      "ESI_CLIENT_ID": "",
+      "GATEKEEPER_URL": "https://eve-gatekeeper.fly.dev",
+      "ESI_CLIENT_ID": "e6fb3263b31a485496d5fd783be8454b",
       "ESI_CALLBACK_URL": "evegatekeeper://auth"
     }
   }

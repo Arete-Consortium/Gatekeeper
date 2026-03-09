@@ -1,7 +1,7 @@
 /**
  * Full-screen map of New Eden with pan/zoom, system tap, and route overlay.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,10 @@ import {
 import { useNavigation, useRoute as useNavRoute } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { SkiaMap, SystemInfoPanel } from '../components/map';
-import type { MapNode } from '../components/map';
+import type { MapNode, SkiaMapHandle } from '../components/map';
+import type { ColorMode } from '../components/map/MapSystems';
 import { useMapData } from '../hooks/useMapData';
+import { useHotSystems } from '../hooks/useHotSystems';
 import { THEME } from '../config';
 import type { RootStackParamList } from '../navigation/types';
 import type { RouteResponse } from '../types';
@@ -29,13 +31,39 @@ export default function MapScreen() {
   const navRoute = useNavRoute();
   const routeParam = (navRoute.params as { route?: RouteResponse })?.route;
 
-  const { nodes, edges, spatialIndex, regionCentroids, systemNameMap, isLoading, error } =
+  const mapRef = useRef<SkiaMapHandle>(null);
+
+  const { nodes, edges, spatialIndex, regionCentroids, constellationCentroids, systemNameMap, isLoading, error } =
     useMapData();
+
+  const hotSystems = useHotSystems();
+
+  // Auto-fit viewport to route when arriving from RouteScreen
+  const hasAutoFit = useRef(false);
+  useEffect(() => {
+    if (hasAutoFit.current || !routeParam?.path || !systemNameMap.size) return;
+    hasAutoFit.current = true;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const hop of routeParam.path) {
+      const node = systemNameMap.get(hop.system_name);
+      if (!node) continue;
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x);
+      maxY = Math.max(maxY, node.y);
+    }
+    if (minX < Infinity) {
+      // Delay slightly so SkiaMap has mounted
+      setTimeout(() => mapRef.current?.fitBounds(minX, minY, maxX, maxY), 100);
+    }
+  }, [routeParam, systemNameMap]);
 
   const [selectedSystem, setSelectedSystem] = useState<MapNode | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<MapNode[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [colorMode, setColorMode] = useState<ColorMode>('security');
 
   const handleSystemTap = useCallback((system: MapNode) => {
     setSelectedSystem(system);
@@ -67,6 +95,7 @@ export default function MapScreen() {
     setSearchText('');
     setSearchResults([]);
     setShowSearch(false);
+    mapRef.current?.focusSystem(system.x, system.y);
   }, []);
 
   const handleRouteFrom = useCallback(
@@ -111,10 +140,14 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       <SkiaMap
+        ref={mapRef}
         nodes={nodes}
         edges={edges}
         spatialIndex={spatialIndex}
         regionCentroids={regionCentroids}
+        constellationCentroids={constellationCentroids}
+        colorMode={colorMode}
+        hotSystems={hotSystems}
         systemNameMap={systemNameMap}
         route={routeParam?.path}
         onSystemTap={handleSystemTap}
@@ -130,12 +163,22 @@ export default function MapScreen() {
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.searchToggle}
-            onPress={() => setShowSearch(!showSearch)}
-          >
-            <Text style={styles.searchIcon}>Search</Text>
-          </TouchableOpacity>
+          <View style={styles.topBarRight}>
+            <TouchableOpacity
+              style={styles.colorToggle}
+              onPress={() => setColorMode((m) => m === 'security' ? 'risk' : 'security')}
+            >
+              <Text style={styles.colorToggleText}>
+                {colorMode === 'security' ? 'SEC' : 'RISK'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.searchToggle}
+              onPress={() => setShowSearch(!showSearch)}
+            >
+              <Text style={styles.searchIcon}>Search</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {showSearch && (
@@ -185,6 +228,27 @@ export default function MapScreen() {
             )}
           </KeyboardAvoidingView>
         )}
+      </View>
+
+      {/* Route stats overlay */}
+      {routeParam && routeParam.path && (
+        <View style={styles.routeStats}>
+          <Text style={styles.routeStatsTitle}>Route</Text>
+          <Text style={styles.routeStatsValue}>
+            {routeParam.total_jumps} jumps
+          </Text>
+          <Text style={styles.routeStatsRisk}>
+            Avg risk: {routeParam.avg_risk.toFixed(1)} | Max: {routeParam.max_risk.toFixed(1)}
+          </Text>
+        </View>
+      )}
+
+      {/* System count badge */}
+      <View style={styles.countBadge}>
+        <Text style={styles.countText}>
+          {nodes.length.toLocaleString()} systems
+          {hotSystems.size > 0 ? ` | ${hotSystems.size} active` : ''}
+        </Text>
       </View>
 
       {/* System info panel */}
@@ -303,5 +367,63 @@ const styles = StyleSheet.create({
   searchResultSecurity: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  colorToggle: {
+    backgroundColor: THEME.colors.card + 'DD',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  colorToggleText: {
+    color: THEME.colors.text,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  routeStats: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: THEME.colors.card + 'EE',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.colors.primary + '40',
+  },
+  routeStatsTitle: {
+    color: THEME.colors.textSecondary,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  routeStatsValue: {
+    color: THEME.colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  routeStatsRisk: {
+    color: THEME.colors.riskYellow,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  countBadge: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    backgroundColor: THEME.colors.card + 'CC',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  countText: {
+    color: THEME.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '500',
   },
 });

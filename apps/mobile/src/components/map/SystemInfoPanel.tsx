@@ -74,7 +74,7 @@ export function SystemInfoPanel({
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Region</Text>
-          <Text style={styles.statValue}>{system.regionId}</Text>
+          <Text style={styles.statValue}>{system.regionName || system.regionId}</Text>
         </View>
       </View>
 

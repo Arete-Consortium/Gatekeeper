@@ -12,7 +12,7 @@ const getEnvVar = (key: string, fallback: string = ''): string => {
 // API Configuration
 export const API_CONFIG = {
   // Gatekeeper FastAPI backend URL
-  GATEKEEPER_URL: getEnvVar('GATEKEEPER_URL', 'http://localhost:8000'),
+  GATEKEEPER_URL: getEnvVar('GATEKEEPER_URL', 'https://eve-gatekeeper.fly.dev'),
 
   // ESI (EVE Swagger Interface) API
   ESI_BASE_URL: 'https://esi.evetech.net/latest',

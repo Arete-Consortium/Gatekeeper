@@ -41,6 +41,7 @@
     "expo-auth-session": "~7.0.10",
     "expo-constants": "~18.0.12",
     "expo-crypto": "~15.0.8",
+    "expo-dev-client": "~6.0.20",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.10",
     "react": "19.1.0",

@@ -16,7 +16,8 @@ import {
   Platform,
   Switch,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import { GatekeeperAPI } from '../services/GatekeeperAPI';
 import { RouteResponse } from '../types';
 import { RouteList } from '../components/RouteList';
@@ -31,6 +32,7 @@ type ProfileKey = 'shortest' | 'safer' | 'paranoid';
 
 export const RouteScreen: React.FC = () => {
   const route = useRoute<RouteScreenRouteProp>();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -260,6 +262,12 @@ export const RouteScreen: React.FC = () => {
           <View style={styles.resultSection}>
             <Text style={styles.sectionTitle}>Route Result</Text>
             <RouteList route={routeResult} />
+            <TouchableOpacity
+              style={styles.showOnMapButton}
+              onPress={() => navigation.navigate('Map', { route: routeResult })}
+            >
+              <Text style={styles.showOnMapText}>Show on Map</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -412,6 +420,18 @@ const styles = StyleSheet.create({
   },
   resultSection: {
     flex: 1,
+  },
+  showOnMapButton: {
+    marginTop: THEME.spacing.md,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: THEME.borderRadius.md,
+    padding: THEME.spacing.md,
+    alignItems: 'center',
+  },
+  showOnMapText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   shipProfileHeader: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import type {
   MapNode,
   MapEdge,
   RegionCentroid,
+  ConstellationCentroid,
   MapConfigResponse,
 } from '../components/map/types';
 
@@ -20,6 +21,7 @@ interface MapData {
   edges: MapEdge[];
   spatialIndex: SpatialIndex;
   regionCentroids: RegionCentroid[];
+  constellationCentroids: ConstellationCentroid[];
   systemNameMap: Map<string, MapNode>;
   isLoading: boolean;
   error: string | null;
@@ -29,6 +31,7 @@ function processMapConfig(raw: MapConfigResponse): {
   nodes: MapNode[];
   edges: MapEdge[];
   regionCentroids: RegionCentroid[];
+  constellationCentroids: ConstellationCentroid[];
   systemNameMap: Map<string, MapNode>;
 } {
   const nodes: MapNode[] = [];
@@ -45,7 +48,9 @@ function processMapConfig(raw: MapConfigResponse): {
       security: sys.security,
       category: sys.category,
       regionId: sys.region_id,
+      regionName: sys.region_name || '',
       constellationId: sys.constellation_id ?? 0,
+      constellationName: sys.constellation_name || '',
       riskScore: sys.risk_score,
       riskColor: sys.risk_color,
     };
@@ -86,7 +91,7 @@ function processMapConfig(raw: MapConfigResponse): {
       group.count++;
     } else {
       regionGroups.set(node.regionId, {
-        name: `Region ${node.regionId}`,
+        name: node.regionName || `Region ${node.regionId}`,
         sumX: node.x,
         sumY: node.y,
         count: 1,
@@ -105,7 +110,40 @@ function processMapConfig(raw: MapConfigResponse): {
     });
   }
 
-  return { nodes, edges, regionCentroids, systemNameMap };
+  // Compute constellation centroids
+  const constGroups = new Map<
+    number,
+    { name: string; sumX: number; sumY: number; count: number }
+  >();
+  for (const node of nodes) {
+    if (!node.constellationId) continue;
+    const group = constGroups.get(node.constellationId);
+    if (group) {
+      group.sumX += node.x;
+      group.sumY += node.y;
+      group.count++;
+    } else {
+      constGroups.set(node.constellationId, {
+        name: node.constellationName || `Constellation ${node.constellationId}`,
+        sumX: node.x,
+        sumY: node.y,
+        count: 1,
+      });
+    }
+  }
+
+  const constellationCentroids: ConstellationCentroid[] = [];
+  for (const [constellationId, group] of constGroups) {
+    constellationCentroids.push({
+      constellationId,
+      name: group.name,
+      x: group.sumX / group.count,
+      y: group.sumY / group.count,
+      systemCount: group.count,
+    });
+  }
+
+  return { nodes, edges, regionCentroids, constellationCentroids, systemNameMap };
 }
 
 export function useMapData(): MapData {
@@ -171,6 +209,7 @@ export function useMapData(): MapData {
       edges: [],
       spatialIndex: new SpatialIndex([]),
       regionCentroids: [],
+      constellationCentroids: [],
       systemNameMap: new Map(),
       isLoading,
       error,
@@ -182,6 +221,7 @@ export function useMapData(): MapData {
     edges: processed.edges,
     spatialIndex,
     regionCentroids: processed.regionCentroids,
+    constellationCentroids: processed.constellationCentroids,
     systemNameMap: processed.systemNameMap,
     isLoading,
     error,

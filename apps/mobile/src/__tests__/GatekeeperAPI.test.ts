@@ -202,7 +202,7 @@ describe('GatekeeperAPI', () => {
 
       const result = await GatekeeperAPI.getRouteHistory(5);
       expect(result).toEqual(historyData);
-      expect(mockGet).toHaveBeenCalledWith('/route/history', { params: { limit: 5 } });
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/route/history', { params: { limit: 5 } });
     });
 
     it('should use default limit', async () => {
@@ -210,7 +210,7 @@ describe('GatekeeperAPI', () => {
       (GatekeeperAPI as any).client = { get: mockGet, post: jest.fn(), defaults: { baseURL: '' } };
 
       await GatekeeperAPI.getRouteHistory();
-      expect(mockGet).toHaveBeenCalledWith('/route/history', { params: { limit: 10 } });
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/route/history', { params: { limit: 10 } });
     });
   });
 
@@ -222,7 +222,7 @@ describe('GatekeeperAPI', () => {
 
       const result = await GatekeeperAPI.getSystemStats('Tama', 12);
       expect(result).toEqual(statsData);
-      expect(mockGet).toHaveBeenCalledWith('/stats/system/Tama', { params: { hours: 12 } });
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/stats/system/Tama', { params: { hours: 12 } });
     });
   });
 
@@ -239,7 +239,7 @@ describe('GatekeeperAPI', () => {
 
       const result = await GatekeeperAPI.getBulkStats(['Jita', 'Amarr'], 24);
       expect(result).toEqual(bulkData.stats);
-      expect(mockPost).toHaveBeenCalledWith('/stats/bulk', {
+      expect(mockPost).toHaveBeenCalledWith('/api/v1/stats/bulk', {
         systems: ['Jita', 'Amarr'],
         hours: 24,
       });
@@ -259,7 +259,7 @@ describe('GatekeeperAPI', () => {
 
       const result = await GatekeeperAPI.getHotSystems(48, 5);
       expect(result).toEqual(hotData.systems);
-      expect(mockGet).toHaveBeenCalledWith('/stats/hot', { params: { hours: 48, limit: 5 } });
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/stats/hot', { params: { hours: 48, limit: 5 } });
     });
   });
 
