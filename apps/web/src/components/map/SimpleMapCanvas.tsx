@@ -10,12 +10,12 @@ import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion } from './ty
 import { getSecurityColor } from './types';
 
 const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 50;
+const MAX_ZOOM = 20;
 const SYSTEM_RADIUS = 3;
 
 // Zoom thresholds for showing different label types
-const REGION_LABEL_MAX_ZOOM = 3; // Show region labels when zoomed out
-const SYSTEM_LABEL_MIN_ZOOM = 8; // Show system labels when zoomed in
+const REGION_LABEL_MAX_ZOOM = 2; // Show region labels when zoomed out
+const SYSTEM_LABEL_MIN_ZOOM = 4; // Show system labels when zoomed in
 
 interface SimpleMapCanvasProps {
   systems: MapSystem[];
@@ -165,7 +165,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       const isSelected = system.systemId === selectedSystem;
       const color = getSecurityColor(system.security);
       // Scale radius: smaller when zoomed out to show structure, larger when zoomed in
-      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 8)));
+      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 2)));
       const radius = isSelected ? baseRadius * 2 : baseRadius;
 
       // Draw highlight glow for search results
@@ -206,12 +206,12 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     if (layers.showRegionLabels && viewport.zoom < REGION_LABEL_MAX_ZOOM && regions.length > 0) {
       ctx.save();
       // Scale font size inversely with zoom so labels stay readable
-      const fontSize = Math.max(12, Math.min(20, 60 / viewport.zoom));
-      ctx.font = `bold ${fontSize}px Arial`;
+      const fontSize = Math.max(10, Math.min(16, 14 / viewport.zoom));
+      ctx.font = `600 ${fontSize}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#ffffff';
-      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = '#94a3b8';
+      ctx.globalAlpha = 0.5;
 
       for (const region of regions) {
         const screen = worldToScreen(region.centerX, region.centerY);

@@ -53,6 +53,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
     {
       systems,
       gates,
+      regionNames,
       routes = [],
       kills = [],
       risks = [],
@@ -81,8 +82,8 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
 
     // Calculate region centers for labels
     const regions = useMemo(
-      () => calculateRegionCenters(systems),
-      [systems]
+      () => calculateRegionCenters(systems, regionNames),
+      [systems, regionNames]
     );
 
     // Viewport state

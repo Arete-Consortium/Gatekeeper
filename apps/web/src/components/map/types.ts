@@ -88,6 +88,7 @@ export interface UniverseMapProps {
   // Data
   systems: MapSystem[];
   gates: MapGate[];
+  regionNames?: Map<number, string>;
 
   // Optional overlays
   routes?: MapRoute[];

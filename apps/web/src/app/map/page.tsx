@@ -45,9 +45,11 @@ function transformMapConfig(config: MapConfig): {
   systems: MapSystem[];
   gates: MapGate[];
   systemMap: globalThis.Map<number, MapSystem>;
+  regionNames: globalThis.Map<number, string>;
 } {
   const nameToId = new globalThis.Map<string, number>();
   const idToSystem = new globalThis.Map<number, MapSystem>();
+  const regionNames = new globalThis.Map<number, string>();
   const mapSystems: MapSystem[] = [];
 
   for (const [name, sys] of Object.entries(config.systems)) {
@@ -63,6 +65,11 @@ function transformMapConfig(config: MapConfig): {
     nameToId.set(name, sys.id);
     idToSystem.set(sys.id, mapSystem);
     mapSystems.push(mapSystem);
+
+    // Collect region names
+    if (sys.region_name && !regionNames.has(sys.region_id)) {
+      regionNames.set(sys.region_id, sys.region_name);
+    }
   }
 
   const mapGates: MapGate[] = [];
@@ -74,7 +81,7 @@ function transformMapConfig(config: MapConfig): {
     }
   }
 
-  return { systems: mapSystems, gates: mapGates, systemMap: idToSystem };
+  return { systems: mapSystems, gates: mapGates, systemMap: idToSystem, regionNames };
 }
 
 export default function MapPage() {
@@ -104,11 +111,12 @@ export default function MapPage() {
   });
 
   // Transform data for the map
-  const { systems, gates, systemMap } = useMemo(() => {
+  const { systems, gates, systemMap, regionNames } = useMemo(() => {
     if (!mapConfig) return {
       systems: [] as MapSystem[],
       gates: [] as MapGate[],
       systemMap: new globalThis.Map<number, MapSystem>(),
+      regionNames: new globalThis.Map<number, string>(),
     };
     return transformMapConfig(mapConfig);
   }, [mapConfig]);
@@ -335,6 +343,7 @@ export default function MapPage() {
                 ref={mapRef}
                 systems={systems}
                 gates={gates}
+                regionNames={regionNames}
                 routes={mapRoutes}
                 kills={kills}
                 risks={risks}
