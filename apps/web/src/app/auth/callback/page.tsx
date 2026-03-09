@@ -40,7 +40,8 @@ function AuthCallbackContent() {
 
       try {
         const response = await fetch(
-          `${apiUrl}/api/v1/auth/jwt?character_id=${encodeURIComponent(characterId)}`
+          `${apiUrl}/api/v1/auth/token?character_id=${encodeURIComponent(characterId)}`,
+          { method: 'POST' }
         );
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));

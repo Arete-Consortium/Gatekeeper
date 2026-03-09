@@ -104,5 +104,5 @@ export function userFromToken(token: string): AuthUser | null {
  */
 export function getLoginUrl(): string {
   const apiUrl = localStorage.getItem('gatekeeper_api_url') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  return `${apiUrl}/api/v1/auth/login`;
+  return `${apiUrl}/api/v1/auth/login/redirect`;
 }
