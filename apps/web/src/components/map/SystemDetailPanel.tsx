@@ -128,7 +128,7 @@ export function SystemDetailPanel({
         </div>
         <button
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-300 text-lg leading-none"
+          className="text-gray-500 hover:text-gray-300 active:text-white text-lg leading-none p-2 -m-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close system detail"
         >
           &times;
@@ -169,7 +169,7 @@ export function SystemDetailPanel({
           {onSetOrigin && (
             <button
               onClick={() => onSetOrigin(system.systemId)}
-              className="flex-1 text-xs py-1.5 bg-green-900/40 hover:bg-green-800/50 border border-green-700/50 rounded text-green-400 transition-colors"
+              className="flex-1 text-sm py-2.5 bg-green-900/40 hover:bg-green-800/50 active:bg-green-700/50 border border-green-700/50 rounded-lg text-green-400 transition-colors font-medium"
             >
               Set as Origin
             </button>
@@ -177,7 +177,7 @@ export function SystemDetailPanel({
           {onSetDestination && (
             <button
               onClick={() => onSetDestination(system.systemId)}
-              className="flex-1 text-xs py-1.5 bg-blue-900/40 hover:bg-blue-800/50 border border-blue-700/50 rounded text-blue-400 transition-colors"
+              className="flex-1 text-sm py-2.5 bg-blue-900/40 hover:bg-blue-800/50 active:bg-blue-700/50 border border-blue-700/50 rounded-lg text-blue-400 transition-colors font-medium"
             >
               Set as Destination
             </button>
@@ -285,7 +285,7 @@ export function SystemDetailPanel({
             <button
               key={n.systemId}
               onClick={() => onSystemClick?.(n.systemId)}
-              className="w-full flex items-center justify-between text-xs py-0.5 hover:bg-gray-700/30 rounded px-1 -mx-1"
+              className="w-full flex items-center justify-between text-sm py-2 hover:bg-gray-700/30 active:bg-gray-600/40 rounded-lg px-2 -mx-1"
             >
               <span className="text-gray-200">{n.name}</span>
               <span className={`font-mono ${
@@ -304,7 +304,7 @@ export function SystemDetailPanel({
           href={`https://zkillboard.com/system/${system.systemId}/`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 text-center text-xs py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-orange-400 transition-colors"
+          className="flex-1 text-center text-sm py-2.5 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 rounded-lg text-orange-400 transition-colors font-medium"
         >
           zKillboard
         </a>
@@ -312,7 +312,7 @@ export function SystemDetailPanel({
           href={`https://evemaps.dotlan.net/system/${encodeURIComponent(system.name)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 text-center text-xs py-1.5 bg-gray-800 hover:bg-gray-700 rounded text-blue-400 transition-colors"
+          className="flex-1 text-center text-sm py-2.5 bg-gray-800 hover:bg-gray-700 active:bg-gray-600 rounded-lg text-blue-400 transition-colors font-medium"
         >
           Dotlan
         </a>

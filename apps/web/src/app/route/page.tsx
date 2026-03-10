@@ -79,7 +79,7 @@ function RoutePageContent() {
       <Card>
         <div className="space-y-4">
           {/* From/To with Swap */}
-          <div className="flex gap-4 items-end">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-end">
             <div className="flex-1" onKeyDown={handleKeyDown}>
               <SystemSearch
                 label="From"
@@ -92,10 +92,10 @@ function RoutePageContent() {
             <button
               type="button"
               onClick={handleSwap}
-              className="p-2 mb-1 text-text-secondary hover:text-primary transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+              className="self-center p-3 sm:p-2 sm:mb-1 text-text-secondary hover:text-primary transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
               aria-label="Swap origin and destination systems"
             >
-              <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />
+              <ArrowRightLeft className="h-5 w-5 rotate-90 sm:rotate-0" aria-hidden="true" />
             </button>
 
             <div className="flex-1" onKeyDown={handleKeyDown}>

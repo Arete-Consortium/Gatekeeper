@@ -74,6 +74,13 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   const quadtreeRef = useRef<Quadtree | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
+  // Touch state refs
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(1);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isTouchDraggingRef = useRef(false);
+
   // Cache canvas context on mount
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -534,6 +541,145 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     [onSystemClick, findSystemAt, setCursor]
   );
 
+  // === Touch Event Handlers ===
+
+  const getTouchDistance = useCallback((t1: React.Touch, t2: React.Touch) => {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const getTouchCenter = useCallback((t1: React.Touch, t2: React.Touch) => ({
+    x: (t1.clientX + t2.clientX) / 2,
+    y: (t1.clientY + t2.clientY) / 2,
+  }), []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setContextMenu(null);
+
+    if (e.touches.length === 2) {
+      // Pinch zoom start
+      e.preventDefault();
+      pinchStartDistRef.current = getTouchDistance(e.touches[0], e.touches[1]);
+      pinchStartZoomRef.current = viewport.zoom;
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      isTouchDraggingRef.current = false;
+
+      // Long-press for context menu (500ms)
+      longPressTimerRef.current = setTimeout(() => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect || !touchStartRef.current) return;
+        const system = findSystemAt(
+          touchStartRef.current.x - rect.left,
+          touchStartRef.current.y - rect.top
+        );
+        if (system) {
+          setContextMenu({
+            x: touchStartRef.current.x - rect.left,
+            y: touchStartRef.current.y - rect.top,
+            systemId: system.systemId,
+            systemName: system.name,
+          });
+          // Prevent the touch from also being a drag
+          isTouchDraggingRef.current = false;
+          touchStartRef.current = null;
+        }
+      }, 500);
+    }
+  }, [viewport.zoom, getTouchDistance, findSystemAt]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+      // Pinch zoom
+      e.preventDefault();
+      const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+      const scale = currentDist / pinchStartDistRef.current;
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchStartZoomRef.current * scale));
+
+      // Zoom towards pinch center
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const center = getTouchCenter(e.touches[0], e.touches[1]);
+        const cx = center.x - rect.left;
+        const cy = center.y - rect.top;
+        const worldBefore = screenToWorld(cx, cy);
+        const newX = worldBefore.x - (cx - viewport.width / 2) / newZoom;
+        const newY = worldBefore.y - (cy - viewport.height / 2) / newZoom;
+        onViewportChange({ ...viewport, x: newX, y: newY, zoom: newZoom });
+      }
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragStartRef.current.x;
+      const dy = touch.clientY - dragStartRef.current.y;
+
+      // Cancel long-press if moved more than 10px
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+        isTouchDraggingRef.current = true;
+      }
+
+      if (isTouchDraggingRef.current) {
+        e.preventDefault();
+        onViewportChange({
+          ...viewport,
+          x: viewport.x - dx / viewport.zoom,
+          y: viewport.y - dy / viewport.zoom,
+        });
+        dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+      }
+    }
+  }, [viewport, onViewportChange, getTouchDistance, getTouchCenter, screenToWorld]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    // Reset pinch state
+    if (e.touches.length < 2) {
+      pinchStartDistRef.current = null;
+    }
+
+    // Tap to select (short touch, didn't drag)
+    if (
+      e.touches.length === 0 &&
+      touchStartRef.current &&
+      !isTouchDraggingRef.current &&
+      Date.now() - touchStartRef.current.time < 300
+    ) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        const system = findSystemAt(
+          touchStartRef.current.x - rect.left,
+          touchStartRef.current.y - rect.top
+        );
+        if (system) {
+          onSystemClick?.(system.systemId);
+        }
+      }
+    }
+
+    touchStartRef.current = null;
+    isTouchDraggingRef.current = false;
+  }, [findSystemAt, onSystemClick]);
+
   // Right-click context menu (#10)
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
@@ -571,55 +717,61 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
           setCursor('grab');
           onSystemHover?.(null);
         }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onContextMenu={handleContextMenu}
-        style={{ cursor: 'grab' }}
+        style={{ cursor: 'grab', touchAction: 'none' }}
         className="w-full h-full"
       />
 
       {/* Context Menu (#10) */}
       {contextMenu && (
         <div
-          className="absolute bg-gray-900/95 border border-gray-600 rounded-lg shadow-xl py-1 z-50 min-w-[180px]"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          className="absolute bg-gray-900/95 border border-gray-600 rounded-lg shadow-xl py-1 z-50 min-w-[200px]"
+          style={{
+            left: Math.min(contextMenu.x, viewport.width - 210),
+            top: Math.min(contextMenu.y, viewport.height - 200),
+          }}
         >
-          <div className="px-3 py-1.5 text-xs text-gray-400 border-b border-gray-700 font-medium">
+          <div className="px-3 py-2 text-sm text-gray-400 border-b border-gray-700 font-medium">
             {contextMenu.systemName}
           </div>
           <button
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-200 hover:bg-gray-700/50 flex items-center gap-2"
+            className="w-full px-3 py-3 text-sm text-left text-gray-200 hover:bg-gray-700/50 active:bg-gray-600/50 flex items-center gap-3"
             onClick={() => {
               onSetRouteOrigin?.(contextMenu.systemId);
               setContextMenu(null);
             }}
           >
-            <span className="text-green-400 text-xs">A</span> Set as Origin
+            <span className="text-green-400 font-bold">A</span> Set as Origin
           </button>
           <button
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-200 hover:bg-gray-700/50 flex items-center gap-2"
+            className="w-full px-3 py-3 text-sm text-left text-gray-200 hover:bg-gray-700/50 active:bg-gray-600/50 flex items-center gap-3"
             onClick={() => {
               onSetRouteDestination?.(contextMenu.systemId);
               setContextMenu(null);
             }}
           >
-            <span className="text-red-400 text-xs">B</span> Set as Destination
+            <span className="text-red-400 font-bold">B</span> Set as Destination
           </button>
           <button
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-200 hover:bg-gray-700/50 flex items-center gap-2"
+            className="w-full px-3 py-3 text-sm text-left text-gray-200 hover:bg-gray-700/50 active:bg-gray-600/50 flex items-center gap-3"
             onClick={() => {
               onAvoidSystem?.(contextMenu.systemId);
               setContextMenu(null);
             }}
           >
-            <span className="text-yellow-400 text-xs">!</span> Avoid System
+            <span className="text-yellow-400 font-bold">!</span> Avoid System
           </button>
           <a
             href={`https://zkillboard.com/system/${contextMenu.systemId}/`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-200 hover:bg-gray-700/50 flex items-center gap-2"
+            className="w-full px-3 py-3 text-sm text-left text-gray-200 hover:bg-gray-700/50 active:bg-gray-600/50 flex items-center gap-3"
             onClick={() => setContextMenu(null)}
           >
-            <span className="text-orange-400 text-xs">z</span> zKillboard
+            <span className="text-orange-400 font-bold">z</span> zKillboard
           </a>
         </div>
       )}

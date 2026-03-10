@@ -136,18 +136,12 @@ export function RouteControls({
 
   return (
     <div
-      className="route-controls"
+      className="route-controls absolute top-3 left-3 sm:top-4 sm:left-4 w-[calc(100%-24px)] sm:w-80 max-w-[320px] z-[100] pointer-events-auto"
       style={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        width: 320,
         backgroundColor: 'rgba(17, 24, 39, 0.95)',
         borderRadius: 12,
         border: '1px solid rgba(75, 85, 99, 0.5)',
         padding: 16,
-        pointerEvents: 'auto',
-        zIndex: 100,
         backdropFilter: 'blur(8px)',
       }}
     >

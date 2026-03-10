@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Analytics as VercelAnalytics } from '@vercel/analytics/next';
 import { Navbar } from '@/components/layout';
 import { Providers } from '@/components/Providers';
@@ -6,11 +6,27 @@ import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
 import { Analytics } from '@/components/Analytics';
 import '@/styles/globals.css';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#0f172a',
+};
+
 export const metadata: Metadata = {
   title: 'EVE Gatekeeper - Intel & Route Planning',
   description:
     'EVE Online route planning and intelligence tool. Find safe routes, analyze fittings, and track kill activity.',
   keywords: ['EVE Online', 'route planner', 'intel', 'zkillboard', 'navigation'],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Gatekeeper',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

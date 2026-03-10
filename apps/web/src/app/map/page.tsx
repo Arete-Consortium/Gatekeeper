@@ -519,7 +519,7 @@ function MapPageContent() {
   );
 
   return (
-    <div className="h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">
+    <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">
       {/* Header Controls */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
@@ -654,8 +654,8 @@ function MapPageContent() {
                 />
               )}
 
-              {/* Intel Controls Panel */}
-              <div className="absolute top-4 right-4 z-10">
+              {/* Intel Controls Panel — hidden on small screens when route panel is open */}
+              <div className={`absolute top-3 right-3 sm:top-4 sm:right-4 z-10 ${showRoutePanel ? 'hidden sm:block' : ''}`}>
                 <IntelControls
                   timeRange={timeRange}
                   onTimeRangeChange={setTimeRange}
@@ -668,7 +668,7 @@ function MapPageContent() {
                   isConnected={killsConnected}
                   isLoading={intelLoading}
                   onRefresh={refreshIntel}
-                  className="w-72"
+                  className="w-[calc(100vw-24px)] sm:w-72 max-w-[288px]"
                 />
               </div>
 
@@ -703,7 +703,7 @@ function MapPageContent() {
               onClick={() => setShowMobileSidebar(false)}
               aria-hidden="true"
             />
-            <div className="fixed right-0 top-0 h-full w-72 bg-card border-l border-border z-50 overflow-y-auto p-4 lg:hidden">
+            <div className="fixed right-0 top-0 h-full w-full sm:w-72 max-w-[320px] bg-card border-l border-border z-50 overflow-y-auto p-4 lg:hidden">
               <div className="flex justify-end mb-3">
                 <Button
                   variant="ghost"
