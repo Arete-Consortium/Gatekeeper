@@ -44,10 +44,32 @@ SHIP_FUEL_PER_LY: dict[CapitalShipType, int] = {
     CapitalShipType.BLOPS: 300,
 }
 
+# Fuel isotope types - EVE type IDs
+FUEL_ISOTOPES: dict[str, tuple[int, str]] = {
+    "nitrogen": (17888, "Nitrogen Isotopes"),
+    "helium": (16274, "Helium Isotopes"),
+    "oxygen": (17887, "Oxygen Isotopes"),
+    "hydrogen": (17889, "Hydrogen Isotopes"),
+}
+
+# Default fuel type by ship category (user can override based on their specific hull race)
+DEFAULT_FUEL_TYPE: dict[CapitalShipType, str] = {
+    CapitalShipType.JUMP_FREIGHTER: "nitrogen",
+    CapitalShipType.CARRIER: "helium",
+    CapitalShipType.DREADNOUGHT: "helium",
+    CapitalShipType.FORCE_AUXILIARY: "helium",
+    CapitalShipType.SUPERCARRIER: "helium",
+    CapitalShipType.TITAN: "helium",
+    CapitalShipType.RORQUAL: "oxygen",
+    CapitalShipType.BLOPS: "hydrogen",
+}
+
 # Light year conversion factor (normalized coords to LY)
-# 1 LY = 9.461e15 m, coords normalized by 1e16
-# Note: Using 2D distance (x, z), actual 3D would be more accurate
-LY_CONVERSION = 1.057
+# Coords are EVE meters / 1e15, so 1 LY = 9.461e15m / 1e15 = 9.461 units.
+# Conversion = 1 / 9.461 = 0.10570
+# Note: Using 2D distance (x-z plane). Distances are approximate
+# since EVE's universe has a Y component we don't capture.
+LY_CONVERSION = 0.10570
 
 
 @dataclass
@@ -100,6 +122,8 @@ class JumpRoute:
     total_fatigue_minutes: float
     total_travel_time_minutes: float
     legs: list[JumpLeg]
+    fuel_type_id: int = 0
+    fuel_type_name: str = ""
 
 
 def calculate_jump_range(
@@ -169,10 +193,17 @@ def calculate_distance_ly(system1: str, system2: str) -> float:
     return norm_dist * LY_CONVERSION
 
 
+# Categories where a cyno can be lit (jump destination).
+# Highsec: cynos are blocked. WH space: no cyno mechanics.
+# Pochven: can jump OUT of but not INTO (no cyno).
+CYNO_VALID_CATEGORIES = {"lowsec", "nullsec"}
+
+
 def find_systems_in_range(
     origin: str,
     max_range_ly: float,
     security_filter: str | None = None,
+    cyno_only: bool = False,
 ) -> list[SystemInRange]:
     """
     Find all systems within jump range of origin.
@@ -181,6 +212,8 @@ def find_systems_in_range(
         origin: Origin system name
         max_range_ly: Maximum jump range in light years
         security_filter: Optional filter - 'lowsec', 'nullsec', or None for all
+        cyno_only: If True, only include systems where a cyno can be lit
+            (lowsec/nullsec). Excludes highsec, WH, and Pochven.
 
     Returns:
         List of systems within range, sorted by distance
@@ -196,6 +229,14 @@ def find_systems_in_range(
     for name, system in universe.systems.items():
         if name == origin:
             continue
+
+        # Cyno filter: only lowsec/nullsec can receive jumps
+        # Pochven shows as nullsec but cannot receive cynos (jump OUT only)
+        if cyno_only:
+            if system.category not in CYNO_VALID_CATEGORIES:
+                continue
+            if system.region_name == "Pochven":
+                continue
 
         # Apply security filter
         if security_filter:
@@ -273,29 +314,40 @@ def plan_jump_route(
     jdc_level: int = 5,
     jfc_level: int = 5,
     midpoints: list[str] | None = None,
+    fuel_type: str | None = None,
+    prefer_stations: bool = True,
 ) -> JumpRoute:
-    """
-    Plan a jump route between two systems.
+    """Plan a jump route between two systems.
 
     Args:
-        from_system: Origin system
-        to_system: Destination system
-        ship_type: Type of capital ship
-        jdc_level: Jump Drive Calibration skill level
-        jfc_level: Jump Fuel Conservation skill level
-        midpoints: Optional list of specific midpoint systems to use
+        from_system: Origin system.
+        to_system: Destination system.
+        ship_type: Type of capital ship.
+        jdc_level: Jump Drive Calibration skill level.
+        jfc_level: Jump Fuel Conservation skill level.
+        midpoints: Optional list of specific midpoint systems to use.
+        fuel_type: Fuel isotope key (nitrogen/helium/oxygen/hydrogen).
+            Defaults to the ship category's default fuel type.
+        prefer_stations: Prefer systems with NPC stations for waypoints.
 
     Returns:
-        JumpRoute with complete route details
+        JumpRoute with complete route details.
     """
     jump_range = calculate_jump_range(ship_type, jdc_level, jfc_level)
+
+    # Resolve fuel type
+    resolved_fuel = fuel_type or DEFAULT_FUEL_TYPE.get(ship_type, "helium")
+    fuel_info = FUEL_ISOTOPES.get(resolved_fuel, FUEL_ISOTOPES["helium"])
+    fuel_type_id, fuel_type_name = fuel_info
 
     # If midpoints specified, use them directly
     if midpoints:
         waypoints = [from_system] + midpoints + [to_system]
     else:
         # Auto-plan route using greedy approach
-        waypoints = _auto_plan_waypoints(from_system, to_system, jump_range.max_range_ly)
+        waypoints = _auto_plan_waypoints(
+            from_system, to_system, jump_range.max_range_ly, prefer_stations
+        )
 
     # Calculate each leg
     legs: list[JumpLeg] = []
@@ -346,6 +398,8 @@ def plan_jump_route(
         total_fatigue_minutes=current_fatigue,
         total_travel_time_minutes=round(total_wait_time, 1),
         legs=legs,
+        fuel_type_id=fuel_type_id,
+        fuel_type_name=fuel_type_name,
     )
 
 
@@ -353,20 +407,22 @@ def _auto_plan_waypoints(
     from_system: str,
     to_system: str,
     max_range_ly: float,
+    prefer_stations: bool = True,
 ) -> list[str]:
-    """
-    Automatically plan waypoints for a jump route using greedy approach.
+    """Automatically plan waypoints for a jump route using greedy approach.
 
     Finds systems that get closest to destination while staying in range.
-    Prefers lowsec over nullsec for safety (NPC stations for cynos).
+    Scores candidates by remaining distance with penalties/bonuses for
+    security class and NPC station availability.
 
     Args:
-        from_system: Origin system
-        to_system: Destination system
-        max_range_ly: Maximum jump range
+        from_system: Origin system.
+        to_system: Destination system.
+        max_range_ly: Maximum jump range.
+        prefer_stations: Prefer systems with NPC stations.
 
     Returns:
-        List of waypoint system names including origin and destination
+        List of waypoint system names including origin and destination.
     """
     waypoints = [from_system]
     current = from_system
@@ -387,26 +443,33 @@ def _auto_plan_waypoints(
         except ValueError:
             break
 
-        # Find systems in range
-        in_range = find_systems_in_range(current, max_range_ly)
+        # Find systems in range (cyno-eligible only: lowsec/nullsec)
+        in_range = find_systems_in_range(current, max_range_ly, cyno_only=True)
 
         if not in_range:
             raise ValueError(f"No systems in range from {current}")
 
         # Find the system that gets us closest to destination
         best_system = None
-        best_remaining_distance = float("inf")
+        best_score = float("inf")
 
         for candidate in in_range:
             try:
                 remaining = calculate_distance_ly(candidate.name, to_system)
-                # Prefer lowsec over nullsec (safer for cynos)
-                # Add small penalty for nullsec
-                if candidate.category == "nullsec":
-                    remaining += 0.5
 
-                if remaining < best_remaining_distance:
-                    best_remaining_distance = remaining
+                # Apply scoring penalties
+                score = remaining
+
+                # Prefer lowsec over nullsec (safer for cynos)
+                if candidate.category == "nullsec":
+                    score += 0.5
+
+                # Prefer systems with NPC stations (can dock, safer cyno)
+                if prefer_stations and not candidate.has_npc_station:
+                    score += 1.0
+
+                if score < best_score:
+                    best_score = score
                     best_system = candidate.name
             except ValueError:
                 continue

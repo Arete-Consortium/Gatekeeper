@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .ai import router as ai_router
 from .alerts import router as alerts_router
+from .appraisal import router as appraisal_router
 from .analytics import router as analytics_router
 from .auth import router as auth_router
 from .avoidance import router as avoidance_router
@@ -63,3 +64,4 @@ router.include_router(websocket_router, tags=["websocket"])
 router.include_router(links_router)
 router.include_router(errors_router, prefix="/errors", tags=["errors"])
 router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
+router.include_router(appraisal_router)

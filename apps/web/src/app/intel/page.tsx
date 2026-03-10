@@ -1,10 +1,10 @@
 'use client';
 
-import { memo, useState, useMemo } from 'react';
+import { memo, useState, useMemo, useCallback } from 'react';
 import { useHotSystems } from '@/hooks';
 import { Card, Input, Select, Badge } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
-import { Radar, Skull, TrendingUp } from 'lucide-react';
+import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { ErrorMessage, SkeletonCard, SkeletonTable, getUserFriendlyError } from '@/components/ui';
 import type { HotSystem } from '@/lib/types';
 
@@ -81,22 +81,73 @@ const HotSystemRow = memo(function HotSystemRow({ system, index }: HotSystemRowP
   );
 });
 
+type SortKey = 'kills' | 'pods' | 'security' | 'name';
+type SortDir = 'asc' | 'desc';
+
+function SortHeader({ label, sortKey, col, currentKey, currentDir, onSort, align }: {
+  label: string;
+  sortKey: SortKey;
+  col: string;
+  currentKey: SortKey;
+  currentDir: SortDir;
+  onSort: (key: SortKey) => void;
+  align?: 'right';
+}) {
+  const active = currentKey === sortKey;
+  return (
+    <div className={col} role="columnheader">
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 hover:text-text transition-colors ${align === 'right' ? 'ml-auto' : ''}`}
+      >
+        {label}
+        {active ? (
+          currentDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 export default function IntelPage() {
   const [hours, setHours] = useState(24);
   const [limit, setLimit] = useState(25);
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('kills');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const { data: hotSystems, isLoading, error, refetch } = useHotSystems(hours, limit);
 
-  // Memoize filtered systems and stats to prevent recalculation on every render
+  const handleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  }, [sortKey]);
+
+  // Memoize filtered + sorted systems
   const filteredSystems = useMemo(() => {
     if (!hotSystems) return [];
-    if (!search) return hotSystems;
-    const lowerSearch = search.toLowerCase();
-    return hotSystems.filter((system) =>
-      system.system_name.toLowerCase().includes(lowerSearch)
-    );
-  }, [hotSystems, search]);
+    let list = hotSystems;
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      list = list.filter((s) => s.system_name.toLowerCase().includes(lowerSearch));
+    }
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      switch (sortKey) {
+        case 'kills': return (a.recent_kills - b.recent_kills) * dir;
+        case 'pods': return (a.recent_pods - b.recent_pods) * dir;
+        case 'security': return (a.security - b.security) * dir;
+        case 'name': return a.system_name.localeCompare(b.system_name) * dir;
+        default: return 0;
+      }
+    });
+  }, [hotSystems, search, sortKey, sortDir]);
 
   // Memoize summary stats to avoid recalculating on every render
   const stats = useMemo(() => {
@@ -213,11 +264,11 @@ export default function IntelPage() {
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[500px]" role="row">
               <div className="col-span-1" role="columnheader">#</div>
-              <div className="col-span-4" role="columnheader">System</div>
-              <div className="col-span-2" role="columnheader">Security</div>
-              <div className="col-span-2 text-right" role="columnheader">Kills</div>
-              <div className="col-span-2 text-right" role="columnheader">Pods</div>
-              <div className="col-span-1 text-right" role="columnheader"><span className="sr-only">Category</span>Cat</div>
+              <SortHeader label="System" sortKey="name" col="col-span-4" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Security" sortKey="security" col="col-span-2" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+              <SortHeader label="Kills" sortKey="kills" col="col-span-2 text-right" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} align="right" />
+              <SortHeader label="Pods" sortKey="pods" col="col-span-2 text-right" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} align="right" />
+              <div className="col-span-1 text-right" role="columnheader">Sec</div>
             </div>
 
             {/* Table Body - Using memoized HotSystemRow for performance */}

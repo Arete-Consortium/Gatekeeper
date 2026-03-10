@@ -91,8 +91,8 @@ export function userFromToken(token: string): AuthUser | null {
   const payload = decodeJWTPayload(token);
   if (!payload) return null;
   return {
-    character_id: payload.character_id as number,
-    character_name: payload.character_name as string,
+    character_id: (payload.sub ?? payload.character_id) as number,
+    character_name: (payload.name ?? payload.character_name) as string,
     subscription_tier: (payload.tier as 'free' | 'pro') || 'free',
     scopes: (payload.scopes as string[]) || [],
     expires_at: new Date((payload.exp as number) * 1000).toISOString(),

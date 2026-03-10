@@ -1,24 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Map,
   Globe,
   Route,
-  Wrench,
+  Scale,
   Bell,
   Radar,
   Settings,
   Menu,
   X,
   LogIn,
+  LogOut,
   User,
+  Rocket,
   Zap,
+  CreditCard,
+  Triangle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { GatekeeperAPI } from '@/lib/api';
 
 interface NavItem {
   href: string;
@@ -27,20 +32,53 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/', label: 'Dashboard', icon: Map },
-  { href: '/map', label: 'Map', icon: Globe },
+  { href: '/', label: 'Map', icon: Globe },
   { href: '/route', label: 'Route', icon: Route },
-  { href: '/fitting', label: 'Fitting', icon: Wrench },
+  { href: '/appraisal', label: 'Appraisal', icon: Scale },
+  { href: '/jump', label: 'Jump', icon: Rocket },
+  { href: '/pochven', label: 'Pochven', icon: Triangle },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
-  { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/pricing', label: 'Pricing', icon: Zap },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isAuthenticated, isPro } = useAuth();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const { user, isAuthenticated, isPro, logout } = useAuth();
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setUserMenuOpen(false);
+    router.replace('/');
+  }, [logout, router]);
+
+  const handleManageBilling = useCallback(async () => {
+    try {
+      const { portal_url } = await GatekeeperAPI.createPortalSession(
+        window.location.href
+      );
+      window.location.href = portal_url;
+    } catch {
+      // Portal creation failed
+    }
+    setUserMenuOpen(false);
+  }, []);
 
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50">
@@ -59,7 +97,7 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || (item.href === '/' && pathname === '/map');
               const Icon = item.icon;
               return (
                 <Link
@@ -81,22 +119,112 @@ export function Navbar() {
 
           {/* Auth section + Mobile menu */}
           <div className="flex items-center gap-2">
-            {/* Auth button (desktop) */}
+            {/* User menu (desktop) */}
             <div className="hidden md:flex items-center gap-2">
               {isAuthenticated ? (
-                <Link
-                  href="/account"
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    pathname === '/account'
-                      ? 'bg-primary/20 text-primary'
-                      : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                <div ref={userMenuRef} className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      userMenuOpen
+                        ? 'bg-primary/20 text-primary'
+                        : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                    )}
+                  >
+                    {isPro && <Zap className="h-3 w-3 text-primary" />}
+                    {user?.character_id ? (
+                      <img
+                        src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=32`}
+                        alt={user.character_name}
+                        className="h-6 w-6 rounded-full"
+                      />
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
+                    <span className="max-w-[120px] truncate">{user?.character_name}</span>
+                  </button>
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
+                      {/* Character header */}
+                      <div className="px-3 py-3 border-b border-border">
+                        <div className="flex items-center gap-3">
+                          {user?.character_id ? (
+                            <img
+                              src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=64`}
+                              alt={user.character_name}
+                              className="h-10 w-10 rounded-full"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-text truncate">
+                              {user?.character_name}
+                            </div>
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 text-xs font-medium',
+                                isPro ? 'text-primary' : 'text-text-secondary'
+                              )}
+                            >
+                              {isPro && <Zap className="h-3 w-3" />}
+                              {isPro ? 'Pro' : 'Free'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Menu links */}
+                      <div className="py-1">
+                        {isPro ? (
+                          <button
+                            onClick={handleManageBilling}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text hover:bg-card-hover w-full text-left transition-colors"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                            Manage Billing
+                          </button>
+                        ) : (
+                          <Link
+                            href="/pricing"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <Zap className="h-4 w-4" />
+                            Upgrade to Pro
+                          </Link>
+                        )}
+                        <Link
+                          href="/settings"
+                          onClick={() => setUserMenuOpen(false)}
+                          className={cn(
+                            'flex items-center gap-2 px-3 py-2 text-sm transition-colors',
+                            pathname === '/settings'
+                              ? 'text-primary bg-primary/10'
+                              : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                          )}
+                        >
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </Link>
+                      </div>
+
+                      {/* Logout */}
+                      <div className="border-t border-border py-1">
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-red-400 hover:bg-card-hover w-full text-left transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Log Out
+                        </button>
+                      </div>
+                    </div>
                   )}
-                >
-                  {isPro && <Zap className="h-3 w-3 text-primary" />}
-                  <User className="h-4 w-4" />
-                  <span className="max-w-[120px] truncate">{user?.character_name}</span>
-                </Link>
+                </div>
               ) : (
                 <Link
                   href="/login"
@@ -127,7 +255,7 @@ export function Navbar() {
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col gap-1">
               {navItems.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || (item.href === '/' && pathname === '/map');
                 const Icon = item.icon;
                 return (
                   <Link
@@ -146,27 +274,110 @@ export function Navbar() {
                   </Link>
                 );
               })}
-              {/* Mobile auth link */}
-              {isAuthenticated ? (
-                <Link
-                  href="/account"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-text-secondary hover:text-text hover:bg-card-hover border-t border-border mt-2 pt-4"
-                >
-                  <User className="h-5 w-5" />
-                  {user?.character_name}
-                  {isPro && <Zap className="h-3 w-3 text-primary ml-auto" />}
-                </Link>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 border-t border-border mt-2 pt-4"
-                >
-                  <LogIn className="h-5 w-5" />
-                  Log in
-                </Link>
-              )}
+              {/* Mobile user section */}
+              <div className="border-t border-border mt-2 pt-2">
+                {isAuthenticated ? (
+                  <>
+                    {/* Character info */}
+                    <div className="flex items-center gap-3 px-3 py-3">
+                      {user?.character_id ? (
+                        <img
+                          src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=64`}
+                          alt={user.character_name}
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <User className="h-5 w-5 text-text-secondary" />
+                      )}
+                      <div>
+                        <div className="text-sm font-medium text-text">{user?.character_name}</div>
+                        <span className={cn(
+                          'text-xs',
+                          isPro ? 'text-primary' : 'text-text-secondary'
+                        )}>
+                          {isPro && <Zap className="h-3 w-3 inline mr-0.5" />}
+                          {isPro ? 'Pro' : 'Free'}
+                        </span>
+                      </div>
+                    </div>
+                    {isPro ? (
+                      <button
+                        onClick={() => { handleManageBilling(); setMobileMenuOpen(false); }}
+                        className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-text-secondary hover:text-text hover:bg-card-hover w-full text-left"
+                      >
+                        <CreditCard className="h-5 w-5" />
+                        Manage Billing
+                      </button>
+                    ) : (
+                      <Link
+                        href="/pricing"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-primary hover:bg-primary/10"
+                      >
+                        <Zap className="h-5 w-5" />
+                        Upgrade to Pro
+                      </Link>
+                    )}
+                    <Link
+                      href="/settings"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                        pathname === '/settings'
+                          ? 'bg-primary/20 text-primary'
+                          : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                      )}
+                    >
+                      <Settings className="h-5 w-5" />
+                      Settings
+                    </Link>
+                    <button
+                      onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                      className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-text-secondary hover:text-red-400 hover:bg-card-hover w-full text-left"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      Log Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/settings"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                        pathname === '/settings'
+                          ? 'bg-primary/20 text-primary'
+                          : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                      )}
+                    >
+                      <Settings className="h-5 w-5" />
+                      Settings
+                    </Link>
+                    <Link
+                      href="/pricing"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                        pathname === '/pricing'
+                          ? 'bg-primary/20 text-primary'
+                          : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                      )}
+                    >
+                      <Zap className="h-5 w-5" />
+                      Pricing
+                    </Link>
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-primary hover:bg-primary/10"
+                    >
+                      <LogIn className="h-5 w-5" />
+                      Log in
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

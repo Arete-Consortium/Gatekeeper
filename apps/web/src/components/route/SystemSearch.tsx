@@ -70,6 +70,14 @@ export function SystemSearch({
     setHighlightIndex(-1);
   };
 
+  // Resolve typed input to the correct canonical system name (case-insensitive)
+  const resolveSystemName = useCallback((typed: string): string => {
+    if (!systems || !typed) return typed;
+    const lower = typed.toLowerCase();
+    const match = systems.find((s) => s.name.toLowerCase() === lower);
+    return match ? match.name : typed;
+  }, [systems]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInputValue(val);
@@ -80,7 +88,9 @@ export function SystemSearch({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || filteredSystems.length === 0) {
       if (e.key === 'Enter') {
-        onChange(inputValue);
+        const resolved = resolveSystemName(inputValue);
+        setInputValue(resolved);
+        onChange(resolved);
       }
       return;
     }
@@ -102,8 +112,13 @@ export function SystemSearch({
         e.preventDefault();
         if (highlightIndex >= 0) {
           handleSelect(filteredSystems[highlightIndex]);
+        } else if (filteredSystems.length === 1) {
+          // Auto-select the only match
+          handleSelect(filteredSystems[0]);
         } else {
-          onChange(inputValue);
+          const resolved = resolveSystemName(inputValue);
+          setInputValue(resolved);
+          onChange(resolved);
           setIsOpen(false);
         }
         break;
@@ -121,6 +136,16 @@ export function SystemSearch({
         value={inputValue}
         onChange={handleInputChange}
         onFocus={() => inputValue.length >= 2 && setIsOpen(true)}
+        onBlur={() => {
+          // Auto-correct case on blur
+          if (inputValue) {
+            const resolved = resolveSystemName(inputValue);
+            if (resolved !== inputValue) {
+              setInputValue(resolved);
+              onChange(resolved);
+            }
+          }
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         error={error}

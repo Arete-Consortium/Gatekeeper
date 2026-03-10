@@ -160,6 +160,17 @@ def _dijkstra(
     return path, dist[end]
 
 
+def _resolve_system_name(name: str, systems: dict) -> str:
+    """Resolve a system name case-insensitively. Returns canonical name or original."""
+    if name in systems:
+        return name
+    lower = name.lower()
+    for canonical in systems:
+        if canonical.lower() == lower:
+            return canonical
+    return name
+
+
 def compute_route(
     from_system: str,
     to_system: str,
@@ -188,6 +199,10 @@ def compute_route(
     """
     universe = load_universe()
     avoid = avoid or set()
+
+    # Case-insensitive system name resolution
+    from_system = _resolve_system_name(from_system, universe.systems)
+    to_system = _resolve_system_name(to_system, universe.systems)
 
     if from_system not in universe.systems:
         raise ValueError(f"Unknown from_system: {from_system}")

@@ -146,6 +146,7 @@ function parseBackendKill(data: BackendKillData): MapKill {
   return {
     killId: data.kill_id,
     systemId: data.solar_system_id,
+    systemName: data.solar_system_name,
     timestamp: new Date(data.kill_time).getTime(),
     shipType: data.ship_type_name || getShipTypeName(data.ship_type_id),
     value: data.total_value,
@@ -241,7 +242,7 @@ const ZKILLBOARD_WS_URL = 'wss://zkillboard.com/websocket/';
  * Convert an HTTP(S) base URL to a WebSocket URL for the backend killfeed.
  */
 function getBackendWsUrl(): string {
-  const baseUrl = GatekeeperAPI.getBaseUrl();
+  const baseUrl = GatekeeperAPI.getBaseUrl().trim();
   const wsUrl = baseUrl
     .replace(/^https:\/\//, 'wss://')
     .replace(/^http:\/\//, 'ws://');

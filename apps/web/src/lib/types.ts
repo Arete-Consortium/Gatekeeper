@@ -212,7 +212,7 @@ export interface TheraResponse {
   connections: TheraConnection[];
 }
 
-// System activity data (Dotlan-style)
+// System activity data
 export interface SystemActivityKills {
   ship_kills: number;
   npc_kills: number;
@@ -356,6 +356,25 @@ export interface FittingAnalysisResponse {
   travel: TravelRecommendation;
 }
 
+// Appraisal types
+export interface AppraisalItem {
+  name: string;
+  type_id: number;
+  quantity: number;
+  buy_price: number;
+  sell_price: number;
+  buy_total: number;
+  sell_total: number;
+}
+
+export interface AppraisalResponse {
+  items: AppraisalItem[];
+  total_buy: number;
+  total_sell: number;
+  unknown_items: string[];
+  item_count: number;
+}
+
 // Alert subscription types
 export interface AlertSubscription {
   id: string;
@@ -389,6 +408,37 @@ export interface CreateAlertSubscriptionRequest {
 export interface TestAlertResponse {
   sent_count: number;
   message: string;
+}
+
+// Jump drive types
+export type CapitalShipType = 'jump_freighter' | 'carrier' | 'dreadnought' | 'force_auxiliary' | 'supercarrier' | 'titan' | 'rorqual' | 'black_ops';
+
+export type FuelType = 'nitrogen' | 'helium' | 'oxygen' | 'hydrogen';
+
+export interface JumpLegResponse {
+  from_system: string;
+  to_system: string;
+  distance_ly: number;
+  fuel_required: number;
+  fatigue_added_minutes: number;
+  total_fatigue_minutes: number;
+  wait_time_minutes: number;
+}
+
+export interface JumpRouteResponse {
+  from_system: string;
+  to_system: string;
+  ship_type: string;
+  total_jumps: number;
+  total_distance_ly: number;
+  total_fuel: number;
+  total_fatigue_minutes: number;
+  total_travel_time_minutes: number;
+  legs: JumpLegResponse[];
+  fuel_type_id: number;
+  fuel_type_name: string;
+  fuel_unit_cost: number;
+  total_fuel_cost: number;
 }
 
 // Route profile type

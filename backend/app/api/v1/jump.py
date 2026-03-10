@@ -1,8 +1,11 @@
 """Jump drive API v1 endpoints."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 
 from ...models.jump import (
+    FuelType,
     JumpLegResponse,
     JumpRangeResponse,
     JumpRouteResponse,
@@ -10,13 +13,18 @@ from ...models.jump import (
     SystemInRangeResponse,
     SystemsInRangeResponse,
 )
+from ...services.appraisal import get_jita_prices
 from ...services.jump_drive import (
+    DEFAULT_FUEL_TYPE,
+    FUEL_ISOTOPES,
     CapitalShipType,
     calculate_distance_ly,
     calculate_jump_range,
     find_systems_in_range,
     plan_jump_route,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -144,7 +152,7 @@ def get_systems_in_range(
     summary="Plan jump route",
     description="Plan a capital ship jump route between two systems.",
 )
-def get_jump_route(
+async def get_jump_route(
     from_system: str = Query(..., alias="from", description="Origin system"),
     to_system: str = Query(..., alias="to", description="Destination system"),
     ship: ShipType = Query(
@@ -157,6 +165,15 @@ def get_jump_route(
         None,
         description="Specific midpoint systems to use",
     ),
+    fuel: FuelType | None = Query(
+        None,
+        description="Fuel isotope type (nitrogen/helium/oxygen/hydrogen). "
+        "Defaults to ship category's default.",
+    ),
+    prefer_stations: bool = Query(
+        True,
+        description="Prefer systems with NPC stations for waypoints",
+    ),
 ) -> JumpRouteResponse:
     """
     Plan a jump route for a capital ship.
@@ -167,6 +184,7 @@ def get_jump_route(
     - **jdc**: Jump Drive Calibration level (0-5)
     - **jfc**: Jump Fuel Conservation level (0-5)
     - **via**: Optional specific midpoint cyno systems
+    - **fuel**: Fuel isotope type override
     """
     ship_type = CapitalShipType(ship.value)
 
@@ -178,9 +196,27 @@ def get_jump_route(
             jdc,
             jfc,
             midpoints=via,
+            fuel_type=fuel.value if fuel else None,
+            prefer_stations=prefer_stations,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
+
+    # Fetch Jita fuel price
+    fuel_unit_cost = 0.0
+    total_fuel_cost = 0.0
+    if route.fuel_type_id and route.total_fuel:
+        try:
+            prices = await get_jita_prices([route.fuel_type_id])
+            if route.fuel_type_id in prices:
+                _buy, sell = prices[route.fuel_type_id]
+                fuel_unit_cost = sell
+                total_fuel_cost = sell * route.total_fuel
+        except Exception:
+            logger.warning(
+                "Failed to fetch Jita fuel price for type_id=%d",
+                route.fuel_type_id,
+            )
 
     return JumpRouteResponse(
         from_system=route.from_system,
@@ -203,4 +239,30 @@ def get_jump_route(
             )
             for leg in route.legs
         ],
+        fuel_type_id=route.fuel_type_id,
+        fuel_type_name=route.fuel_type_name,
+        fuel_unit_cost=round(fuel_unit_cost, 2),
+        total_fuel_cost=round(total_fuel_cost, 2),
     )
+
+
+@router.get(
+    "/fuel-types",
+    summary="List fuel isotope types",
+    description="Returns available fuel isotope types and their EVE type IDs.",
+)
+def get_fuel_types() -> dict:
+    """Return available fuel isotope types for frontend dropdown."""
+    return {
+        "fuel_types": [
+            {
+                "key": key,
+                "type_id": type_id,
+                "name": name,
+            }
+            for key, (type_id, name) in FUEL_ISOTOPES.items()
+        ],
+        "defaults": {
+            ship_type.value: fuel_key for ship_type, fuel_key in DEFAULT_FUEL_TYPE.items()
+        },
+    }

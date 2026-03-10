@@ -25,11 +25,15 @@ import {
   SovStructuresResponse,
   TheraResponse,
   SystemActivityResponse,
+  AppraisalResponse,
+  CapitalShipType,
+  FuelType,
+  JumpRouteResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
 const DEFAULT_API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').trim();
 const TIMEOUT = 30000;
 
 class GatekeeperAPIService {
@@ -41,7 +45,7 @@ class GatekeeperAPIService {
 
   private getStoredApiUrl(): string | null {
     if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem('gatekeeper_api_url');
+    const stored = localStorage.getItem('gatekeeper_api_url')?.trim();
     if (stored && this.isValidApiUrl(stored)) return stored;
     return null;
   }
@@ -311,6 +315,50 @@ class GatekeeperAPIService {
     });
   }
 
+  // ==================== Appraisal ====================
+
+  /**
+   * Appraise pasted EVE items with Jita market prices
+   */
+  async appraise(rawText: string): Promise<AppraisalResponse> {
+    return this.request<AppraisalResponse>('/api/v1/appraisal', {
+      method: 'POST',
+      body: JSON.stringify({ raw_text: rawText }),
+    });
+  }
+
+  // ==================== Jump Drive ====================
+
+  /**
+   * Calculate a capital ship jump route between two systems
+   */
+  async getJumpRoute(
+    fromSystem: string,
+    toSystem: string,
+    ship: CapitalShipType = 'jump_freighter',
+    jdc: number = 5,
+    jfc: number = 5,
+    fuel?: FuelType,
+    via?: string[],
+    preferStations: boolean = true
+  ): Promise<JumpRouteResponse> {
+    const params = new URLSearchParams({
+      from: fromSystem,
+      to: toSystem,
+      ship,
+      jdc: jdc.toString(),
+      jfc: jfc.toString(),
+      prefer_stations: preferStations.toString(),
+    });
+    if (fuel) params.set('fuel', fuel);
+    if (via && via.length > 0) {
+      for (const system of via) {
+        params.append('via', system);
+      }
+    }
+    return this.request<JumpRouteResponse>(`/api/v1/jump/route?${params.toString()}`);
+  }
+
   // ==================== Alert Subscriptions ====================
 
   /**
@@ -339,6 +387,19 @@ class GatekeeperAPIService {
     await this.request<void>(`/api/v1/alerts/subscriptions/${subscriptionId}`, {
       method: 'DELETE',
     });
+  }
+
+  /**
+   * Update an alert subscription (e.g. toggle enabled)
+   */
+  async updateAlertSubscription(
+    subscriptionId: string,
+    data: { enabled?: boolean }
+  ): Promise<AlertSubscription> {
+    return this.request<AlertSubscription>(
+      `/api/v1/alerts/subscriptions/${subscriptionId}`,
+      { method: 'PATCH', body: JSON.stringify(data) }
+    );
   }
 
   /**

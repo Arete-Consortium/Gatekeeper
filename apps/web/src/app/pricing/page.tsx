@@ -40,6 +40,8 @@ function PricingContent() {
   const searchParams = useSearchParams();
   const checkoutStatus = searchParams.get('checkout');
   const [cancelDismissed, setCancelDismissed] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
 
   const handleUpgrade = async () => {
     if (!isAuthenticated) {
@@ -47,6 +49,8 @@ function PricingContent() {
       return;
     }
 
+    setCheckoutError(null);
+    setUpgrading(true);
     try {
       const currentUrl = window.location.origin;
       const { checkout_url } = await GatekeeperAPI.createCheckoutSession(
@@ -55,7 +59,9 @@ function PricingContent() {
       );
       window.location.href = checkout_url;
     } catch {
-      // Checkout creation failed
+      setCheckoutError('Unable to start checkout. Please try again.');
+    } finally {
+      setUpgrading(false);
     }
   };
 
@@ -72,6 +78,15 @@ function PricingContent() {
             className="text-risk-orange hover:text-text ml-4 flex-shrink-0"
             aria-label="Dismiss"
           >
+            <X className="h-4 w-4" />
+          </button>
+        </Card>
+      )}
+
+      {checkoutError && (
+        <Card className="border-risk-red/40 bg-risk-red/10 py-4 px-6 flex items-center justify-between">
+          <p className="text-risk-red text-sm font-medium">{checkoutError}</p>
+          <button onClick={() => setCheckoutError(null)} className="text-risk-red hover:text-text ml-4 flex-shrink-0" aria-label="Dismiss">
             <X className="h-4 w-4" />
           </button>
         </Card>
@@ -143,7 +158,7 @@ function PricingContent() {
               Current Plan
             </Button>
           ) : (
-            <Button className="glow-primary w-full" onClick={handleUpgrade}>
+            <Button className="glow-primary w-full" onClick={handleUpgrade} loading={upgrading}>
               <Zap className="mr-2 h-4 w-4" />
               {isAuthenticated ? 'Upgrade to Pro' : 'Sign in & Upgrade'}
             </Button>

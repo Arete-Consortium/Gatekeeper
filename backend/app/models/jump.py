@@ -18,6 +18,15 @@ class ShipType(StrEnum):
     BLOPS = "black_ops"
 
 
+class FuelType(StrEnum):
+    """Fuel isotope types for capital ships."""
+
+    NITROGEN = "nitrogen"
+    HELIUM = "helium"
+    OXYGEN = "oxygen"
+    HYDROGEN = "hydrogen"
+
+
 class JumpRangeResponse(BaseModel):
     """Jump range calculation response."""
 
@@ -64,6 +73,10 @@ class JumpRouteResponse(BaseModel):
     total_fatigue_minutes: float
     total_travel_time_minutes: float
     legs: list[JumpLegResponse]
+    fuel_type_id: int = Field(0, description="EVE type ID of fuel isotope")
+    fuel_type_name: str = Field("", description="Name of fuel isotope")
+    fuel_unit_cost: float = Field(0.0, description="Jita sell price per unit of fuel")
+    total_fuel_cost: float = Field(0.0, description="Total ISK cost of fuel at Jita prices")
 
 
 class SystemsInRangeResponse(BaseModel):

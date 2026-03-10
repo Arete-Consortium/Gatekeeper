@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getLoginUrl } from '@/lib/auth';
 import { Card, Button } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +17,10 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
+  const [redirecting, setRedirecting] = useState(false);
+
   const handleLogin = () => {
+    setRedirecting(true);
     window.location.href = getLoginUrl();
   };
 
@@ -36,7 +39,7 @@ export default function LoginPage() {
           Log in with your EVE Online account via SSO to unlock saved routes,
           alerts, and Pro features.
         </p>
-        <Button size="lg" className="glow-primary w-full" onClick={handleLogin}>
+        <Button size="lg" className="glow-primary w-full" onClick={handleLogin} loading={redirecting}>
           <LogIn className="mr-2 h-5 w-5" />
           Log in with EVE Online
         </Button>

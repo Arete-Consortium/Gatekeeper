@@ -60,6 +60,7 @@ export interface MapRoute {
 export interface MapKill {
   killId: number;
   systemId: number;
+  systemName?: string;
   timestamp: number;
   shipType: string;
   value: number;

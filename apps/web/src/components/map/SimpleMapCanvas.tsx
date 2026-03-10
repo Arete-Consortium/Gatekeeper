@@ -12,11 +12,11 @@ import { buildQuadtree, type Quadtree } from './utils/spatial';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 20;
-const SYSTEM_RADIUS = 3;
+const SYSTEM_RADIUS = 2;
 
 // Zoom thresholds for showing different label types
-const REGION_LABEL_MAX_ZOOM = 2;
-const SYSTEM_LABEL_MIN_ZOOM = 4;
+const REGION_LABEL_MAX_ZOOM = 2.5;
+const SYSTEM_LABEL_MIN_ZOOM = 3;
 
 // Well-known trade hubs
 const TRADE_HUBS = new Set([30000142, 30002187, 30002659, 30002510, 30002053]); // Jita, Amarr, Dodixie, Rens, Hek
@@ -210,10 +210,10 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
     // Draw gates with visual hierarchy
     if (layers.showGates) {
-      // Intra-region gates
-      ctx.strokeStyle = '#4a5568';
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = 0.5;
+      // Intra-region gates — thin Photon-style lines
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 0.5;
+      ctx.globalAlpha = 0.4;
       ctx.beginPath();
 
       const crossRegionPaths: Array<{ fx: number; fy: number; tx: number; ty: number }> = [];
@@ -242,10 +242,10 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       }
       ctx.stroke();
 
-      // Cross-region gates — dimmer
+      // Cross-region gates — very subtle
       if (crossRegionPaths.length > 0) {
-        ctx.strokeStyle = '#2d3748';
-        ctx.globalAlpha = 0.3;
+        ctx.strokeStyle = '#1e293b';
+        ctx.globalAlpha = 0.2;
         ctx.beginPath();
         for (const p of crossRegionPaths) {
           ctx.moveTo(p.fx, p.fy);
@@ -277,35 +277,35 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ? getSpectralColor(system.spectralClass || 'G')
         : getSecurityColor(system.security);
 
-      // Scale radius with zoom + hub importance
+      // Scale radius with zoom + hub importance — tight Photon-style dots
       const isHub = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 5);
-      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 2)));
-      const hubBonus = isTradeHub ? baseRadius * 1.5 : isHub ? baseRadius * 0.8 : 0;
-      const radius = isSelected ? (baseRadius + hubBonus) * 2 : baseRadius + hubBonus;
+      const baseRadius = Math.max(1, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 2)));
+      const hubBonus = isTradeHub ? baseRadius * 1.2 : isHub ? baseRadius * 0.5 : 0;
+      const radius = isSelected ? (baseRadius + hubBonus) * 1.8 : baseRadius + hubBonus;
 
-      // Hover glow effect (#1)
+      // Hover glow effect — tight bloom
       if (isHovered && !isSelected) {
         ctx.save();
         ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 8;
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.35;
         ctx.beginPath();
-        ctx.arc(screen.x, screen.y, radius + 5, 0, Math.PI * 2);
+        ctx.arc(screen.x, screen.y, radius + 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
 
-      // Trade hub outer glow (#4)
+      // Trade hub outer glow — subtle ring
       if (isTradeHub) {
         ctx.save();
         ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 6;
         ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 0.8;
+        ctx.globalAlpha = 0.4;
         ctx.beginPath();
-        ctx.arc(screen.x, screen.y, radius + 3, 0, Math.PI * 2);
+        ctx.arc(screen.x, screen.y, radius + 2.5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -358,8 +358,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     // Draw region labels when zoomed out (collision avoidance + high contrast)
     if (layers.showRegionLabels && viewport.zoom < REGION_LABEL_MAX_ZOOM && regions.length > 0) {
       ctx.save();
-      const fontSize = Math.max(12, Math.min(20, 16 / viewport.zoom));
-      ctx.font = `700 ${fontSize}px Arial`;
+      const fontSize = Math.max(11, Math.min(18, 14 / viewport.zoom));
+      ctx.font = `600 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -431,10 +431,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
     // Draw system labels at high zoom
     if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '10px Arial';
+      ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'center';
-      ctx.globalAlpha = 0.7;
 
       for (const system of systems) {
         const screen = worldToScreen(system.x, system.y);
@@ -445,7 +443,13 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
           screen.y > viewport.height
         ) continue;
 
-        ctx.fillText(system.name, screen.x, screen.y + 15);
+        // Subtle text shadow for readability
+        ctx.fillStyle = '#000000';
+        ctx.globalAlpha = 0.5;
+        ctx.fillText(system.name, screen.x + 0.5, screen.y + 11.5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(system.name, screen.x, screen.y + 11);
       }
 
       ctx.globalAlpha = 1;

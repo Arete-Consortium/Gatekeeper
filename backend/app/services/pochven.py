@@ -1,102 +1,103 @@
-"""Pochven filament routing service.
+"""Pochven internal gate routing service.
 
-Pochven is a static region with 27 systems. Unlike Thera (dynamic wormholes),
-Pochven connections are hardcoded. The key routing value comes from
-entry/exit connections between Pochven and k-space.
+Pochven is a static region with 27 systems in 3 Krais (constellations),
+connected by Triglavian conduit gates. The internal gate network is fixed
+and predictable — unlike filament entry/exit which is random.
+
+Gate data sourced from SDE (universe.json).
 """
 
 from ..models.pochven import PochvenConnection
 from .data_loader import load_universe
 
-# The 27 Pochven systems
-POCHVEN_SYSTEMS: list[str] = [
-    "Ahbazon",
-    "Ahtila",
-    "Archee",
-    "Arvasaras",
-    "Ignebaener",
-    "Kaunokka",
-    "Kino",
-    "Konola",
-    "Krirald",
-    "Kuharah",
-    "Nalvula",
-    "Nani",
-    "Niarja",
-    "Otanuomi",
-    "Otela",
-    "Raravoss",
-    "Sakenta",
-    "Skarkon",
-    "Tunudan",
-    "Urhinichi",
-    "Wirashoda",
-    "Harva",
-    "Vale",
-]
+# Krai assignments (9 systems each, verified against SDE region data)
+KRAI_PERUN: set[str] = {
+    "Ignebaener", "Kino", "Komo", "Konola", "Krirald",
+    "Nalvula", "Otanuomi", "Otela", "Sakenta",
+}
+KRAI_SVAROG: set[str] = {
+    "Ahtila", "Harva", "Kuharah", "Nani", "Niarja",
+    "Raravoss", "Skarkon", "Tunudan", "Urhinichi",
+}
+KRAI_VELES: set[str] = {
+    "Ala", "Angymonne", "Archee", "Arvasaras", "Ichoriya",
+    "Kaunokka", "Senda", "Vale", "Wirashoda",
+}
 
-# Internal Pochven connections (system-to-system within Pochven).
-# These form the internal routing network.
-# Organized by Krai (sub-region).
+# All 27 Pochven systems
+POCHVEN_SYSTEMS: list[str] = sorted(KRAI_PERUN | KRAI_SVAROG | KRAI_VELES)
+
+# Home systems (require 7.0 Trig standing to enter)
+HOME_SYSTEMS: set[str] = {"Kino", "Niarja", "Archee"}
+
+# Border systems (between two Krais, require 1.0 standing)
+BORDER_SYSTEMS: set[str] = {
+    "Ahtila", "Senda",       # Veles ↔ Svarog
+    "Arvasaras", "Sakenta",  # Veles ↔ Perun
+    "Otanuomi", "Urhinichi", # Perun ↔ Svarog
+}
+
+# Internal conduit gate connections (from SDE gate data).
+# All bidirectional. 30 total connections.
 _INTERNAL_CONNECTIONS: list[tuple[str, str]] = [
-    # Krai Perun (Caldari-origin systems)
+    # Krai Perun internal
     ("Otela", "Kino"),
-    ("Otela", "Wirashoda"),
+    ("Otela", "Nalvula"),
+    ("Otela", "Ignebaener"),
     ("Kino", "Nalvula"),
-    ("Nalvula", "Otanuomi"),
-    ("Otanuomi", "Wirashoda"),
-    ("Kaunokka", "Konola"),
-    ("Konola", "Sakenta"),
-    ("Sakenta", "Ahtila"),
-    ("Ahtila", "Kuharah"),
-    ("Kuharah", "Tunudan"),
-    # Krai Svarog (Amarr-origin systems)
+    ("Nalvula", "Konola"),
+    ("Konola", "Krirald"),
+    ("Krirald", "Otanuomi"),
+    ("Ignebaener", "Komo"),
+    ("Komo", "Sakenta"),
+    # Krai Svarog internal
+    ("Niarja", "Raravoss"),
     ("Niarja", "Harva"),
-    ("Harva", "Raravoss"),
+    ("Raravoss", "Harva"),
     ("Raravoss", "Skarkon"),
-    ("Niarja", "Ahbazon"),
-    ("Ahbazon", "Krirald"),
-    ("Krirald", "Urhinichi"),
-    # Krai Veles (Gallente/Minmatar-origin systems)
-    ("Archee", "Ignebaener"),
-    ("Ignebaener", "Arvasaras"),
-    ("Arvasaras", "Nani"),
+    ("Skarkon", "Nani"),
+    ("Nani", "Urhinichi"),
+    ("Harva", "Tunudan"),
+    ("Tunudan", "Kuharah"),
+    ("Kuharah", "Ahtila"),
+    # Krai Veles internal
+    ("Archee", "Angymonne"),
+    ("Archee", "Vale"),
+    ("Angymonne", "Vale"),
+    ("Angymonne", "Ichoriya"),
+    ("Ichoriya", "Kaunokka"),
+    ("Kaunokka", "Arvasaras"),
+    ("Arvasaras", "Sakenta"),  # cross-Krai: Veles ↔ Perun
+    ("Wirashoda", "Ala"),
+    ("Wirashoda", "Senda"),
+    ("Ala", "Vale"),
     # Cross-Krai connections
-    ("Otela", "Niarja"),
-    ("Kaunokka", "Archee"),
-    ("Tunudan", "Skarkon"),
-    ("Nani", "Raravoss"),
+    ("Senda", "Ahtila"),       # Veles ↔ Svarog
+    ("Otanuomi", "Urhinichi"), # Perun ↔ Svarog
 ]
 
-# Entry/exit connections between Pochven and k-space.
-# These are the routing shortcuts that make Pochven valuable for navigation.
-# Each tuple: (pochven_system, kspace_system)
-_ENTRY_EXIT_CONNECTIONS: list[tuple[str, str]] = [
-    # Major k-space shortcuts via Pochven
-    ("Niarja", "Bahromab"),
-    ("Niarja", "Madirmilire"),
-    ("Ahbazon", "Sifilar"),
-    ("Raravoss", "Zemaitig"),
-    ("Harva", "Soshin"),
-    ("Sakenta", "Autama"),
-    ("Otela", "Auviken"),
-    ("Kino", "Ahynada"),
-    ("Wirashoda", "Sakola"),
-    ("Nalvula", "Torrinos"),
-    ("Kaunokka", "Nourvukaiken"),
-    ("Skarkon", "Ennur"),
-    ("Tunudan", "Otosela"),
-    ("Ignebaener", "Alsavoinon"),
-    ("Arvasaras", "Amygnon"),
-    ("Nani", "Vevelonel"),
-    ("Konola", "Shihuken"),
-    ("Kuharah", "Eitu"),
-    ("Archee", "Angymonne"),
-    ("Ahtila", "Saatuban"),
-    ("Otanuomi", "Isanamo"),
-    ("Krirald", "Auga"),
-    ("Urhinichi", "Isbrabata"),
-]
+
+def get_system_krai(system_name: str) -> str | None:
+    """Return the Krai for a Pochven system, or None if not Pochven."""
+    if system_name in KRAI_PERUN:
+        return "perun"
+    if system_name in KRAI_SVAROG:
+        return "svarog"
+    if system_name in KRAI_VELES:
+        return "veles"
+    return None
+
+
+def get_system_type(system_name: str) -> str | None:
+    """Return 'home', 'border', or 'internal' for a Pochven system."""
+    if system_name in HOME_SYSTEMS:
+        return "home"
+    if system_name in BORDER_SYSTEMS:
+        return "border"
+    if system_name in KRAI_PERUN | KRAI_SVAROG | KRAI_VELES:
+        return "internal"
+    return None
+
 
 # In-memory state
 _state: dict[str, object] = {
@@ -122,31 +123,24 @@ def get_pochven_systems() -> list[str]:
 
 
 def get_active_pochven() -> list[PochvenConnection]:
-    """Get active Pochven connections where both systems exist in universe.
+    """Get active Pochven internal gate connections.
 
-    Returns both internal and entry/exit connections.
+    Returns only internal conduit gate connections (not filament entry/exit,
+    which is random and unpredictable).
     """
     universe = load_universe()
     connections: list[PochvenConnection] = []
 
     for from_sys, to_sys in _INTERNAL_CONNECTIONS:
         if from_sys in universe.systems and to_sys in universe.systems:
+            from_krai = get_system_krai(from_sys)
+            to_krai = get_system_krai(to_sys)
+            conn_type = "cross_krai" if from_krai != to_krai else "internal"
             connections.append(
                 PochvenConnection(
                     from_system=from_sys,
                     to_system=to_sys,
-                    connection_type="internal",
-                    bidirectional=True,
-                )
-            )
-
-    for pochven_sys, kspace_sys in _ENTRY_EXIT_CONNECTIONS:
-        if pochven_sys in universe.systems and kspace_sys in universe.systems:
-            connections.append(
-                PochvenConnection(
-                    from_system=pochven_sys,
-                    to_system=kspace_sys,
-                    connection_type="entry_exit",
+                    connection_type=conn_type,
                     bidirectional=True,
                 )
             )

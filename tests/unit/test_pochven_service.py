@@ -58,7 +58,7 @@ class TestGetActivePochven:
 
     def test_connections_have_valid_types(self):
         connections = get_active_pochven()
-        valid_types = {"internal", "entry_exit"}
+        valid_types = {"internal", "cross_krai"}
         for c in connections:
             assert c.connection_type in valid_types
 
@@ -67,10 +67,10 @@ class TestGetActivePochven:
         internal = [c for c in connections if c.connection_type == "internal"]
         assert len(internal) > 0
 
-    def test_entry_exit_connections_exist(self):
+    def test_cross_krai_connections_exist(self):
         connections = get_active_pochven()
-        entry_exit = [c for c in connections if c.connection_type == "entry_exit"]
-        assert len(entry_exit) > 0
+        cross = [c for c in connections if c.connection_type == "cross_krai"]
+        assert len(cross) > 0
 
     def test_all_connections_bidirectional(self):
         connections = get_active_pochven()

@@ -40,7 +40,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "connect-src 'self' http://localhost:* https://*.fly.dev",
+              "connect-src 'self' http://localhost:* ws://localhost:* https://*.fly.dev wss://*.fly.dev wss://zkillboard.com",
               "img-src 'self' data: https:",
               "font-src 'self'",
               "frame-ancestors 'none'",

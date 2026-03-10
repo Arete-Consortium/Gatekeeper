@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Analytics as VercelAnalytics } from '@vercel/analytics/next';
-import { Navbar } from '@/components/layout';
+import { Footer, Navbar } from '@/components/layout';
 import { Providers } from '@/components/Providers';
 import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
 import { Analytics } from '@/components/Analytics';
@@ -19,6 +19,22 @@ export const metadata: Metadata = {
   description:
     'EVE Online route planning and intelligence tool. Find safe routes, analyze fittings, and track kill activity.',
   keywords: ['EVE Online', 'route planner', 'intel', 'zkillboard', 'navigation'],
+  openGraph: {
+    title: 'EVE Gatekeeper - Intel & Route Planning',
+    description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
+    url: 'https://gatekeeper.aretedriver.dev',
+    siteName: 'EVE Gatekeeper',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'EVE Gatekeeper',
+    description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
+  },
+  icons: {
+    icon: '/favicon.ico',
+  },
+  metadataBase: new URL('https://gatekeeper.aretedriver.dev'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -45,6 +61,7 @@ export default function RootLayout({
           <ErrorBoundaryWrapper>
             <Navbar />
             <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+            <Footer />
           </ErrorBoundaryWrapper>
         </Providers>
         <Analytics />

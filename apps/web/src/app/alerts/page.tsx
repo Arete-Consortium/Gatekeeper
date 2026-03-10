@@ -41,14 +41,20 @@ export default function AlertsPage() {
     },
   });
 
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      GatekeeperAPI.updateAlertSubscription(id, { enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alertSubscriptions'] });
+    },
+  });
+
   const testMutation = useMutation({
     mutationFn: () => GatekeeperAPI.sendTestAlert(),
   });
 
   const handleToggle = (id: string, enabled: boolean) => {
-    // Note: The API would need to support updating subscriptions
-    // For now this is a placeholder
-    console.log('Toggle subscription', id, enabled);
+    toggleMutation.mutate({ id, enabled });
   };
 
   const subscriptions = subscriptionsData?.subscriptions || [];
@@ -127,7 +133,11 @@ export default function AlertsPage() {
                 key={sub.id}
                 subscription={sub}
                 onToggle={handleToggle}
-                onDelete={(id) => deleteMutation.mutate(id)}
+                onDelete={(id) => {
+                  if (window.confirm('Delete this alert subscription? This cannot be undone.')) {
+                    deleteMutation.mutate(id);
+                  }
+                }}
               />
             ))}
           </div>

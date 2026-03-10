@@ -227,7 +227,7 @@ function MapPageContent() {
   }, [mapConfig]);
 
   // Kill stream
-  const { kills, isConnected: killsConnected, isMock, reconnectAttempts, error: killStreamError } = useKillStream({
+  const { kills, isConnected: killsConnected } = useKillStream({
     maxAge: 60 * 60 * 1000,
     maxReconnectAttempts: 5,
   });
@@ -477,6 +477,7 @@ function MapPageContent() {
               theraConnections={theraData?.connections}
               activityData={activityData}
               kills={kills}
+              riskData={risks.find((r) => r.systemId === selectedSystem)}
               onClose={() => setSelectedSystem(null)}
               onSystemClick={handleSystemSelect}
               onSetOrigin={handleSetRouteOrigin}
@@ -535,6 +536,23 @@ function MapPageContent() {
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Intel Controls — inline in toolbar */}
+          <div className="relative">
+            <IntelControls
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
+              showKillMarkers={layers.showKills}
+              onShowKillMarkersChange={(v) => updateLayer('showKills', v)}
+              showHeatmap={layers.showHeatmap}
+              onShowHeatmapChange={(v) => updateLayer('showHeatmap', v)}
+              totalKills={totalKills}
+              totalPods={totalPods}
+              isConnected={killsConnected}
+              isLoading={intelLoading}
+              onRefresh={refreshIntel}
+              className="w-auto min-w-0"
+            />
+          </div>
           <SystemSearch
             systems={systems}
             onSelect={handleSearchSelect}
@@ -654,43 +672,6 @@ function MapPageContent() {
                 />
               )}
 
-              {/* Intel Controls Panel — hidden on small screens when route panel is open */}
-              <div className={`absolute top-3 right-3 sm:top-4 sm:right-4 z-10 ${showRoutePanel ? 'hidden sm:block' : ''}`}>
-                <IntelControls
-                  timeRange={timeRange}
-                  onTimeRangeChange={setTimeRange}
-                  showKillMarkers={layers.showKills}
-                  onShowKillMarkersChange={(v) => updateLayer('showKills', v)}
-                  showHeatmap={layers.showHeatmap}
-                  onShowHeatmapChange={(v) => updateLayer('showHeatmap', v)}
-                  totalKills={totalKills}
-                  totalPods={totalPods}
-                  isConnected={killsConnected}
-                  isLoading={intelLoading}
-                  onRefresh={refreshIntel}
-                  className="w-[calc(100vw-24px)] sm:w-72 max-w-[288px]"
-                />
-              </div>
-
-              {/* Kill Stream Status Indicator */}
-              <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-black/70 rounded-lg px-3 py-1.5 text-xs">
-                <div
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    killsConnected && !isMock
-                      ? 'bg-green-500'
-                      : isMock
-                        ? 'bg-yellow-500'
-                        : 'bg-red-500'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="text-text-secondary">
-                  {killsConnected && !isMock ? 'Live' : isMock ? 'Mock' : 'Offline'}
-                </span>
-                {killStreamError && (
-                  <span className="text-red-400 ml-1">{killStreamError}</span>
-                )}
-              </div>
             </>
           )}
         </div>
