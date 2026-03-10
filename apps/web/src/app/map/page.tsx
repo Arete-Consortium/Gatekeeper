@@ -560,8 +560,8 @@ function MapPageContent() {
   return (
     <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">
       {/* Header Controls */}
-      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-4 flex-wrap">
+        <div className="hidden sm:flex items-center gap-2">
           <h1 className="text-xl font-bold text-text flex items-center gap-2">
             <Map className="h-5 w-5" />
             New Eden Map
@@ -587,13 +587,13 @@ function MapPageContent() {
           >
             <Navigation className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in">
+          <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in" className="hidden sm:inline-flex">
             <ZoomIn className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out">
+          <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out" className="hidden sm:inline-flex">
             <ZoomOut className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode">
+          <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode" className="hidden sm:inline-flex">
             <Maximize2 className="h-4 w-4" aria-hidden="true" />
           </Button>
           <Button
@@ -602,6 +602,7 @@ function MapPageContent() {
             onClick={handleCopyLink}
             aria-label="Copy map link to clipboard"
             title="Copy link"
+            className="hidden sm:inline-flex"
           >
             {linkCopied ? (
               <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
@@ -705,7 +706,7 @@ function MapPageContent() {
               onClick={() => setShowMobileSidebar(false)}
               aria-hidden="true"
             />
-            <div className="fixed right-0 top-0 h-full w-full sm:w-72 max-w-[320px] bg-card border-l border-border z-50 overflow-y-auto p-4 lg:hidden">
+            <div className="fixed right-0 top-0 h-full w-[85vw] sm:w-72 max-w-[320px] bg-card border-l border-border z-50 overflow-y-auto p-4 pb-[env(safe-area-inset-bottom)] lg:hidden">
               <div className="flex justify-end mb-3">
                 <Button
                   variant="ghost"

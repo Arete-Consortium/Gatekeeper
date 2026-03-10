@@ -30,54 +30,73 @@ interface HotSystemRowProps {
 }
 
 const HotSystemRow = memo(function HotSystemRow({ system, index }: HotSystemRowProps) {
+  const secLabel = system.category === 'high_sec' ? 'Highsec' : system.category === 'low_sec' ? 'Lowsec' : 'Nullsec';
+  const secBadgeVariant = system.category === 'high_sec' ? 'success' as const : system.category === 'low_sec' ? 'warning' as const : 'danger' as const;
+  const secBadgeLetter = system.category === 'high_sec' ? 'H' : system.category === 'low_sec' ? 'L' : 'N';
+
   return (
-    <div
-      className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[500px]"
-      role="row"
-    >
-      <div className="col-span-1 text-text-secondary text-sm" role="cell">
-        {index + 1}
-      </div>
-      <div className="col-span-4 font-medium text-text truncate" role="cell">
-        {system.system_name}
-      </div>
-      <div className="col-span-2" role="cell">
-        <SecurityBadge security={system.security} size="sm" />
-      </div>
-      <div className="col-span-2 text-right" role="cell">
-        <span className="text-risk-red font-medium">
-          {system.recent_kills}
-        </span>
-      </div>
-      <div className="col-span-2 text-right" role="cell">
-        {system.recent_pods > 0 ? (
-          <span className="text-risk-orange font-medium">
-            {system.recent_pods}
+    <>
+      {/* Desktop table row (sm+) */}
+      <div
+        className="hidden sm:grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 border-t border-border hover:bg-card-hover transition-colors items-center"
+        role="row"
+      >
+        <div className="col-span-1 text-text-secondary text-sm" role="cell">
+          {index + 1}
+        </div>
+        <div className="col-span-4 font-medium text-text truncate" role="cell">
+          {system.system_name}
+        </div>
+        <div className="col-span-2" role="cell">
+          <SecurityBadge security={system.security} size="sm" />
+        </div>
+        <div className="col-span-2 text-right" role="cell">
+          <span className="text-risk-red font-medium">
+            {system.recent_kills}
           </span>
-        ) : (
-          <span className="text-text-secondary">0</span>
-        )}
+        </div>
+        <div className="col-span-2 text-right" role="cell">
+          {system.recent_pods > 0 ? (
+            <span className="text-risk-orange font-medium">
+              {system.recent_pods}
+            </span>
+          ) : (
+            <span className="text-text-secondary">0</span>
+          )}
+        </div>
+        <div className="col-span-1 text-right" role="cell">
+          <Badge
+            variant={secBadgeVariant}
+            size="sm"
+            aria-label={secLabel}
+          >
+            {secBadgeLetter}
+          </Badge>
+        </div>
       </div>
-      <div className="col-span-1 text-right" role="cell">
-        <Badge
-          variant={
-            system.category === 'high_sec'
-              ? 'success'
-              : system.category === 'low_sec'
-                ? 'warning'
-                : 'danger'
-          }
-          size="sm"
-          aria-label={system.category === 'high_sec' ? 'High security' : system.category === 'low_sec' ? 'Low security' : 'Null security'}
-        >
-          {system.category === 'high_sec'
-            ? 'H'
-            : system.category === 'low_sec'
-              ? 'L'
-              : 'N'}
-        </Badge>
+
+      {/* Mobile card (<sm) */}
+      <div
+        className="sm:hidden border-t border-border px-3 py-3 hover:bg-card-hover transition-colors"
+        role="row"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-text-secondary text-sm">{index + 1}.</span>
+          <span className="font-medium text-text truncate">{system.system_name}</span>
+          <SecurityBadge security={system.security} size="sm" />
+        </div>
+        <div className="flex items-center gap-4 mt-1">
+          <span className="text-risk-red font-medium text-sm">
+            <Skull className="inline h-3 w-3 mr-1" aria-hidden="true" />
+            {system.recent_kills} kills
+          </span>
+          <span className={`font-medium text-sm ${system.recent_pods > 0 ? 'text-risk-orange' : 'text-text-secondary'}`}>
+            {system.recent_pods} pods
+          </span>
+        </div>
+        <div className="mt-1 text-xs text-text-secondary">{secLabel}</div>
       </div>
-    </div>
+    </>
   );
 });
 
@@ -260,9 +279,9 @@ export default function IntelPage() {
             onRetry={() => refetch()}
           />
         ) : filteredSystems && filteredSystems.length > 0 ? (
-          <div className="border border-border rounded-lg overflow-x-auto" role="table" aria-label="Hot systems with kill activity">
+          <div className="border border-border rounded-lg overflow-hidden" role="table" aria-label="Hot systems with kill activity">
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[500px]" role="row">
+            <div className="hidden sm:grid grid-cols-12 gap-2 sm:gap-4 px-3 sm:px-4 py-3 bg-card text-xs text-text-secondary uppercase font-semibold" role="row">
               <div className="col-span-1" role="columnheader">#</div>
               <SortHeader label="System" sortKey="name" col="col-span-4" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
               <SortHeader label="Security" sortKey="security" col="col-span-2" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />

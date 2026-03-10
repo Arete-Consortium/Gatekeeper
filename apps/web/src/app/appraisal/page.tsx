@@ -147,9 +147,9 @@ export default function AppraisalPage() {
 
           {/* Items table */}
           {result.items.length > 0 && (
-            <div className="border border-border rounded-lg overflow-x-auto">
-              {/* Header */}
-              <div className="grid grid-cols-12 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[600px]">
+            <div className="border border-border rounded-lg overflow-hidden">
+              {/* Desktop header */}
+              <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold">
                 <div className="col-span-4">Item</div>
                 <div className="col-span-2 text-right">Qty</div>
                 <div className="col-span-3 text-right">Sell Price</div>
@@ -180,19 +180,32 @@ export default function AppraisalPage() {
 
 function ItemRow({ item }: { item: AppraisalItem }) {
   return (
-    <div className="grid grid-cols-12 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[600px] text-sm">
-      <div className="col-span-4 text-text font-medium truncate" title={item.name}>
-        {item.name}
+    <>
+      {/* Desktop row */}
+      <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center text-sm">
+        <div className="col-span-4 text-text font-medium truncate" title={item.name}>
+          {item.name}
+        </div>
+        <div className="col-span-2 text-right text-text-secondary font-mono">
+          {formatQuantity(item.quantity)}
+        </div>
+        <div className="col-span-3 text-right text-text-secondary font-mono">
+          {formatIsk(item.sell_price)}
+        </div>
+        <div className="col-span-3 text-right text-green-400 font-mono font-medium">
+          {formatIsk(item.sell_total)}
+        </div>
       </div>
-      <div className="col-span-2 text-right text-text-secondary font-mono">
-        {formatQuantity(item.quantity)}
+
+      {/* Mobile card */}
+      <div className="sm:hidden border-t border-border px-3 py-2.5 hover:bg-card-hover transition-colors">
+        <div className="text-sm text-text font-medium mb-1">{item.name}</div>
+        <div className="flex items-center justify-between text-xs font-mono">
+          <span className="text-text-secondary">x{formatQuantity(item.quantity)}</span>
+          <span className="text-text-secondary">{formatIsk(item.buy_price)} / {formatIsk(item.sell_price)}</span>
+          <span className="text-green-400 font-medium">{formatIsk(item.sell_total)}</span>
+        </div>
       </div>
-      <div className="col-span-3 text-right text-text-secondary font-mono">
-        {formatIsk(item.sell_price)}
-      </div>
-      <div className="col-span-3 text-right text-green-400 font-mono font-medium">
-        {formatIsk(item.sell_total)}
-      </div>
-    </div>
+    </>
   );
 }

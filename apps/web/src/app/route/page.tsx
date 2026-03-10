@@ -508,7 +508,8 @@ function RoutePageContent() {
           {/* Per-leg table */}
           {jumpResult.legs.length > 0 && (
             <div className="border border-border rounded-lg overflow-x-auto">
-              <div className="grid grid-cols-12 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[650px]">
+              {/* Desktop table header */}
+              <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[650px]">
                 <div className="col-span-1 text-center">#</div>
                 <div className="col-span-3">From</div>
                 <div className="col-span-3">To</div>
@@ -518,34 +519,65 @@ function RoutePageContent() {
                 <div className="col-span-2 text-right">Wait</div>
               </div>
               {jumpResult.legs.map((leg, idx) => (
-                <div
-                  key={`${leg.from_system}-${leg.to_system}`}
-                  className="grid grid-cols-12 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[650px] text-sm"
-                >
-                  <div className="col-span-1 text-center text-text-secondary font-mono">
-                    {idx + 1}
+                <div key={`${leg.from_system}-${leg.to_system}`}>
+                  {/* Desktop table row */}
+                  <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[650px] text-sm">
+                    <div className="col-span-1 text-center text-text-secondary font-mono">
+                      {idx + 1}
+                    </div>
+                    <div className="col-span-3 text-text font-medium truncate" title={leg.from_system}>
+                      {leg.from_system}
+                    </div>
+                    <div className="col-span-3 text-text font-medium truncate" title={leg.to_system}>
+                      {leg.to_system}
+                    </div>
+                    <div className="col-span-1 text-right text-blue-400 font-mono">
+                      {leg.distance_ly.toFixed(1)}
+                    </div>
+                    <div className="col-span-1 text-right text-yellow-400 font-mono">
+                      {leg.fuel_required.toLocaleString()}
+                    </div>
+                    <div className="col-span-1 text-right text-text-secondary font-mono">
+                      {formatMinutes(leg.total_fatigue_minutes)}
+                    </div>
+                    <div className="col-span-2 text-right font-mono">
+                      {leg.wait_time_minutes > 0 ? (
+                        <span className="text-risk-orange">{formatMinutes(leg.wait_time_minutes)}</span>
+                      ) : (
+                        <span className="text-green-400">Ready</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="col-span-3 text-text font-medium truncate" title={leg.from_system}>
-                    {leg.from_system}
-                  </div>
-                  <div className="col-span-3 text-text font-medium truncate" title={leg.to_system}>
-                    {leg.to_system}
-                  </div>
-                  <div className="col-span-1 text-right text-blue-400 font-mono">
-                    {leg.distance_ly.toFixed(1)}
-                  </div>
-                  <div className="col-span-1 text-right text-yellow-400 font-mono">
-                    {leg.fuel_required.toLocaleString()}
-                  </div>
-                  <div className="col-span-1 text-right text-text-secondary font-mono">
-                    {formatMinutes(leg.total_fatigue_minutes)}
-                  </div>
-                  <div className="col-span-2 text-right font-mono">
-                    {leg.wait_time_minutes > 0 ? (
-                      <span className="text-risk-orange">{formatMinutes(leg.wait_time_minutes)}</span>
-                    ) : (
-                      <span className="text-green-400">Ready</span>
-                    )}
+                  {/* Mobile card */}
+                  <div className="sm:hidden px-3 py-2.5 border-t border-border space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-text-secondary font-mono">{idx + 1}.</span>
+                      <span className="text-text font-medium truncate">{leg.from_system}</span>
+                      <span className="text-text-secondary">&rarr;</span>
+                      <span className="text-text font-medium truncate">{leg.to_system}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Distance</span>
+                        <span className="text-blue-400 font-mono">{leg.distance_ly.toFixed(1)} LY</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Fuel</span>
+                        <span className="text-yellow-400 font-mono">{leg.fuel_required.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Fatigue</span>
+                        <span className="text-text-secondary font-mono">{formatMinutes(leg.total_fatigue_minutes)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Wait</span>
+                        {leg.wait_time_minutes > 0 ? (
+                          <span className="text-risk-orange font-mono">{formatMinutes(leg.wait_time_minutes)}</span>
+                        ) : (
+                          <span className="text-green-400 font-mono">Ready</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
