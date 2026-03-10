@@ -682,12 +682,18 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   }, [systemFilter, regionFilter, minValue, includePods, useMock, sendSubscription]);
 
   /**
-   * Connect on mount, disconnect on unmount
+   * Connect on mount, disconnect on unmount.
+   * Use refs to avoid reconnect loops from unstable callback deps.
    */
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+  connectRef.current = connect;
+  disconnectRef.current = disconnect;
+
   useEffect(() => {
-    connect();
-    return disconnect;
-  }, [connect, disconnect]);
+    connectRef.current();
+    return () => disconnectRef.current();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     kills,
