@@ -693,11 +693,14 @@ function MapPageContent() {
             <span className="text-text-secondary">Thera Connection</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-2 w-4 bg-gradient-to-r from-red-500 via-amber-500 to-green-500 rounded-sm" aria-hidden="true" />
+            <div className="flex gap-0.5" aria-hidden="true">
+              <span className="inline-block w-3.5 h-3.5 rounded-full bg-red-900 border border-red-300 text-red-300 text-[8px] font-bold text-center leading-[14px]">1</span>
+              <span className="inline-block w-3.5 h-3.5 rounded-full bg-green-900 border border-green-300 text-green-300 text-[8px] font-bold text-center leading-[14px]">5</span>
+            </div>
             <span className="text-text-secondary">iHub ADM Level</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 bg-sky-400 rotate-45" aria-hidden="true" />
+            <span className="inline-block w-4 h-3.5 rounded-full bg-sky-900 border border-sky-300 text-sky-300 text-[8px] font-bold text-center leading-[14px]" aria-hidden="true">S</span>
             <span className="text-text-secondary">Skyhook</span>
           </div>
         </div>

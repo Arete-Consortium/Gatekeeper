@@ -368,7 +368,7 @@ describe('SovStructuresOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders ADM ring at high zoom', () => {
+  it('renders ADM badge at high zoom', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct()] }}
@@ -378,39 +378,15 @@ describe('SovStructuresOverlay', () => {
     );
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    const circle = svg!.querySelector('circle');
-    expect(circle).toBeTruthy();
-  });
-
-  it('shows ADM number at zoom >= 2', () => {
-    const { container } = render(
-      <SovStructuresOverlay
-        structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
-        systems={SYSTEMS}
-        viewport={highZoom}
-      />
-    );
-    const texts = container.querySelectorAll('text');
-    // ADM number text (label only shows at zoom > 3)
+    // Badge pill (rect) + number text
+    const rects = svg!.querySelectorAll('rect');
+    expect(rects.length).toBeGreaterThanOrEqual(1);
+    const texts = svg!.querySelectorAll('text');
     expect(texts.length).toBeGreaterThanOrEqual(1);
-    expect(texts[0]!.textContent).toBe('5');
+    expect(texts[0]!.textContent).toBe('4');
   });
 
-  it('shows full ADM label at very high zoom', () => {
-    const { container } = render(
-      <SovStructuresOverlay
-        structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
-        systems={SYSTEMS}
-        viewport={{ ...VIEWPORT, zoom: 4 }}
-      />
-    );
-    const texts = Array.from(container.querySelectorAll('text'));
-    const labelText = texts.find((t) => t.textContent?.includes('ADM'));
-    expect(labelText).toBeTruthy();
-    expect(labelText!.textContent).toContain('ADM 5');
-  });
-
-  it('uses green color for high ADM', () => {
+  it('shows ADM number in badge', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
@@ -418,11 +394,24 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const circle = container.querySelector('circle');
-    expect(circle).toHaveAttribute('stroke', '#22c55e');
+    const text = container.querySelector('text');
+    expect(text).toBeTruthy();
+    expect(text!.textContent).toBe('5');
   });
 
-  it('uses red color for low ADM', () => {
+  it('uses green stroke for high ADM badge', () => {
+    const { container } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
+        systems={SYSTEMS}
+        viewport={highZoom}
+      />
+    );
+    const rect = container.querySelector('rect');
+    expect(rect).toHaveAttribute('stroke', '#86efac');
+  });
+
+  it('uses red stroke for low ADM badge', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 1 })] }}
@@ -430,11 +419,11 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const circle = container.querySelector('circle');
-    expect(circle).toHaveAttribute('stroke', '#ef4444');
+    const rect = container.querySelector('rect');
+    expect(rect).toHaveAttribute('stroke', '#fca5a5');
   });
 
-  it('uses amber color for medium ADM', () => {
+  it('uses amber stroke for medium ADM badge', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 3 })] }}
@@ -442,8 +431,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const circle = container.querySelector('circle');
-    expect(circle).toHaveAttribute('stroke', '#f59e0b');
+    const rect = container.querySelector('rect');
+    expect(rect).toHaveAttribute('stroke', '#fcd34d');
   });
 
   it('renders nothing for empty structures', () => {
@@ -457,7 +446,7 @@ describe('SovStructuresOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders skyhook diamond indicator', () => {
+  it('renders skyhook badge', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null })] }}
@@ -465,25 +454,17 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const polygon = container.querySelector('polygon');
-    expect(polygon).toBeTruthy();
-    expect(polygon).toHaveAttribute('fill', '#38bdf8');
-  });
-
-  it('renders skyhook text at very high zoom', () => {
-    const { container } = render(
-      <SovStructuresOverlay
-        structures={{ '100': [makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null })] }}
-        systems={SYSTEMS}
-        viewport={{ ...VIEWPORT, zoom: 4 }}
-      />
-    );
+    // Skyhook badge rect with sky-blue stroke
+    const rect = container.querySelector('rect');
+    expect(rect).toBeTruthy();
+    expect(rect).toHaveAttribute('stroke', '#7dd3fc');
+    // "S" label
     const text = container.querySelector('text');
     expect(text).toBeTruthy();
-    expect(text!.textContent).toContain('Skyhook');
+    expect(text!.textContent).toBe('S');
   });
 
-  it('renders both iHub and skyhook together', () => {
+  it('renders both iHub and skyhook badges together', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [
@@ -491,15 +472,15 @@ describe('SovStructuresOverlay', () => {
           makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null }),
         ] }}
         systems={SYSTEMS}
-        viewport={{ ...VIEWPORT, zoom: 4 }}
+        viewport={highZoom}
       />
     );
-    // ADM ring (circle) + skyhook diamond (polygon)
-    expect(container.querySelector('circle')).toBeTruthy();
-    expect(container.querySelector('polygon')).toBeTruthy();
+    // ADM badge rect + skyhook badge rect = at least 2
+    const rects = container.querySelectorAll('rect');
+    expect(rects.length).toBeGreaterThanOrEqual(2);
     const texts = Array.from(container.querySelectorAll('text'));
-    const labelText = texts.find((t) => t.textContent?.includes('ADM'));
-    expect(labelText!.textContent).toContain('ADM 5');
-    expect(labelText!.textContent).toContain('Skyhook');
+    // ADM number "5" + skyhook "S"
+    expect(texts.find((t) => t.textContent === '5')).toBeTruthy();
+    expect(texts.find((t) => t.textContent === 'S')).toBeTruthy();
   });
 });

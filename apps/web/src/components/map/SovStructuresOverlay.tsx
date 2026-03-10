@@ -15,16 +15,28 @@ interface SovStructuresOverlayProps {
   viewport: MapViewport;
 }
 
-function admColor(level: number | null): string {
-  if (level === null || level === 0) return '#6b7280';
-  if (level <= 1) return '#ef4444'; // 1 - red
-  if (level <= 2) return '#f97316'; // 2 - orange
-  if (level <= 3) return '#f59e0b'; // 3 - amber
-  if (level <= 4) return '#84cc16'; // 4 - lime
-  return '#22c55e'; // 5-6 - green
+// Bold, saturated fills for the badge background
+function admBgColor(level: number | null): string {
+  if (level === null || level === 0) return '#374151'; // gray-700
+  if (level <= 1) return '#991b1b'; // red-800
+  if (level <= 2) return '#9a3412'; // orange-800
+  if (level <= 3) return '#92400e'; // amber-800
+  if (level <= 4) return '#3f6212'; // lime-800
+  return '#166534'; // green-800
 }
 
-const SKYHOOK_COLOR = '#38bdf8'; // sky-400
+// Bright text/border color
+function admFgColor(level: number | null): string {
+  if (level === null || level === 0) return '#9ca3af';
+  if (level <= 1) return '#fca5a5'; // red-300
+  if (level <= 2) return '#fdba74'; // orange-300
+  if (level <= 3) return '#fcd34d'; // amber-300
+  if (level <= 4) return '#bef264'; // lime-300
+  return '#86efac'; // green-300
+}
+
+const SKYHOOK_BG = '#0c4a6e'; // sky-900
+const SKYHOOK_FG = '#7dd3fc'; // sky-300
 
 interface StructMarker {
   systemId: number;
@@ -46,7 +58,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
     if (viewport.zoom < 1.5) return [];
 
     const result: StructMarker[] = [];
-    const pad = 30;
+    const pad = 40;
 
     for (const [sidStr, structs] of Object.entries(structures)) {
       const system = systems.get(Number(sidStr));
@@ -79,12 +91,12 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
   if (markers.length === 0) return null;
 
-  // Ring around system node — scales with zoom for visibility
-  const baseR = isMobile ? 10 : 8;
-  const ringR = Math.min(baseR * Math.sqrt(viewport.zoom), 20);
-  const strokeW = isMobile ? 3 : 2.5;
-  const fontSize = isMobile ? 11 : 9;
-  const skyhookSize = isMobile ? 5 : 4;
+  // Badge dimensions — pill shape offset below-right of system node
+  const badgeH = isMobile ? 16 : 14;
+  const badgeR = badgeH / 2;
+  const fontSize = isMobile ? 11 : 10;
+  const offsetX = 6;
+  const offsetY = 6;
 
   return (
     <svg
@@ -93,60 +105,83 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       height={viewport.height}
       style={{ zIndex: 2 }}
     >
-      {markers.map((m) => (
-        <g key={m.systemId}>
-          {/* ADM ring around system node */}
-          {m.ihubAdm !== null && (
-            <circle
-              cx={m.x}
-              cy={m.y}
-              r={ringR}
-              fill="none"
-              stroke={admColor(m.ihubAdm)}
-              strokeWidth={strokeW}
-              opacity={0.75}
-            />
-          )}
-          {/* ADM number below system */}
-          {m.ihubAdm !== null && viewport.zoom >= 2 && (
-            <text
-              x={m.x}
-              y={m.y + ringR + fontSize + 1}
-              textAnchor="middle"
-              fill={admColor(m.ihubAdm)}
-              fontSize={fontSize}
-              fontWeight="bold"
-              opacity={0.85}
-            >
-              {m.ihubAdm}
-            </text>
-          )}
-          {/* Skyhook diamond — offset to upper-right of system */}
-          {m.hasSkyhook && (
-            <g transform={`translate(${m.x + ringR + 2}, ${m.y - ringR - 2})`}>
-              <polygon
-                points={`0,${-skyhookSize} ${skyhookSize},0 0,${skyhookSize} ${-skyhookSize},0`}
-                fill={SKYHOOK_COLOR}
-                opacity={0.85}
-              />
-            </g>
-          )}
-          {/* Labels at high zoom */}
-          {viewport.zoom > 3 && (m.ihubAdm !== null || m.hasSkyhook) && (
-            <text
-              x={m.x + ringR + (m.hasSkyhook ? skyhookSize + 6 : 4)}
-              y={m.y - ringR}
-              fill={m.ihubAdm !== null ? admColor(m.ihubAdm) : SKYHOOK_COLOR}
-              fontSize={fontSize - 1}
-              opacity={0.65}
-            >
-              {m.ihubAdm !== null ? `ADM ${m.ihubAdm}` : ''}
-              {m.ihubAdm !== null && m.hasSkyhook ? ' · ' : ''}
-              {m.hasSkyhook ? 'Skyhook' : ''}
-            </text>
-          )}
-        </g>
-      ))}
+      <defs>
+        <filter id="adm-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.5" />
+        </filter>
+      </defs>
+      {markers.map((m) => {
+        // Position badges offset from system
+        const bx = m.x + offsetX;
+        const by = m.y + offsetY;
+
+        // ADM badge width based on content
+        const admText = m.ihubAdm !== null ? String(m.ihubAdm) : null;
+        const admBadgeW = admText ? (admText.length === 1 ? badgeH : badgeH + 4) : 0;
+
+        // Skyhook badge
+        const skBadgeW = badgeH + 6;
+        const skX = bx + (admBadgeW > 0 ? admBadgeW + 2 : 0);
+
+        return (
+          <g key={m.systemId} filter="url(#adm-shadow)">
+            {/* ADM badge — rounded pill with number */}
+            {admText !== null && (
+              <>
+                <rect
+                  x={bx - admBadgeW / 2}
+                  y={by - badgeR}
+                  width={admBadgeW}
+                  height={badgeH}
+                  rx={badgeR}
+                  fill={admBgColor(m.ihubAdm)}
+                  stroke={admFgColor(m.ihubAdm)}
+                  strokeWidth={1.5}
+                  opacity={0.92}
+                />
+                <text
+                  x={bx}
+                  y={by + fontSize * 0.35}
+                  textAnchor="middle"
+                  fill={admFgColor(m.ihubAdm)}
+                  fontSize={fontSize}
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                >
+                  {admText}
+                </text>
+              </>
+            )}
+            {/* Skyhook badge — "S" in sky-blue pill */}
+            {m.hasSkyhook && (
+              <>
+                <rect
+                  x={skX - skBadgeW / 2}
+                  y={by - badgeR}
+                  width={skBadgeW}
+                  height={badgeH}
+                  rx={badgeR}
+                  fill={SKYHOOK_BG}
+                  stroke={SKYHOOK_FG}
+                  strokeWidth={1.5}
+                  opacity={0.92}
+                />
+                <text
+                  x={skX}
+                  y={by + fontSize * 0.35}
+                  textAnchor="middle"
+                  fill={SKYHOOK_FG}
+                  fontSize={fontSize - 1}
+                  fontWeight="bold"
+                  fontFamily="monospace"
+                >
+                  S
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 });
