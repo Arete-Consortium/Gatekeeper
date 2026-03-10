@@ -29,6 +29,7 @@ function RoutePageContent() {
     ];
   });
 
+  const [avoidSystems, setAvoidSystems] = useState<string[]>([]);
   const [profile, setProfile] = useState<RouteProfile>(() => {
     const p = searchParams.get('profile') as RouteProfile | null;
     return p && p in ROUTE_PROFILES ? p : 'safer';
@@ -60,6 +61,7 @@ function RoutePageContent() {
     profile,
     bridges: includeBridges,
     thera: includeThera,
+    avoid: avoidSystems,
     enabled: shouldFetch && allFilled,
   });
 
@@ -75,7 +77,11 @@ function RoutePageContent() {
     setShouldFetch(false);
   }, []);
 
-  // Find first segment with an error for display
+  const handleAvoidChange = useCallback((systems: string[]) => {
+    setAvoidSystems(systems);
+    setShouldFetch(false);
+  }, []);
+
   const displayError = error ?? segmentErrors.find((e) => e !== null) ?? null;
 
   return (
@@ -84,20 +90,22 @@ function RoutePageContent() {
       <div>
         <h1 className="text-2xl font-bold text-text">Route Planner</h1>
         <p className="text-text-secondary mt-1">
-          Find the safest path between solar systems. Add waypoints to plan multi-stop routes.
+          Plan multi-stop routes with waypoints. Drag to reorder, paste routes, or avoid dangerous systems.
         </p>
       </div>
 
-      {/* Waypoint List */}
+      {/* Waypoint List + Options */}
       <Card>
         <div className="space-y-4">
           <WaypointList
             waypoints={waypoints}
             onChange={handleWaypointsChange}
+            avoidSystems={avoidSystems}
+            onAvoidChange={handleAvoidChange}
           />
 
           {/* Profile Selection */}
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-3 gap-4 pt-2 border-t border-border">
             <Select
               label="Route Profile"
               value={profile}

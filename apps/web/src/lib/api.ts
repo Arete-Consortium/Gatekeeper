@@ -203,7 +203,7 @@ class GatekeeperAPIService {
     fromSystem: string,
     toSystem: string,
     profile: RouteProfile = 'safer',
-    options?: { bridges?: boolean; thera?: boolean }
+    options?: { bridges?: boolean; thera?: boolean; avoid?: string[] }
   ): Promise<RouteResponse> {
     const params = new URLSearchParams({
       from: fromSystem,
@@ -215,6 +215,11 @@ class GatekeeperAPIService {
     }
     if (options?.thera) {
       params.set('thera', 'true');
+    }
+    if (options?.avoid && options.avoid.length > 0) {
+      for (const system of options.avoid) {
+        params.append('avoid', system);
+      }
     }
     return this.request<RouteResponse>(`/map/route?${params.toString()}`);
   }

@@ -11,6 +11,7 @@ interface UseMultiRouteOptions {
   profile?: RouteProfile;
   bridges?: boolean;
   thera?: boolean;
+  avoid?: string[];
   enabled?: boolean;
 }
 
@@ -38,6 +39,7 @@ export function useMultiRoute({
   profile = 'safer',
   bridges = false,
   thera = false,
+  avoid = [],
   enabled = true,
 }: UseMultiRouteOptions): MultiRouteResult {
   // Build segment pairs: [A,B], [B,C], [C,D]
@@ -51,10 +53,13 @@ export function useMultiRoute({
     return result;
   }, [systems]);
 
+  // Stable avoid key for query cache
+  const avoidKey = avoid.slice().sort().join(',');
+
   const queries = useQueries({
     queries: pairs.map(([from, to]) => ({
-      queryKey: ['route', from, to, profile, bridges, thera],
-      queryFn: () => GatekeeperAPI.getRoute(from, to, profile, { bridges, thera }),
+      queryKey: ['route', from, to, profile, bridges, thera, avoidKey],
+      queryFn: () => GatekeeperAPI.getRoute(from, to, profile, { bridges, thera, avoid }),
       enabled: enabled && from.length > 0 && to.length > 0,
       staleTime: 60 * 1000,
       retry: false,
