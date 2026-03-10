@@ -12,6 +12,7 @@ import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse } from 
 import { GatekeeperAPI } from '@/lib/api';
 import { Route, Loader2, Rocket, Fuel, Clock } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
+import { JumpStrip } from '@/components/route/JumpStrip';
 import dynamic from 'next/dynamic';
 
 const JumpRangeMap = dynamic(
@@ -492,6 +493,9 @@ function RoutePageContent() {
               </div>
             </Card>
           )}
+
+          {/* Jump strip — arc visualization */}
+          <JumpStrip legs={jumpResult.legs} fuelTypeName={jumpResult.fuel_type_name} />
 
           {/* Fatigue warning */}
           {jumpResult.total_fatigue_minutes > 60 && (

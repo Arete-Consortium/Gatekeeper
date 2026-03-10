@@ -4,6 +4,7 @@ import { Card, CardTitle, Badge } from '@/components/ui';
 import { RiskBadge } from '@/components/system';
 import { RouteHopRow } from './RouteHopRow';
 import { RouteMap } from './RouteMap';
+import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteResponse } from '@/lib/types';
 import { Gauge, Route, Zap, MapPin } from 'lucide-react';
@@ -107,6 +108,9 @@ export function RouteResult({ route }: RouteResultProps) {
           </div>
         </div>
       </Card>
+
+      {/* Route Strip — subway-line visualization */}
+      <RouteStrip hops={route.path} />
 
       {/* Route Map */}
       <RouteMap route={route} />
