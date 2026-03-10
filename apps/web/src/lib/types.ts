@@ -443,3 +443,33 @@ export interface JumpRouteResponse {
 
 // Route profile type
 export type RouteProfile = 'shortest' | 'safer' | 'paranoid';
+
+// Route bookmark
+export interface BookmarkResponse {
+  id: number;
+  character_id: number;
+  name: string;
+  from_system: string;
+  to_system: string;
+  profile: string;
+  avoid_systems: string[];
+  use_bridges: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookmarkListResponse {
+  bookmarks: BookmarkResponse[];
+  total: number;
+}
+
+export interface BookmarkCreate {
+  name: string;
+  from_system: string;
+  to_system: string;
+  profile?: string;
+  avoid_systems?: string[];
+  use_bridges?: boolean;
+  notes?: string | null;
+}

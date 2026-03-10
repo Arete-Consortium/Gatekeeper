@@ -44,6 +44,8 @@ class HotSystemStats(BaseModel):
 
     system_id: int
     system_name: str
+    security: float
+    category: str
     recent_kills: int
     recent_pods: int
     total_activity: int
@@ -131,6 +133,7 @@ async def get_bulk_stats(
 )
 async def get_hot_systems(
     hours: int = Query(24, ge=1, le=168, description="Lookback period in hours"),
+    limit: int = Query(25, ge=1, le=100, description="Max systems to return"),
 ) -> HotSystemsResponse:
     """Get stats for known hot systems (trade hubs, pipes)."""
     universe = load_universe()
@@ -148,21 +151,37 @@ async def get_hot_systems(
     # Fetch stats
     stats_by_id = await fetch_bulk_system_stats(priority_ids, hours)
 
+    # Build security lookup
+    id_to_system = {sys.id: sys for sys in universe.systems.values()}
+
+    def _sec_category(sec: float) -> str:
+        if sec >= 0.5:
+            return "high_sec"
+        if sec > 0.0:
+            return "low_sec"
+        return "null_sec"
+
     # Build response sorted by activity
     systems: list[HotSystemStats] = []
     for system_id, stats in stats_by_id.items():
         name = id_to_name.get(system_id, f"System-{system_id}")
+        sys_data = id_to_system.get(system_id)
+        sec = round(sys_data.security, 1) if sys_data else 0.0
         systems.append(
             HotSystemStats(
                 system_id=system_id,
                 system_name=name,
+                security=sec,
+                category=_sec_category(sec),
                 recent_kills=stats.recent_kills,
                 recent_pods=stats.recent_pods,
                 total_activity=stats.recent_kills + stats.recent_pods,
             )
         )
 
-    # Sort by total activity descending
+    # Sort by total activity descending, apply limit
     systems.sort(key=lambda s: s.total_activity, reverse=True)
+    max_results = limit if isinstance(limit, int) else 25
+    systems = systems[:max_results]
 
     return HotSystemsResponse(hours=hours, systems=systems)

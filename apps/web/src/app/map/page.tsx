@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button, Badge, ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { Toggle } from '@/components/ui/Toggle';
+import Link from 'next/link';
 import {
   AlertCircle,
   Map,
@@ -25,6 +26,7 @@ import {
   Link2,
   Check,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
 import type { MapConfig } from '@/lib/types';
@@ -34,6 +36,9 @@ import { useKillStream } from '@/components/map/useKillStream';
 import { RouteControls } from '@/components/map/RouteControls';
 import { SystemDetailPanel } from '@/components/map/SystemDetailPanel';
 import { SystemSearch } from '@/components/map/SystemSearch';
+import { useAuth } from '@/contexts/AuthContext';
+import { SavedRoutes } from '@/components/map/SavedRoutes';
+import { Bookmark } from 'lucide-react';
 
 // Dynamically import the UniverseMap to avoid SSR issues with PixiJS
 const UniverseMap = dynamic(
@@ -80,6 +85,39 @@ function CollapsibleSection({
       </button>
       {open && <div className="mt-3">{children}</div>}
     </Card>
+  );
+}
+
+// Pro-gated toggle — disabled with lock badge + pricing link for free users
+function ProToggle({
+  checked,
+  onChange,
+  label,
+  isPro,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  isPro: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Toggle
+        checked={isPro ? checked : false}
+        onChange={isPro ? onChange : () => {}}
+        label={label}
+        disabled={!isPro}
+      />
+      {!isPro && (
+        <Link
+          href="/pricing"
+          className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+        >
+          <Lock className="h-3 w-3" />
+          Pro
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -145,6 +183,7 @@ export default function MapPage() {
 }
 
 function MapPageContent() {
+  const { isPro } = useAuth();
   const mapRef = useRef<UniverseMapRef>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -501,13 +540,13 @@ function MapPageContent() {
           <Toggle checked={layers.showLabels} onChange={(v) => updateLayer('showLabels', v)} label="System labels" />
           <Toggle checked={layers.showRegionLabels} onChange={(v) => updateLayer('showRegionLabels', v)} label="Region labels" />
           <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
-          <Toggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" />
-          <Toggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" />
-          <Toggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" />
-          <Toggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" />
-          <Toggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" />
+          <ProToggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" isPro={isPro} />
+          <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
+          <ProToggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" isPro={isPro} />
+          <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
+          <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
-          <Toggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" />
+          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" isPro={isPro} />
         </div>
 
         {/* Intel controls */}
@@ -539,12 +578,29 @@ function MapPageContent() {
             <option value="48h">Last 48 Hours</option>
           </select>
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-text-secondary">
-              <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />{totalKills} kills
-            </span>
-            <span className="text-text-secondary">
-              <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mr-1" />{totalPods} pods
-            </span>
+            {isPro ? (
+              <>
+                <span className="text-text-secondary">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />{totalKills} kills
+                </span>
+                <span className="text-text-secondary">
+                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mr-1" />{totalPods} pods
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-text-secondary">
+                  <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />--- kills
+                </span>
+                <span className="text-text-secondary">
+                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mr-1" />--- pods
+                </span>
+                <Link href="/pricing" className="flex items-center gap-1 text-[10px] text-primary hover:underline ml-auto">
+                  <Lock className="h-3 w-3" />
+                  Pro
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </CollapsibleSection>
@@ -560,6 +616,28 @@ function MapPageContent() {
           <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('risk')} className="flex-1">Risk</Button>
           <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('star')} className="flex-1">Star</Button>
         </div>
+      </CollapsibleSection>
+
+      {/* Saved Routes — collapsible */}
+      <CollapsibleSection
+        title="Saved Routes"
+        icon={<Bookmark className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+        defaultOpen={false}
+      >
+        <SavedRoutes
+          currentOrigin={routeState.originId ? getSystemName(routeState.originId) ?? undefined : undefined}
+          currentDestination={routeState.destinationId ? getSystemName(routeState.destinationId) ?? undefined : undefined}
+          currentProfile={routeState.profile}
+          currentUseBridges={routeState.bridges}
+          onLoad={(bm) => {
+            // Find system IDs by name and set route
+            const origin = systems.find((s) => s.name === bm.from_system);
+            const dest = systems.find((s) => s.name === bm.to_system);
+            if (origin) setRouteOrigin(origin.systemId);
+            if (dest) setRouteDestination(dest.systemId);
+            setShowRoutePanel(true);
+          }}
+        />
       </CollapsibleSection>
 
       {/* System Detail Panel — replaces old inline info */}
@@ -740,7 +818,7 @@ function MapPageContent() {
                 gates={gates}
                 regionNames={regionNames}
                 routes={mapRoutes}
-                kills={kills}
+                kills={isPro ? kills : []}
                 risks={risks}
                 sovereignty={sovOverlay.sovereignty}
                 alliances={sovOverlay.alliances}

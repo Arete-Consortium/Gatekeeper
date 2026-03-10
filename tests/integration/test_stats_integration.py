@@ -101,9 +101,12 @@ class TestHotSystemsEndpoint:
         for system in data["systems"]:
             assert "system_id" in system
             assert "system_name" in system
+            assert "security" in system
+            assert "category" in system
             assert "recent_kills" in system
             assert "recent_pods" in system
             assert "total_activity" in system
+            assert system["category"] in ("high_sec", "low_sec", "null_sec")
 
     def test_hot_systems_sorted_by_activity(self, test_client):
         """Test that hot systems are sorted by activity descending."""

@@ -78,6 +78,11 @@ export function Navbar() {
     setUserMenuOpen(false);
   }, []);
 
+  const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
+  const handleImgError = useCallback((key: string) => {
+    setImgErrors((prev) => new Set(prev).add(key));
+  }, []);
+
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4">
@@ -131,11 +136,12 @@ export function Navbar() {
                     )}
                   >
                     {isPro && <Zap className="h-3 w-3 text-primary" />}
-                    {user?.character_id ? (
+                    {user?.character_id && !imgErrors.has('nav') ? (
                       <img
                         src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=32`}
                         alt={user.character_name}
                         className="h-6 w-6 rounded-full"
+                        onError={() => handleImgError('nav')}
                       />
                     ) : (
                       <User className="h-4 w-4" />
@@ -147,11 +153,12 @@ export function Navbar() {
                       {/* Character header */}
                       <div className="px-3 py-3 border-b border-border">
                         <div className="flex items-center gap-3">
-                          {user?.character_id ? (
+                          {user?.character_id && !imgErrors.has('dropdown') ? (
                             <img
                               src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=64`}
                               alt={user.character_name}
                               className="h-10 w-10 rounded-full"
+                              onError={() => handleImgError('dropdown')}
                             />
                           ) : (
                             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -278,11 +285,12 @@ export function Navbar() {
                   <>
                     {/* Character info */}
                     <div className="flex items-center gap-3 px-3 py-3">
-                      {user?.character_id ? (
+                      {user?.character_id && !imgErrors.has('mobile') ? (
                         <img
                           src={`https://images.evetech.net/characters/${user.character_id}/portrait?size=64`}
                           alt={user.character_name}
                           className="h-8 w-8 rounded-full"
+                          onError={() => handleImgError('mobile')}
                         />
                       ) : (
                         <User className="h-5 w-5 text-text-secondary" />

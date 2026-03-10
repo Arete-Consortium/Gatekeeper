@@ -17,10 +17,10 @@ def mock_universe():
     """Create a mock universe with test systems."""
     mock = MagicMock()
     mock.systems = {
-        "Jita": MagicMock(id=30000142),
-        "Amarr": MagicMock(id=30002187),
-        "Tama": MagicMock(id=30002813),
-        "Rancer": MagicMock(id=30002718),
+        "Jita": MagicMock(id=30000142, security=0.9),
+        "Amarr": MagicMock(id=30002187, security=1.0),
+        "Tama": MagicMock(id=30002813, security=0.3),
+        "Rancer": MagicMock(id=30002718, security=0.4),
     }
     return mock
 
@@ -303,6 +303,8 @@ class TestStatsModels:
         stats = HotSystemStats(
             system_id=30000142,
             system_name="Jita",
+            security=0.9,
+            category="high_sec",
             recent_kills=10,
             recent_pods=5,
             total_activity=15,

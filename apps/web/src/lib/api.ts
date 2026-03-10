@@ -29,6 +29,9 @@ import {
   CapitalShipType,
   FuelType,
   JumpRouteResponse,
+  BookmarkListResponse,
+  BookmarkResponse,
+  BookmarkCreate,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -461,6 +464,25 @@ class GatekeeperAPIService {
         body: JSON.stringify({ return_url: returnUrl }),
       }
     );
+  }
+
+  // ==================== Bookmarks ====================
+
+  async getBookmarks(): Promise<BookmarkListResponse> {
+    return this.request<BookmarkListResponse>('/api/v1/bookmarks/');
+  }
+
+  async createBookmark(data: BookmarkCreate): Promise<BookmarkResponse> {
+    return this.request<BookmarkResponse>('/api/v1/bookmarks/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBookmark(id: number): Promise<void> {
+    await this.request<void>(`/api/v1/bookmarks/${id}`, {
+      method: 'DELETE',
+    });
   }
 
   // ==================== Utility ====================
