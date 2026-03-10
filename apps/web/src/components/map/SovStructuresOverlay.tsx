@@ -5,10 +5,9 @@ import type { MapSystem, MapViewport } from './types';
 import type { SovStructure } from '@/lib/types';
 
 // Structure type IDs from ESI
-const STRUCTURE_TYPES = {
-  32458: 'iHub', // Infrastructure Hub
-  32226: 'TCU',  // Territorial Claim Unit
-} as const;
+const TYPE_IHUB = 32458;
+const TYPE_TCU = 32226;
+const TYPE_SKYHOOK = 81826; // Orbital Skyhook (Equinox)
 
 interface SovStructuresOverlayProps {
   structures: Record<string, SovStructure[]>;
@@ -18,9 +17,22 @@ interface SovStructuresOverlayProps {
 
 function admColor(level: number | null): string {
   if (level === null || level === 0) return '#6b7280';
-  if (level <= 2) return '#ef4444'; // Low ADM - red
-  if (level <= 4) return '#f59e0b'; // Medium ADM - amber
-  return '#22c55e'; // High ADM - green
+  if (level <= 1) return '#ef4444'; // 1 - red
+  if (level <= 2) return '#f97316'; // 2 - orange
+  if (level <= 3) return '#f59e0b'; // 3 - amber
+  if (level <= 4) return '#84cc16'; // 4 - lime
+  return '#22c55e'; // 5-6 - green
+}
+
+const SKYHOOK_COLOR = '#38bdf8'; // sky-400
+
+interface StructMarker {
+  systemId: number;
+  x: number;
+  y: number;
+  ihubAdm: number | null;
+  hasTcu: boolean;
+  hasSkyhook: boolean;
 }
 
 export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
@@ -28,17 +40,13 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   systems,
   viewport,
 }: SovStructuresOverlayProps) {
+  const isMobile = viewport.width < 768;
+
   const markers = useMemo(() => {
-    // Only show at reasonable zoom levels
     if (viewport.zoom < 1.5) return [];
 
-    const result: Array<{
-      systemId: number;
-      x: number;
-      y: number;
-      ihubAdm: number | null;
-      hasTcu: boolean;
-    }> = [];
+    const result: StructMarker[] = [];
+    const pad = 30;
 
     for (const [sidStr, structs] of Object.entries(structures)) {
       const system = systems.get(Number(sidStr));
@@ -47,26 +55,36 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       const sx = (system.x - viewport.x) * viewport.zoom + viewport.width / 2;
       const sy = (system.y - viewport.y) * viewport.zoom + viewport.height / 2;
 
-      if (sx < -20 || sx > viewport.width + 20 || sy < -20 || sy > viewport.height + 20) continue;
+      if (sx < -pad || sx > viewport.width + pad || sy < -pad || sy > viewport.height + pad) continue;
 
       let ihubAdm: number | null = null;
       let hasTcu = false;
+      let hasSkyhook = false;
 
       for (const s of structs) {
-        if (s.structure_type_id === 32458) {
+        if (s.structure_type_id === TYPE_IHUB) {
           ihubAdm = s.vulnerability_occupancy_level;
-        } else if (s.structure_type_id === 32226) {
+        } else if (s.structure_type_id === TYPE_TCU) {
           hasTcu = true;
+        } else if (s.structure_type_id === TYPE_SKYHOOK) {
+          hasSkyhook = true;
         }
       }
 
-      result.push({ systemId: system.systemId, x: sx, y: sy, ihubAdm, hasTcu });
+      result.push({ systemId: system.systemId, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
     }
 
     return result;
   }, [structures, systems, viewport]);
 
   if (markers.length === 0) return null;
+
+  // Ring around system node — scales with zoom for visibility
+  const baseR = isMobile ? 10 : 8;
+  const ringR = Math.min(baseR * Math.sqrt(viewport.zoom), 20);
+  const strokeW = isMobile ? 3 : 2.5;
+  const fontSize = isMobile ? 11 : 9;
+  const skyhookSize = isMobile ? 5 : 4;
 
   return (
     <svg
@@ -77,39 +95,54 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
     >
       {markers.map((m) => (
         <g key={m.systemId}>
-          {/* iHub ADM indicator — small bar below system */}
+          {/* ADM ring around system node */}
           {m.ihubAdm !== null && (
-            <>
-              <rect
-                x={m.x - 8}
-                y={m.y + 8}
-                width={16}
-                height={3}
-                rx={1}
-                fill="#1f2937"
-                opacity={0.8}
-              />
-              <rect
-                x={m.x - 8}
-                y={m.y + 8}
-                width={Math.max(1, (m.ihubAdm / 6) * 16)}
-                height={3}
-                rx={1}
-                fill={admColor(m.ihubAdm)}
-                opacity={0.8}
-              />
-            </>
+            <circle
+              cx={m.x}
+              cy={m.y}
+              r={ringR}
+              fill="none"
+              stroke={admColor(m.ihubAdm)}
+              strokeWidth={strokeW}
+              opacity={0.75}
+            />
           )}
-          {/* ADM level text at higher zoom */}
-          {m.ihubAdm !== null && viewport.zoom > 3 && (
+          {/* ADM number below system */}
+          {m.ihubAdm !== null && viewport.zoom >= 2 && (
             <text
-              x={m.x + 12}
-              y={m.y + 12}
+              x={m.x}
+              y={m.y + ringR + fontSize + 1}
+              textAnchor="middle"
               fill={admColor(m.ihubAdm)}
-              fontSize={8}
-              opacity={0.7}
+              fontSize={fontSize}
+              fontWeight="bold"
+              opacity={0.85}
             >
-              ADM {m.ihubAdm}
+              {m.ihubAdm}
+            </text>
+          )}
+          {/* Skyhook diamond — offset to upper-right of system */}
+          {m.hasSkyhook && (
+            <g transform={`translate(${m.x + ringR + 2}, ${m.y - ringR - 2})`}>
+              <polygon
+                points={`0,${-skyhookSize} ${skyhookSize},0 0,${skyhookSize} ${-skyhookSize},0`}
+                fill={SKYHOOK_COLOR}
+                opacity={0.85}
+              />
+            </g>
+          )}
+          {/* Labels at high zoom */}
+          {viewport.zoom > 3 && (m.ihubAdm !== null || m.hasSkyhook) && (
+            <text
+              x={m.x + ringR + (m.hasSkyhook ? skyhookSize + 6 : 4)}
+              y={m.y - ringR}
+              fill={m.ihubAdm !== null ? admColor(m.ihubAdm) : SKYHOOK_COLOR}
+              fontSize={fontSize - 1}
+              opacity={0.65}
+            >
+              {m.ihubAdm !== null ? `ADM ${m.ihubAdm}` : ''}
+              {m.ihubAdm !== null && m.hasSkyhook ? ' · ' : ''}
+              {m.hasSkyhook ? 'Skyhook' : ''}
             </text>
           )}
         </g>

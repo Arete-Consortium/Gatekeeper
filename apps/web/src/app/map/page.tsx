@@ -546,7 +546,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
-          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" isPro={isPro} />
+          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
         </div>
 
         {/* Intel controls */}
@@ -691,6 +691,14 @@ function MapPageContent() {
           <div className="flex items-center gap-2">
             <div className="h-2 w-4 border border-cyan-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
             <span className="text-text-secondary">Thera Connection</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-4 bg-gradient-to-r from-red-500 via-amber-500 to-green-500 rounded-sm" aria-hidden="true" />
+            <span className="text-text-secondary">iHub ADM Level</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 bg-sky-400 rotate-45" aria-hidden="true" />
+            <span className="text-text-secondary">Skyhook</span>
           </div>
         </div>
       </CollapsibleSection>

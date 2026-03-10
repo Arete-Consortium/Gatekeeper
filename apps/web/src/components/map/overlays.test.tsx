@@ -368,7 +368,7 @@ describe('SovStructuresOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders ADM bar at high zoom', () => {
+  it('renders ADM ring at high zoom', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct()] }}
@@ -378,12 +378,25 @@ describe('SovStructuresOverlay', () => {
     );
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    const rects = svg!.querySelectorAll('rect');
-    // Background rect + filled rect = 2
-    expect(rects.length).toBe(2);
+    const circle = svg!.querySelector('circle');
+    expect(circle).toBeTruthy();
   });
 
-  it('shows ADM text at very high zoom', () => {
+  it('shows ADM number at zoom >= 2', () => {
+    const { container } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
+        systems={SYSTEMS}
+        viewport={highZoom}
+      />
+    );
+    const texts = container.querySelectorAll('text');
+    // ADM number text (label only shows at zoom > 3)
+    expect(texts.length).toBeGreaterThanOrEqual(1);
+    expect(texts[0]!.textContent).toBe('5');
+  });
+
+  it('shows full ADM label at very high zoom', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
@@ -391,9 +404,10 @@ describe('SovStructuresOverlay', () => {
         viewport={{ ...VIEWPORT, zoom: 4 }}
       />
     );
-    const text = container.querySelector('text');
-    expect(text).toBeTruthy();
-    expect(text!.textContent).toBe('ADM 5');
+    const texts = Array.from(container.querySelectorAll('text'));
+    const labelText = texts.find((t) => t.textContent?.includes('ADM'));
+    expect(labelText).toBeTruthy();
+    expect(labelText!.textContent).toContain('ADM 5');
   });
 
   it('uses green color for high ADM', () => {
@@ -404,9 +418,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rects = container.querySelectorAll('rect');
-    const fillRect = rects[1]; // Second rect is the filled one
-    expect(fillRect).toHaveAttribute('fill', '#22c55e');
+    const circle = container.querySelector('circle');
+    expect(circle).toHaveAttribute('stroke', '#22c55e');
   });
 
   it('uses red color for low ADM', () => {
@@ -417,8 +430,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rects = container.querySelectorAll('rect');
-    expect(rects[1]).toHaveAttribute('fill', '#ef4444');
+    const circle = container.querySelector('circle');
+    expect(circle).toHaveAttribute('stroke', '#ef4444');
   });
 
   it('uses amber color for medium ADM', () => {
@@ -429,8 +442,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rects = container.querySelectorAll('rect');
-    expect(rects[1]).toHaveAttribute('fill', '#f59e0b');
+    const circle = container.querySelector('circle');
+    expect(circle).toHaveAttribute('stroke', '#f59e0b');
   });
 
   it('renders nothing for empty structures', () => {
@@ -442,5 +455,51 @@ describe('SovStructuresOverlay', () => {
       />
     );
     expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('renders skyhook diamond indicator', () => {
+    const { container } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null })] }}
+        systems={SYSTEMS}
+        viewport={highZoom}
+      />
+    );
+    const polygon = container.querySelector('polygon');
+    expect(polygon).toBeTruthy();
+    expect(polygon).toHaveAttribute('fill', '#38bdf8');
+  });
+
+  it('renders skyhook text at very high zoom', () => {
+    const { container } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null })] }}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 4 }}
+      />
+    );
+    const text = container.querySelector('text');
+    expect(text).toBeTruthy();
+    expect(text!.textContent).toContain('Skyhook');
+  });
+
+  it('renders both iHub and skyhook together', () => {
+    const { container } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [
+          makeStruct({ structure_type_id: 32458, vulnerability_occupancy_level: 5 }),
+          makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null }),
+        ] }}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 4 }}
+      />
+    );
+    // ADM ring (circle) + skyhook diamond (polygon)
+    expect(container.querySelector('circle')).toBeTruthy();
+    expect(container.querySelector('polygon')).toBeTruthy();
+    const texts = Array.from(container.querySelectorAll('text'));
+    const labelText = texts.find((t) => t.textContent?.includes('ADM'));
+    expect(labelText!.textContent).toContain('ADM 5');
+    expect(labelText!.textContent).toContain('Skyhook');
   });
 });
