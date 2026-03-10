@@ -13,7 +13,7 @@ interface SystemSearchProps {
 /**
  * System search with fuzzy matching and full keyboard navigation.
  * - Case-insensitive startsWith matching
- * - Up to 10 results in dropdown
+ * - Up to 8 results in dropdown
  * - Enter selects first/highlighted match
  * - Arrow keys navigate results
  * - Escape closes dropdown
@@ -39,9 +39,9 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
         includes.push(s);
       }
       // Early exit once we have enough
-      if (startsWith.length + includes.length >= 20) break;
+      if (startsWith.length + includes.length >= 16) break;
     }
-    return [...startsWith, ...includes].slice(0, 10);
+    return [...startsWith, ...includes].slice(0, 8);
   }, [systems, query]);
 
   // Open dropdown when we have results
@@ -136,7 +136,7 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
         <div
           ref={listRef}
           id="search-results"
-          className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-50 w-64 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
           role="listbox"
           aria-label="System search results"
         >
@@ -153,10 +153,15 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
               }`}
               role="option"
               aria-selected={index === activeIndex}
-              aria-label={`${system.name}, security ${system.security.toFixed(1)}`}
+              aria-label={`${system.name}, security ${system.security.toFixed(1)}${system.regionName ? `, ${system.regionName}` : ''}`}
             >
-              <span>{system.name}</span>
-              <span className={`text-xs font-mono ${secColorClass(system.security)}`}>
+              <div className="flex flex-col min-w-0">
+                <span className="truncate">{system.name}</span>
+                {system.regionName && (
+                  <span className="text-xs text-text-secondary truncate">{system.regionName}</span>
+                )}
+              </div>
+              <span className={`text-xs font-mono shrink-0 ${secColorClass(system.security)}`}>
                 {system.security.toFixed(1)}
               </span>
             </button>

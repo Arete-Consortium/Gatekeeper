@@ -8,6 +8,7 @@ import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button, Badge, ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { Toggle } from '@/components/ui/Toggle';
 import {
+  AlertCircle,
   Map,
   Layers,
   ZoomIn,
@@ -173,41 +174,42 @@ function MapPageContent() {
     data: mapConfig,
     isLoading: loadingConfig,
     error: configError,
+    refetch: refetchMapConfig,
   } = useQuery({
     queryKey: ['mapConfig'],
     queryFn: () => GatekeeperAPI.getMapConfig(),
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: sovData } = useQuery({
+  const { data: sovData, error: sovError } = useQuery({
     queryKey: ['sovereignty'],
     queryFn: () => GatekeeperAPI.getSovereignty(),
     staleTime: 10 * 60 * 1000,
     enabled: !!mapConfig,
   });
 
-  const { data: theraData } = useQuery({
+  const { data: theraData, error: theraError } = useQuery({
     queryKey: ['thera'],
     queryFn: () => GatekeeperAPI.getTheraConnections(),
     staleTime: 5 * 60 * 1000,
     enabled: !!mapConfig,
   });
 
-  const { data: fwData } = useQuery({
+  const { data: fwData, error: fwError } = useQuery({
     queryKey: ['fw'],
     queryFn: () => GatekeeperAPI.getFWStatus(),
     staleTime: 10 * 60 * 1000,
     enabled: !!mapConfig,
   });
 
-  const { data: sovStructData } = useQuery({
+  const { data: sovStructData, error: sovStructError } = useQuery({
     queryKey: ['sovStructures'],
     queryFn: () => GatekeeperAPI.getSovStructures(),
     staleTime: 30 * 60 * 1000,
     enabled: !!mapConfig,
   });
 
-  const { data: activityData } = useQuery({
+  const { data: activityData, error: activityError } = useQuery({
     queryKey: ['systemActivity'],
     queryFn: () => GatekeeperAPI.getSystemActivity(),
     staleTime: 5 * 60 * 1000,
@@ -413,11 +415,15 @@ function MapPageContent() {
     if (routeState.mode !== 'idle') selectRouteSystem(systemId);
   }, [routeState.mode, selectRouteSystem]);
 
-  const handleSearchSelect = useCallback((system: MapSystem) => {
-    setSelectedSystem(system.systemId);
-    mapRef.current?.panTo(system.systemId);
-    if (routeState.mode !== 'idle') selectRouteSystem(system.systemId);
-  }, [routeState.mode, selectRouteSystem]);
+  const handleSearchSelect = useCallback(
+    (system: MapSystem) => {
+      setSelectedSystem(system.systemId);
+      mapRef.current?.panTo(system.systemId);
+      mapRef.current?.zoomTo(2);
+      if (routeState.mode !== 'idle') selectRouteSystem(system.systemId);
+    },
+    [routeState.mode, selectRouteSystem]
+  );
 
   const updateLayer = useCallback((key: keyof MapLayers, value: boolean) => {
     setLayers((prev) => ({ ...prev, [key]: value }));
@@ -425,6 +431,62 @@ function MapPageContent() {
 
   const isLoading = loadingConfig;
   const error = configError;
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [dismissedToasts, setDismissedToasts] = useState<Set<string>>(new Set());
+
+  // Retry handler for map config errors
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      await refetchMapConfig();
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [refetchMapConfig]);
+
+  // Overlay data failure toasts — non-blocking warnings
+  const overlayErrors = useMemo(() => {
+    const errors: { key: string; message: string }[] = [];
+    if (sovError) errors.push({ key: 'sov', message: 'Sovereignty data unavailable' });
+    if (theraError) errors.push({ key: 'thera', message: 'Thera connections unavailable' });
+    if (fwError) errors.push({ key: 'fw', message: 'Faction warfare data unavailable' });
+    if (sovStructError) errors.push({ key: 'sovStruct', message: 'Sov structure data unavailable' });
+    if (activityError) errors.push({ key: 'activity', message: 'System activity data unavailable' });
+    if (!killsConnected && systems.length > 0) errors.push({ key: 'kills', message: 'Kill data connection lost' });
+    return errors.filter((e) => !dismissedToasts.has(e.key));
+  }, [sovError, theraError, fwError, sovStructError, activityError, killsConnected, systems.length, dismissedToasts]);
+
+  // Auto-dismiss overlay toasts after 5 seconds
+  useEffect(() => {
+    if (overlayErrors.length === 0) return;
+    const timer = setTimeout(() => {
+      setDismissedToasts((prev) => {
+        const next = new Set(prev);
+        for (const e of overlayErrors) next.add(e.key);
+        return next;
+      });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [overlayErrors]);
+
+  // Reset dismissed toasts when errors resolve (so they re-appear if error recurs)
+  useEffect(() => {
+    const currentErrorKeys = new Set<string>();
+    if (sovError) currentErrorKeys.add('sov');
+    if (theraError) currentErrorKeys.add('thera');
+    if (fwError) currentErrorKeys.add('fw');
+    if (sovStructError) currentErrorKeys.add('sovStruct');
+    if (activityError) currentErrorKeys.add('activity');
+    if (!killsConnected && systems.length > 0) currentErrorKeys.add('kills');
+
+    setDismissedToasts((prev) => {
+      const next = new Set<string>();
+      for (const key of prev) {
+        if (currentErrorKeys.has(key)) next.add(key);
+      }
+      return next.size !== prev.size ? next : prev;
+    });
+  }, [sovError, theraError, fwError, sovStructError, activityError, killsConnected, systems.length]);
 
   // Shared sidebar content used in both desktop aside and mobile overlay
   const sidebarContent = (
@@ -632,18 +694,42 @@ function MapPageContent() {
           aria-label="Interactive universe map"
         >
           {error ? (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="absolute inset-0 flex items-center justify-center p-4 bg-[#0a0e17]">
               <ErrorMessage
                 title="Unable to load map data"
                 message={getUserFriendlyError(error)}
+                onRetry={handleRetry}
+                isRetrying={isRetrying}
                 className="max-w-md"
               />
             </div>
           ) : isLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                <p className="text-text-secondary text-sm">Loading map data...</p>
+            <div className="absolute inset-0 flex flex-col bg-[#0a0e17]">
+              {/* Skeleton grid to simulate map topology */}
+              <div className="absolute inset-0 overflow-hidden opacity-10">
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+                  backgroundSize: '40px 40px',
+                }} />
+                {/* Simulated gate lines */}
+                <svg className="absolute inset-0 w-full h-full">
+                  <line x1="15%" y1="20%" x2="35%" y2="30%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="35%" y1="30%" x2="55%" y2="25%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="55%" y1="25%" x2="70%" y2="45%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="25%" y1="55%" x2="45%" y2="60%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="45%" y1="60%" x2="65%" y2="55%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="35%" y1="30%" x2="25%" y2="55%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="55%" y1="25%" x2="45%" y2="60%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                  <line x1="70%" y1="45%" x2="80%" y2="70%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                </svg>
+              </div>
+              {/* Central spinner */}
+              <div className="flex-1 flex items-center justify-center relative z-10">
+                <div className="text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-3" />
+                  <p className="text-text-secondary text-sm font-medium">Loading New Eden...</p>
+                  <p className="text-text-secondary/50 text-xs mt-1">Preparing 5,400+ systems</p>
+                </div>
               </div>
             </div>
           ) : (
@@ -694,6 +780,27 @@ function MapPageContent() {
                 />
               )}
 
+              {/* Overlay data failure toasts */}
+              {overlayErrors.length > 0 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-1.5 items-center pointer-events-none">
+                  {overlayErrors.map((toast) => (
+                    <div
+                      key={toast.key}
+                      className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 bg-card/90 backdrop-blur border border-border rounded-lg shadow-lg text-xs text-text-secondary animate-in fade-in slide-in-from-bottom-2 duration-300"
+                    >
+                      <AlertCircle className="h-3.5 w-3.5 text-risk-orange flex-shrink-0" aria-hidden="true" />
+                      <span>{toast.message}</span>
+                      <button
+                        onClick={() => setDismissedToasts((prev) => new Set(prev).add(toast.key))}
+                        className="ml-1 p-0.5 rounded hover:bg-card-hover text-text-secondary hover:text-text transition-colors"
+                        aria-label={`Dismiss ${toast.message}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
