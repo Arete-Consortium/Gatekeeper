@@ -295,6 +295,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           onSystemHover={handleSystemHover}
           layers={layers}
           colorMode={colorMode}
+          risks={risks}
           regions={regions}
           hoveredSystemId={hoveredSystem}
           onSetRouteOrigin={onSetRouteOrigin}

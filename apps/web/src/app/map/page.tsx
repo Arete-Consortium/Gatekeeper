@@ -23,13 +23,13 @@ import {
   X,
   Link2,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
 import type { MapConfig } from '@/lib/types';
 import { useMapRoute } from '@/components/map/useMapRoute';
 import { useIntelData } from '@/components/map/useIntelData';
 import { useKillStream } from '@/components/map/useKillStream';
-import { IntelControls } from '@/components/map/IntelControls';
 import { RouteControls } from '@/components/map/RouteControls';
 import { SystemDetailPanel } from '@/components/map/SystemDetailPanel';
 import { SystemSearch } from '@/components/map/SystemSearch';
@@ -447,6 +447,44 @@ function MapPageContent() {
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM levels" />
         </div>
+
+        {/* Intel controls */}
+        <div className="mt-3 pt-3 border-t border-border space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">Intel Feed</span>
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2 h-2 rounded-full ${killsConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-xs text-text-secondary">{killsConnected ? 'Live' : 'Offline'}</span>
+              <button
+                onClick={refreshIntel}
+                disabled={intelLoading}
+                className="ml-1 p-1 rounded hover:bg-card-hover text-text-secondary hover:text-text transition-colors"
+                title="Refresh intel"
+              >
+                <RefreshCw className={`h-3 w-3 ${intelLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
+            className="w-full px-2 py-1.5 bg-card border border-border rounded-lg text-sm text-text"
+          >
+            <option value="1h">Last 1 Hour</option>
+            <option value="4h">Last 4 Hours</option>
+            <option value="12h">Last 12 Hours</option>
+            <option value="24h">Last 24 Hours</option>
+            <option value="48h">Last 48 Hours</option>
+          </select>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="text-text-secondary">
+              <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />{totalKills} kills
+            </span>
+            <span className="text-text-secondary">
+              <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mr-1" />{totalPods} pods
+            </span>
+          </div>
+        </div>
       </CollapsibleSection>
 
       {/* Color Mode — collapsible */}
@@ -536,23 +574,6 @@ function MapPageContent() {
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Intel Controls — inline in toolbar */}
-          <div className="relative">
-            <IntelControls
-              timeRange={timeRange}
-              onTimeRangeChange={setTimeRange}
-              showKillMarkers={layers.showKills}
-              onShowKillMarkersChange={(v) => updateLayer('showKills', v)}
-              showHeatmap={layers.showHeatmap}
-              onShowHeatmapChange={(v) => updateLayer('showHeatmap', v)}
-              totalKills={totalKills}
-              totalPods={totalPods}
-              isConnected={killsConnected}
-              isLoading={intelLoading}
-              onRefresh={refreshIntel}
-              className="w-auto min-w-0"
-            />
-          </div>
           <SystemSearch
             systems={systems}
             onSelect={handleSearchSelect}

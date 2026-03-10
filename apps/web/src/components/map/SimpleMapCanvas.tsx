@@ -6,8 +6,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion } from './types';
-import { getSecurityColor, getSpectralColor } from './types';
+import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion, SystemRisk } from './types';
+import { getSecurityColor, getSpectralColor, getRiskColor } from './types';
 import { buildQuadtree, type Quadtree } from './utils/spatial';
 
 const MIN_ZOOM = 0.1;
@@ -43,6 +43,7 @@ interface SimpleMapCanvasProps {
   onDeselect?: () => void;
   layers: MapLayers;
   colorMode: 'security' | 'risk' | 'star';
+  risks?: SystemRisk[];
   regions?: MapRegion[];
   hoveredSystemId?: number | null;
 }
@@ -62,6 +63,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   onDeselect,
   layers,
   colorMode,
+  risks = [],
   regions = [],
   hoveredSystemId,
 }: SimpleMapCanvasProps) {
@@ -257,6 +259,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.globalAlpha = 1.0;
     }
 
+    // Build risk lookup for risk color mode
+    const riskMap = new Map(risks.map((r) => [r.systemId, r]));
+
     // Draw systems
     for (const system of systems) {
       const screen = worldToScreen(system.x, system.y);
@@ -273,9 +278,15 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       const isSelected = system.systemId === selectedSystem;
       const isHovered = system.systemId === hoveredSystemId;
       const isTradeHub = TRADE_HUBS.has(system.systemId);
-      const color = colorMode === 'star'
-        ? getSpectralColor(system.spectralClass || 'G')
-        : getSecurityColor(system.security);
+      let color: string;
+      if (colorMode === 'star') {
+        color = getSpectralColor(system.spectralClass || 'G');
+      } else if (colorMode === 'risk') {
+        const risk = riskMap.get(system.systemId);
+        color = risk ? getRiskColor(risk.riskColor) : '#1e293b'; // dim gray for no data
+      } else {
+        color = getSecurityColor(system.security);
+      }
 
       // Scale radius with zoom + hub importance — tight Photon-style dots
       const isHub = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 5);
@@ -454,7 +465,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
       ctx.globalAlpha = 1;
     }
-  }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, crossRegionGates, hoveredSystemId]);
+  }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, risks, crossRegionGates, hoveredSystemId]);
 
   // Mouse wheel zoom — exponential curve (#2)
   const handleWheel = useCallback(
