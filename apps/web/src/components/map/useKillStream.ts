@@ -245,8 +245,8 @@ function getBackendWsUrl(): string {
   const wsUrl = baseUrl
     .replace(/^https:\/\//, 'wss://')
     .replace(/^http:\/\//, 'ws://');
-  // Strip trailing slash, append /ws/killfeed
-  return `${wsUrl.replace(/\/$/, '')}/ws/killfeed`;
+  // Strip trailing slash, append /api/v1/ws/killfeed
+  return `${wsUrl.replace(/\/$/, '')}/api/v1/ws/killfeed`;
 }
 
 /**
