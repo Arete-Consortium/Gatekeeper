@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState, useEffect } from 'react';
 import type { KillFeedProps, MapKill, MapSystem, MapViewport } from './types';
 import { formatIsk } from '@/lib/utils';
 
@@ -167,9 +167,14 @@ export function KillMarkers({
   viewport,
   maxAge = 60 * 60 * 1000, // 1 hour default
 }: KillFeedProps) {
-  // Capture current time once per render for consistent age calculations
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally recompute when kills change
-  const now = useMemo(() => Date.now(), [kills.length]);
+  // Tick every 30s so marker opacity fades smoothly over time
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+  // Also update immediately when new kills arrive
+  useEffect(() => { setNow(Date.now()); }, [kills.length]);
 
   // Filter kills that have valid systems and are within maxAge
   const visibleKills = useMemo(() => {
