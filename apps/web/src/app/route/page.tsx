@@ -1,14 +1,15 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useRoute } from '@/hooks';
+import { useMultiRoute } from '@/hooks';
 import { Card, Button, Toggle } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
-import { SystemSearch, RouteResult } from '@/components/route';
+import { RouteResult, WaypointList, generateWaypointId } from '@/components/route';
+import type { Waypoint } from '@/components/route';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteProfile } from '@/lib/types';
-import { Route, Loader2, ArrowRightLeft } from 'lucide-react';
+import { Route, Loader2 } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
 
 const profileOptions = Object.entries(ROUTE_PROFILES).map(([value, config]) => ({
@@ -19,8 +20,15 @@ const profileOptions = Object.entries(ROUTE_PROFILES).map(([value, config]) => (
 function RoutePageContent() {
   const searchParams = useSearchParams();
 
-  const [fromSystem, setFromSystem] = useState(() => searchParams.get('from') ?? '');
-  const [toSystem, setToSystem] = useState(() => searchParams.get('to') ?? '');
+  const [waypoints, setWaypoints] = useState<Waypoint[]>(() => {
+    const from = searchParams.get('from') ?? '';
+    const to = searchParams.get('to') ?? '';
+    return [
+      { id: generateWaypointId(), system: from },
+      { id: generateWaypointId(), system: to },
+    ];
+  });
+
   const [profile, setProfile] = useState<RouteProfile>(() => {
     const p = searchParams.get('profile') as RouteProfile | null;
     return p && p in ROUTE_PROFILES ? p : 'safer';
@@ -31,39 +39,44 @@ function RoutePageContent() {
     () => !!(searchParams.get('from') && searchParams.get('to'))
   );
 
+  const systems = useMemo(
+    () => waypoints.map((wp) => wp.system),
+    [waypoints]
+  );
+
+  const allFilled = useMemo(
+    () => waypoints.length >= 2 && waypoints.every((wp) => wp.system.length > 0),
+    [waypoints]
+  );
+
   const {
-    data: route,
+    route,
     isLoading,
     error,
-    refetch,
-  } = useRoute({
-    from: fromSystem,
-    to: toSystem,
+    segmentErrors,
+    refetchAll,
+  } = useMultiRoute({
+    systems,
     profile,
     bridges: includeBridges,
     thera: includeThera,
-    enabled: shouldFetch,
+    enabled: shouldFetch && allFilled,
   });
 
-  const handleSearch = () => {
-    if (fromSystem && toSystem) {
+  const handleSearch = useCallback(() => {
+    if (allFilled) {
       setShouldFetch(true);
-      refetch();
+      refetchAll();
     }
-  };
+  }, [allFilled, refetchAll]);
 
-  const handleSwap = () => {
-    const temp = fromSystem;
-    setFromSystem(toSystem);
-    setToSystem(temp);
+  const handleWaypointsChange = useCallback((newWaypoints: Waypoint[]) => {
+    setWaypoints(newWaypoints);
     setShouldFetch(false);
-  };
+  }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && fromSystem && toSystem) {
-      handleSearch();
-    }
-  };
+  // Find first segment with an error for display
+  const displayError = error ?? segmentErrors.find((e) => e !== null) ?? null;
 
   return (
     <div className="space-y-6">
@@ -71,42 +84,17 @@ function RoutePageContent() {
       <div>
         <h1 className="text-2xl font-bold text-text">Route Planner</h1>
         <p className="text-text-secondary mt-1">
-          Find the safest path between solar systems
+          Find the safest path between solar systems. Add waypoints to plan multi-stop routes.
         </p>
       </div>
 
-      {/* Search Form */}
+      {/* Waypoint List */}
       <Card>
         <div className="space-y-4">
-          {/* From/To with Swap */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-end">
-            <div className="flex-1" onKeyDown={handleKeyDown}>
-              <SystemSearch
-                label="From"
-                value={fromSystem}
-                onChange={setFromSystem}
-                placeholder="Origin system..."
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSwap}
-              className="self-center p-3 sm:p-2 sm:mb-1 text-text-secondary hover:text-primary transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-              aria-label="Swap origin and destination systems"
-            >
-              <ArrowRightLeft className="h-5 w-5 rotate-90 sm:rotate-0" aria-hidden="true" />
-            </button>
-
-            <div className="flex-1" onKeyDown={handleKeyDown}>
-              <SystemSearch
-                label="To"
-                value={toSystem}
-                onChange={setToSystem}
-                placeholder="Destination system..."
-              />
-            </div>
-          </div>
+          <WaypointList
+            waypoints={waypoints}
+            onChange={handleWaypointsChange}
+          />
 
           {/* Profile Selection */}
           <div className="grid sm:grid-cols-3 gap-4">
@@ -137,7 +125,7 @@ function RoutePageContent() {
           {/* Search Button */}
           <Button
             onClick={handleSearch}
-            disabled={!fromSystem || !toSystem || isLoading}
+            disabled={!allFilled || isLoading}
             loading={isLoading}
             className="w-full sm:w-auto"
           >
@@ -148,10 +136,10 @@ function RoutePageContent() {
       </Card>
 
       {/* Error State */}
-      {error && (
+      {displayError && (
         <ErrorMessage
           title="Route calculation failed"
-          message={getUserFriendlyError(error)}
+          message={getUserFriendlyError(displayError)}
           onRetry={handleSearch}
         />
       )}
@@ -160,7 +148,7 @@ function RoutePageContent() {
       {route && <RouteResult route={route} />}
 
       {/* Empty State */}
-      {!route && !isLoading && !error && (
+      {!route && !isLoading && !displayError && (
         <Card className="text-center py-12">
           <Route className="h-12 w-12 text-text-secondary mx-auto mb-4" />
           <p className="text-text-secondary">

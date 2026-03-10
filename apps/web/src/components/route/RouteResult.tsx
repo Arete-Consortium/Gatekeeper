@@ -5,7 +5,7 @@ import { RiskBadge } from '@/components/system';
 import { RouteHopRow } from './RouteHopRow';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteResponse } from '@/lib/types';
-import { Gauge, Route, Zap } from 'lucide-react';
+import { Gauge, Route, Zap, MapPin } from 'lucide-react';
 
 interface RouteResultProps {
   route: RouteResponse;
