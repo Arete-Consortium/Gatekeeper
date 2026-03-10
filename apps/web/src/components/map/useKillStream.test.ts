@@ -1,6 +1,13 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useKillStream } from './useKillStream';
 
+// Mock GatekeeperAPI
+vi.mock('@/lib/api', () => ({
+  GatekeeperAPI: {
+    getBaseUrl: vi.fn(() => 'http://localhost:8000'),
+  },
+}));
+
 // Mock WebSocket
 class MockWebSocket {
   static CONNECTING = 0;
@@ -74,6 +81,23 @@ describe('useKillStream', () => {
     vi.clearAllMocks();
   });
 
+  function createBackendKillEvent(overrides: Record<string, unknown> = {}) {
+    return {
+      type: 'kill',
+      data: {
+        kill_id: 12345,
+        kill_time: '2024-01-15T12:00:00Z',
+        solar_system_id: 30000142,
+        ship_type_id: 621,
+        ship_type_name: 'Caracal',
+        is_pod: false,
+        total_value: 25000000,
+        risk_score: 0.5,
+        ...overrides,
+      },
+    };
+  }
+
   function createValidKillmail(overrides: Record<string, unknown> = {}) {
     return {
       killmail_id: 12345,
@@ -110,36 +134,21 @@ describe('useKillStream', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.reconnectAttempts).toBe(0);
     expect(result.current.isMock).toBe(false);
+    expect(result.current.isFallback).toBe(false);
   });
 
-  it('establishes WebSocket connection on mount', async () => {
+  it('connects to backend WebSocket on mount', async () => {
     renderHook(() => useKillStream({ autoReconnect: false }));
 
-    // Advance timers to trigger the onopen callback
     await act(async () => {
       vi.advanceTimersByTime(10);
     });
 
     expect(wsInstances).toHaveLength(1);
-    expect(wsInstances[0].url).toBe('wss://zkillboard.com/websocket/');
+    expect(wsInstances[0].url).toBe('ws://localhost:8000/ws/killfeed');
   });
 
-  it('connects to custom WebSocket URL', async () => {
-    renderHook(() =>
-      useKillStream({
-        wsUrl: 'wss://custom.example.com/ws',
-        autoReconnect: false,
-      })
-    );
-
-    await act(async () => {
-      vi.advanceTimersByTime(10);
-    });
-
-    expect(wsInstances[0].url).toBe('wss://custom.example.com/ws');
-  });
-
-  it('sends subscription message on connect', async () => {
+  it('sends subscription message on connect to backend', async () => {
     renderHook(() => useKillStream({ autoReconnect: false }));
 
     await act(async () => {
@@ -148,7 +157,40 @@ describe('useKillStream', () => {
 
     const ws = wsInstances[0];
     expect(ws.send).toHaveBeenCalledWith(
-      JSON.stringify({ action: 'sub', channel: 'killstream' })
+      JSON.stringify({
+        type: 'subscribe',
+        systems: [],
+        regions: [],
+        min_value: 0,
+        include_pods: true,
+      })
+    );
+  });
+
+  it('sends subscription with filters', async () => {
+    renderHook(() =>
+      useKillStream({
+        autoReconnect: false,
+        systemFilter: [30000142],
+        regionFilter: [10000002],
+        minValue: 1000000,
+        includePods: false,
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    const ws = wsInstances[0];
+    expect(ws.send).toHaveBeenCalledWith(
+      JSON.stringify({
+        type: 'subscribe',
+        systems: [30000142],
+        regions: [10000002],
+        min_value: 1000000,
+        include_pods: false,
+      })
     );
   });
 
@@ -164,7 +206,7 @@ describe('useKillStream', () => {
     expect(result.current.isConnected).toBe(true);
   });
 
-  it('handles incoming kill events', async () => {
+  it('handles incoming backend kill events', async () => {
     const { result } = renderHook(() =>
       useKillStream({ autoReconnect: false })
     );
@@ -173,19 +215,18 @@ describe('useKillStream', () => {
       vi.advanceTimersByTime(10);
     });
 
-    const killmail = createValidKillmail();
-
     act(() => {
-      wsInstances[0].simulateMessage(killmail);
+      wsInstances[0].simulateMessage(createBackendKillEvent());
     });
 
     expect(result.current.kills).toHaveLength(1);
     expect(result.current.kills[0].killId).toBe(12345);
     expect(result.current.kills[0].systemId).toBe(30000142);
     expect(result.current.kills[0].value).toBe(25000000);
+    expect(result.current.kills[0].shipType).toBe('Caracal');
   });
 
-  it('identifies pod kills correctly', async () => {
+  it('identifies pod kills from backend data', async () => {
     const { result } = renderHook(() =>
       useKillStream({ autoReconnect: false })
     );
@@ -194,20 +235,21 @@ describe('useKillStream', () => {
       vi.advanceTimersByTime(10);
     });
 
-    const podKillmail = createValidKillmail({
-      killmail_id: 99999,
-      victim: { ship_type_id: 670, character_id: 1, corporation_id: 1, damage_taken: 100 },
-    });
-
     act(() => {
-      wsInstances[0].simulateMessage(podKillmail);
+      wsInstances[0].simulateMessage(createBackendKillEvent({
+        kill_id: 99999,
+        ship_type_id: 670,
+        ship_type_name: 'Capsule',
+        is_pod: true,
+        total_value: 50000000,
+      }));
     });
 
     expect(result.current.kills[0].isPod).toBe(true);
     expect(result.current.kills[0].shipType).toBe('Capsule');
   });
 
-  it('deduplicates kills with same killmail_id', async () => {
+  it('deduplicates kills with same kill_id', async () => {
     const { result } = renderHook(() =>
       useKillStream({ autoReconnect: false })
     );
@@ -216,14 +258,66 @@ describe('useKillStream', () => {
       vi.advanceTimersByTime(10);
     });
 
-    const killmail = createValidKillmail();
-
     act(() => {
-      wsInstances[0].simulateMessage(killmail);
-      wsInstances[0].simulateMessage(killmail);
+      wsInstances[0].simulateMessage(createBackendKillEvent());
+      wsInstances[0].simulateMessage(createBackendKillEvent());
     });
 
     expect(result.current.kills).toHaveLength(1);
+  });
+
+  it('falls back to zKillboard on backend WS error', async () => {
+    const { result } = renderHook(() =>
+      useKillStream({ autoReconnect: false })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    // Backend WS is open (wsInstances[0]), simulate error
+    act(() => {
+      wsInstances[0].simulateError();
+    });
+
+    // Should have created a second WS instance for zKillboard fallback
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    expect(wsInstances.length).toBeGreaterThanOrEqual(2);
+    const fallbackWs = wsInstances[wsInstances.length - 1];
+    expect(fallbackWs.url).toBe('wss://zkillboard.com/websocket/');
+    expect(result.current.isFallback).toBe(true);
+  });
+
+  it('handles zKillboard killmails in fallback mode', async () => {
+    const { result } = renderHook(() =>
+      useKillStream({ autoReconnect: false })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    // Trigger fallback
+    act(() => {
+      wsInstances[0].simulateError();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    const fallbackWs = wsInstances[wsInstances.length - 1];
+
+    // Send a zKillboard format killmail
+    act(() => {
+      fallbackWs.simulateMessage(createValidKillmail({ killmail_id: 77777 }));
+    });
+
+    expect(result.current.kills).toHaveLength(1);
+    expect(result.current.kills[0].killId).toBe(77777);
   });
 
   it('sets error on WebSocket close with non-normal code', async () => {
@@ -235,29 +329,24 @@ describe('useKillStream', () => {
       vi.advanceTimersByTime(10);
     });
 
+    // Close with abnormal code triggers fallback on first attempt,
+    // so simulate on fallback ws instead
     act(() => {
-      wsInstances[0].simulateClose(1006, 'Connection lost abnormally');
+      wsInstances[0].simulateError();
     });
-
-    expect(result.current.isConnected).toBe(false);
-    expect(result.current.error).toBe('Connection lost abnormally');
-  });
-
-  it('sets error on WebSocket error event', async () => {
-    const { result } = renderHook(() =>
-      useKillStream({ autoReconnect: false })
-    );
 
     await act(async () => {
       vi.advanceTimersByTime(10);
     });
 
+    const fallbackWs = wsInstances[wsInstances.length - 1];
+
     act(() => {
-      wsInstances[0].simulateError();
+      fallbackWs.simulateClose(1006, 'Connection lost abnormally');
     });
 
-    expect(result.current.error).toBe('WebSocket connection error');
     expect(result.current.isConnected).toBe(false);
+    expect(result.current.error).toBe('Connection lost abnormally');
   });
 
   it('provides disconnect function', async () => {
@@ -288,8 +377,8 @@ describe('useKillStream', () => {
     });
 
     act(() => {
-      wsInstances[0].simulateMessage(createValidKillmail({ killmail_id: 1 }));
-      wsInstances[0].simulateMessage(createValidKillmail({ killmail_id: 2 }));
+      wsInstances[0].simulateMessage(createBackendKillEvent({ kill_id: 1 }));
+      wsInstances[0].simulateMessage(createBackendKillEvent({ kill_id: 2 }));
     });
 
     expect(result.current.kills).toHaveLength(2);
@@ -328,10 +417,45 @@ describe('useKillStream', () => {
     });
 
     act(() => {
-      wsInstances[0].simulateMessage({ type: 'heartbeat' });
+      wsInstances[0].simulateMessage({ type: 'connected', client_id: 'abc' });
+      wsInstances[0].simulateMessage({ type: 'subscribed', filters: {} });
       wsInstances[0].simulateMessage({ invalid: 'data' });
     });
 
     expect(result.current.kills).toHaveLength(0);
+  });
+
+  it('reconnect resets fallback state and tries backend again', async () => {
+    const { result } = renderHook(() =>
+      useKillStream({ autoReconnect: false })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    // Trigger fallback
+    act(() => {
+      wsInstances[0].simulateError();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+    });
+
+    expect(result.current.isFallback).toBe(true);
+
+    // Call reconnect
+    act(() => {
+      result.current.reconnect();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Should have tried backend again
+    const latestWs = wsInstances[wsInstances.length - 1];
+    expect(latestWs.url).toBe('ws://localhost:8000/ws/killfeed');
   });
 });

@@ -7,6 +7,7 @@ import { Card, CardTitle, CardDescription, Button } from '@/components/ui';
 import type { BillingStatus } from '@/lib/auth';
 import { User, Zap, CreditCard, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { GatekeeperAPI } from '@/lib/api';
 
 export default function AccountPage() {
   return (
@@ -34,18 +35,9 @@ function AccountContent() {
     async function fetchBilling() {
       if (!token) return;
       setBillingLoading(true);
-      const apiUrl =
-        localStorage.getItem('gatekeeper_api_url') ||
-        process.env.NEXT_PUBLIC_API_URL ||
-        'http://localhost:8000';
-
       try {
-        const response = await fetch(`${apiUrl}/api/v1/billing/status`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          setBilling(await response.json());
-        }
+        const status = await GatekeeperAPI.getSubscriptionStatus();
+        setBilling(status);
       } catch {
         // Billing might not be configured — that's ok
       } finally {
@@ -57,25 +49,13 @@ function AccountContent() {
 
   const handleManageBilling = async () => {
     if (!token) return;
-    const apiUrl =
-      localStorage.getItem('gatekeeper_api_url') ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:8000';
-
-    const response = await fetch(`${apiUrl}/api/v1/billing/create-portal`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        return_url: `${window.location.origin}/account`,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      window.location.href = data.portal_url;
+    try {
+      const { portal_url } = await GatekeeperAPI.createPortalSession(
+        `${window.location.origin}/account`
+      );
+      window.location.href = portal_url;
+    } catch {
+      // Portal creation failed — user stays on page
     }
   };
 

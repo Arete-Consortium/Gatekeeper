@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { MapKill } from './types';
+import { GatekeeperAPI } from '@/lib/api';
 
 /**
- * zKillboard WebSocket killmail format
+ * zKillboard WebSocket killmail format (used for direct fallback)
  * @see https://github.com/zKillboard/zKillboard/wiki/Websocket
  */
 interface ZKillboardKillmail {
@@ -43,9 +44,24 @@ interface ZKillboardKillmail {
   };
 }
 
+/**
+ * Backend WebSocket kill event data format
+ * Sent from /ws/killfeed as { type: "kill", data: {...} }
+ */
+interface BackendKillData {
+  kill_id: number;
+  solar_system_id: number;
+  solar_system_name?: string;
+  region_id?: number;
+  kill_time: string;
+  ship_type_id: number;
+  ship_type_name?: string;
+  is_pod: boolean;
+  total_value: number;
+  risk_score?: number;
+}
+
 interface UseKillStreamOptions {
-  /** WebSocket URL for kill feed (defaults to zkillboard) */
-  wsUrl?: string;
   /** Max age of kills to keep in milliseconds (default: 1 hour) */
   maxAge?: number;
   /** Max number of kills to keep in buffer */
@@ -58,10 +74,14 @@ interface UseKillStreamOptions {
   maxReconnectAttempts?: number;
   /** Filter by system IDs (empty = all systems) */
   systemFilter?: number[];
+  /** Filter by region IDs (empty = all regions) */
+  regionFilter?: number[];
   /** Enable mock data for development (can also use NEXT_PUBLIC_USE_MOCK_KILLS env var) */
   useMock?: boolean;
   /** Minimum ISK value to track (filters out cheap kills) */
   minValue?: number;
+  /** Include pod kills (default: true) */
+  includePods?: boolean;
 }
 
 interface UseKillStreamReturn {
@@ -75,6 +95,8 @@ interface UseKillStreamReturn {
   reconnectAttempts: number;
   /** Whether using mock data */
   isMock: boolean;
+  /** Whether using direct zKillboard fallback */
+  isFallback: boolean;
   /** Manually reconnect */
   reconnect: () => void;
   /** Manually disconnect */
@@ -118,7 +140,21 @@ function getShipTypeName(typeId: number): string {
 }
 
 /**
- * Parse incoming zkillboard killmail to MapKill format
+ * Parse backend kill event data to MapKill format
+ */
+function parseBackendKill(data: BackendKillData): MapKill {
+  return {
+    killId: data.kill_id,
+    systemId: data.solar_system_id,
+    timestamp: new Date(data.kill_time).getTime(),
+    shipType: data.ship_type_name || getShipTypeName(data.ship_type_id),
+    value: data.total_value,
+    isPod: data.is_pod,
+  };
+}
+
+/**
+ * Parse incoming zkillboard killmail to MapKill format (fallback)
  */
 function parseZKillboardKillmail(killmail: ZKillboardKillmail): MapKill {
   const isPod = POD_TYPE_IDS.includes(killmail.victim.ship_type_id);
@@ -153,6 +189,22 @@ function isValidKillmail(data: unknown): data is ZKillboardKillmail {
 }
 
 /**
+ * Validate that a message is a valid backend kill event
+ */
+function isValidBackendKill(data: unknown): data is BackendKillData {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.kill_id === 'number' &&
+    typeof obj.solar_system_id === 'number' &&
+    typeof obj.kill_time === 'string' &&
+    typeof obj.ship_type_id === 'number' &&
+    typeof obj.is_pod === 'boolean' &&
+    typeof obj.total_value === 'number'
+  );
+}
+
+/**
  * Generate mock kill data for development
  */
 function generateMockKill(systemIds: number[]): MapKill {
@@ -182,18 +234,31 @@ function generateMockKill(systemIds: number[]): MapKill {
   };
 }
 
-// Default zkillboard WebSocket URL
+// Default zkillboard WebSocket URL (fallback)
 const ZKILLBOARD_WS_URL = 'wss://zkillboard.com/websocket/';
+
+/**
+ * Convert an HTTP(S) base URL to a WebSocket URL for the backend killfeed.
+ */
+function getBackendWsUrl(): string {
+  const baseUrl = GatekeeperAPI.getBaseUrl();
+  const wsUrl = baseUrl
+    .replace(/^https:\/\//, 'wss://')
+    .replace(/^http:\/\//, 'ws://');
+  // Strip trailing slash, append /ws/killfeed
+  return `${wsUrl.replace(/\/$/, '')}/ws/killfeed`;
+}
 
 /**
  * Hook for streaming live kill data via WebSocket
  *
- * Connects to zKillboard's WebSocket API to receive real-time killmail data.
- * Supports both real and mock data modes for development.
+ * Connects to the backend's /ws/killfeed endpoint for filtered, enriched kill data.
+ * Falls back to direct zKillboard WebSocket if the backend is unavailable.
+ * Supports mock data mode for development.
  *
  * Usage:
  * ```tsx
- * // Real zkillboard data
+ * // Backend kill feed (default)
  * const { kills, isConnected, error } = useKillStream();
  *
  * // Mock data for development
@@ -201,8 +266,6 @@ const ZKILLBOARD_WS_URL = 'wss://zkillboard.com/websocket/';
  *
  * // Or set NEXT_PUBLIC_USE_MOCK_KILLS=true in .env.local
  * ```
- *
- * @see https://github.com/zKillboard/zKillboard/wiki/Websocket
  */
 export function useKillStream(options: UseKillStreamOptions = {}): UseKillStreamReturn {
   // Check environment variable for mock mode
@@ -210,28 +273,32 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
     process.env.NEXT_PUBLIC_USE_MOCK_KILLS === 'true';
 
   const {
-    wsUrl = ZKILLBOARD_WS_URL,
     maxAge = 60 * 60 * 1000, // 1 hour
     maxKills = 500,
     autoReconnect = true,
     reconnectDelay = 5000,
     maxReconnectAttempts = 10,
     systemFilter = [],
+    regionFilter = [],
     useMock = envUseMock,
     minValue = 0,
+    includePods = true,
   } = options;
 
   const [kills, setKills] = useState<MapKill[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [isFallback, setIsFallback] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mockIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const systemFilterRef = useRef(systemFilter);
+  const regionFilterRef = useRef(regionFilter);
   const minValueRef = useRef(minValue);
   const reconnectAttemptsRef = useRef(0);
+  const usingFallbackRef = useRef(false);
 
   // Update refs when options change
   useEffect(() => {
@@ -239,19 +306,25 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   }, [systemFilter]);
 
   useEffect(() => {
+    regionFilterRef.current = regionFilter;
+  }, [regionFilter]);
+
+  useEffect(() => {
     minValueRef.current = minValue;
   }, [minValue]);
 
   /**
-   * Add a new kill to the list, maintaining max size and age
+   * Add a new kill to the list, maintaining max size and age.
+   * When using the backend, filtering is server-side; client-side filtering
+   * is still applied for the zKillboard fallback path.
    */
   const addKill = useCallback((kill: MapKill) => {
-    // Apply system filter if configured
+    // Apply client-side system filter (primarily for fallback mode)
     if (systemFilterRef.current.length > 0 && !systemFilterRef.current.includes(kill.systemId)) {
       return;
     }
 
-    // Apply minimum value filter
+    // Apply minimum value filter (primarily for fallback mode)
     if (kill.value < minValueRef.current) {
       return;
     }
@@ -284,7 +357,144 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   }, [maxAge]);
 
   /**
-   * Connect to WebSocket
+   * Send subscription filters to the backend WebSocket
+   */
+  const sendSubscription = useCallback((ws: WebSocket) => {
+    try {
+      const subscribeMsg: Record<string, unknown> = {
+        type: 'subscribe',
+        systems: systemFilterRef.current.length > 0 ? systemFilterRef.current : [],
+        regions: regionFilterRef.current.length > 0 ? regionFilterRef.current : [],
+        min_value: minValueRef.current,
+        include_pods: includePods,
+      };
+      ws.send(JSON.stringify(subscribeMsg));
+    } catch (sendErr) {
+      console.error('[useKillStream] Failed to send subscription:', sendErr);
+    }
+  }, [includePods]);
+
+  /**
+   * Connect to zKillboard WebSocket (fallback)
+   */
+  const connectToZKillboard = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useKillStream] Falling back to direct zKillboard connection');
+    }
+
+    usingFallbackRef.current = true;
+    setIsFallback(true);
+
+    try {
+      const ws = new WebSocket(ZKILLBOARD_WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsConnected(true);
+        setError(null);
+        reconnectAttemptsRef.current = 0;
+        setReconnectAttempts(0);
+
+        // Subscribe to zKillboard kill stream
+        try {
+          ws.send(JSON.stringify({
+            action: 'sub',
+            channel: 'killstream',
+          }));
+        } catch (sendErr) {
+          console.error('[useKillStream] Failed to send zKillboard subscription:', sendErr);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (isValidKillmail(data)) {
+            const kill = parseZKillboardKillmail(data);
+            addKill(kill);
+          }
+        } catch (parseErr) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[useKillStream] Failed to parse zKillboard message:', parseErr);
+          }
+        }
+      };
+
+      ws.onerror = () => {
+        setError('zKillboard WebSocket connection error');
+        setIsConnected(false);
+      };
+
+      ws.onclose = (event) => {
+        setIsConnected(false);
+        wsRef.current = null;
+        handleClose(event);
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect to zKillboard');
+      setIsConnected(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addKill]);
+
+  /**
+   * Handle WebSocket close with auto-reconnect logic
+   */
+  const handleClose = useCallback((event: CloseEvent) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useKillStream] WebSocket closed:', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        fallback: usingFallbackRef.current,
+      });
+    }
+
+    // Set error message based on close code
+    if (event.code !== 1000 && event.code !== 1001) {
+      const closeReasons: Record<number, string> = {
+        1002: 'Protocol error',
+        1003: 'Invalid data type',
+        1006: 'Connection lost abnormally',
+        1007: 'Invalid message data',
+        1008: 'Policy violation',
+        1009: 'Message too large',
+        1010: 'Server didn\'t respond to extension request',
+        1011: 'Server error',
+        1015: 'TLS handshake failed',
+      };
+      setError(closeReasons[event.code] || `Connection closed (code: ${event.code})`);
+    }
+
+    // Auto-reconnect if enabled
+    if (autoReconnect) {
+      const shouldReconnect = maxReconnectAttempts === 0 ||
+        reconnectAttemptsRef.current < maxReconnectAttempts;
+
+      if (shouldReconnect) {
+        reconnectAttemptsRef.current += 1;
+        setReconnectAttempts(reconnectAttemptsRef.current);
+
+        // Exponential backoff: base delay * 2^attempts, capped at 60 seconds
+        const backoffDelay = Math.min(
+          reconnectDelay * Math.pow(2, reconnectAttemptsRef.current - 1),
+          60000
+        );
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[useKillStream] Reconnecting in ${backoffDelay}ms (attempt ${reconnectAttemptsRef.current})`);
+        }
+
+        reconnectTimeoutRef.current = setTimeout(connect, backoffDelay);
+      } else {
+        setError(`Max reconnect attempts (${maxReconnectAttempts}) exceeded. Call reconnect() to try again.`);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoReconnect, reconnectDelay, maxReconnectAttempts]);
+
+  /**
+   * Connect to WebSocket — tries backend first, falls back to zKillboard
    */
   const connect = useCallback(() => {
     // If using mock, don't connect to real WebSocket
@@ -302,118 +512,90 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
       return;
     }
 
-    try {
-      // Don't create a new connection if one is already open or connecting
-      if (wsRef.current?.readyState === WebSocket.OPEN ||
-          wsRef.current?.readyState === WebSocket.CONNECTING) {
-        return;
-      }
+    // Don't create a new connection if one is already open or connecting
+    if (wsRef.current?.readyState === WebSocket.OPEN ||
+        wsRef.current?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
 
-      const ws = new WebSocket(wsUrl);
+    // If we already know the backend is down, go straight to fallback
+    if (usingFallbackRef.current) {
+      connectToZKillboard();
+      return;
+    }
+
+    // Try backend WebSocket first
+    const backendWsUrl = getBackendWsUrl();
+
+    try {
+      const ws = new WebSocket(backendWsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
         setIsConnected(true);
         setError(null);
+        setIsFallback(false);
+        usingFallbackRef.current = false;
         reconnectAttemptsRef.current = 0;
         setReconnectAttempts(0);
 
-        // Subscribe to kill stream
-        // @see https://github.com/zKillboard/zKillboard/wiki/Websocket
-        try {
-          ws.send(JSON.stringify({
-            action: 'sub',
-            channel: 'killstream',
-          }));
-        } catch (sendErr) {
-          console.error('[useKillStream] Failed to send subscription:', sendErr);
-        }
+        // Send subscription filters to backend
+        sendSubscription(ws);
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
 
-          // zKillboard sends killmails directly (not wrapped in a type/payload structure)
-          // Validate the message structure before processing
-          if (isValidKillmail(data)) {
-            const kill = parseZKillboardKillmail(data);
+          if (data.type === 'kill' && isValidBackendKill(data.data)) {
+            const kill = parseBackendKill(data.data);
             addKill(kill);
           }
-          // Silently ignore other message types (heartbeats, etc.)
+          // Other message types (connected, subscribed, pong, error) are
+          // informational — log in dev mode, otherwise silently ignore
+          else if (process.env.NODE_ENV === 'development' && data.type !== 'kill') {
+            console.log('[useKillStream] Backend message:', data.type, data);
+          }
         } catch (parseErr) {
-          // Log parse errors in development for debugging
           if (process.env.NODE_ENV === 'development') {
-            console.warn('[useKillStream] Failed to parse message:', parseErr);
+            console.warn('[useKillStream] Failed to parse backend message:', parseErr);
           }
         }
       };
 
-      ws.onerror = (event) => {
-        // WebSocket errors are often just "connection failed" without details
-        // The close event will follow with more info
-        console.error('[useKillStream] WebSocket error:', event);
-        setError('WebSocket connection error');
-        setIsConnected(false);
+      ws.onerror = () => {
+        // Backend WS failed — fall back to zKillboard
+        // The close handler will fire next; we prevent it from triggering
+        // normal reconnect by cleaning up here
+        console.warn('[useKillStream] Backend WebSocket failed, falling back to zKillboard');
+        wsRef.current = null;
+
+        // Suppress the onclose handler's reconnect for this specific ws
+        ws.onclose = null;
+        try { ws.close(); } catch { /* already closed */ }
+
+        connectToZKillboard();
       };
 
       ws.onclose = (event) => {
         setIsConnected(false);
         wsRef.current = null;
 
-        // Log close reason for debugging
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useKillStream] WebSocket closed:', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean,
-          });
+        // If the backend closes immediately (e.g., 404 / not running),
+        // fall back to zKillboard on the first attempt
+        if (reconnectAttemptsRef.current === 0 && event.code !== 1000) {
+          connectToZKillboard();
+          return;
         }
 
-        // Set error message based on close code
-        if (event.code !== 1000 && event.code !== 1001) {
-          const closeReasons: Record<number, string> = {
-            1002: 'Protocol error',
-            1003: 'Invalid data type',
-            1006: 'Connection lost abnormally',
-            1007: 'Invalid message data',
-            1008: 'Policy violation',
-            1009: 'Message too large',
-            1010: 'Server didn\'t respond to extension request',
-            1011: 'Server error',
-            1015: 'TLS handshake failed',
-          };
-          setError(closeReasons[event.code] || `Connection closed (code: ${event.code})`);
-        }
-
-        // Auto-reconnect if enabled and we haven't exceeded max attempts
-        if (autoReconnect) {
-          const shouldReconnect = maxReconnectAttempts === 0 ||
-            reconnectAttemptsRef.current < maxReconnectAttempts;
-
-          if (shouldReconnect) {
-            reconnectAttemptsRef.current += 1;
-            setReconnectAttempts(reconnectAttemptsRef.current);
-
-            // Exponential backoff: base delay * 2^attempts, capped at 60 seconds
-            const backoffDelay = Math.min(
-              reconnectDelay * Math.pow(2, reconnectAttemptsRef.current - 1),
-              60000
-            );
-
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[useKillStream] Reconnecting in ${backoffDelay}ms (attempt ${reconnectAttemptsRef.current})`);
-            }
-
-            reconnectTimeoutRef.current = setTimeout(connect, backoffDelay);
-          }
-        }
+        handleClose(event);
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect');
-      setIsConnected(false);
+      // WebSocket constructor can throw on invalid URL
+      console.warn('[useKillStream] Backend WS construction failed, falling back to zKillboard:', err);
+      connectToZKillboard();
     }
-  }, [wsUrl, autoReconnect, reconnectDelay, maxReconnectAttempts, addKill, useMock]);
+  }, [useMock, maxReconnectAttempts, addKill, sendSubscription, connectToZKillboard, handleClose]);
 
   /**
    * Disconnect from WebSocket
@@ -430,6 +612,7 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
     }
 
     if (wsRef.current) {
+      wsRef.current.onclose = null; // Prevent reconnect on intentional disconnect
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -438,11 +621,13 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   }, []);
 
   /**
-   * Reconnect to WebSocket (resets reconnect attempt counter)
+   * Reconnect to WebSocket (resets reconnect attempt counter and fallback state)
    */
   const reconnect = useCallback(() => {
     reconnectAttemptsRef.current = 0;
     setReconnectAttempts(0);
+    usingFallbackRef.current = false;
+    setIsFallback(false);
     disconnect();
     // Small delay to ensure clean disconnect before reconnecting
     setTimeout(connect, 100);
@@ -487,6 +672,16 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   }, [useMock, systemFilter, addKill]);
 
   /**
+   * Re-send subscription filters when they change (backend mode only)
+   */
+  useEffect(() => {
+    if (useMock || usingFallbackRef.current) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      sendSubscription(wsRef.current);
+    }
+  }, [systemFilter, regionFilter, minValue, includePods, useMock, sendSubscription]);
+
+  /**
    * Connect on mount, disconnect on unmount
    */
   useEffect(() => {
@@ -500,6 +695,7 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
     error,
     reconnectAttempts,
     isMock: useMock,
+    isFallback,
     reconnect,
     disconnect,
     clearKills,

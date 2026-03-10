@@ -4,12 +4,14 @@ from fastapi import APIRouter
 
 from .ai import router as ai_router
 from .alerts import router as alerts_router
+from .analytics import router as analytics_router
 from .auth import router as auth_router
 from .avoidance import router as avoidance_router
 from .billing import router as billing_router
 from .bookmarks import router as bookmarks_router
 from .bridges import router as bridges_router
 from .character import router as character_router
+from .errors import router as errors_router
 from .characters import router as characters_router
 from .fatigue import router as fatigue_router
 from .fitting import router as fitting_router
@@ -59,3 +61,5 @@ router.include_router(wormholes_router)
 router.include_router(status_router, prefix="/status", tags=["status"])
 router.include_router(websocket_router, tags=["websocket"])
 router.include_router(links_router)
+router.include_router(errors_router, prefix="/errors", tags=["errors"])
+router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])

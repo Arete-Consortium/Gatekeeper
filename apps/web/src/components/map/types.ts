@@ -17,6 +17,8 @@ export interface MapSystem {
   border?: boolean;
   spectralClass?: string;
   npcStations?: number;
+  regionName?: string;
+  constellationName?: string;
   // Live data (populated by overlays)
   sovAllianceId?: number;
   sovFactionId?: number;

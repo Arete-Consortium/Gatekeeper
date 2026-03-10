@@ -51,6 +51,10 @@ export { KillMarkers } from './KillMarkers';
 export { RiskHeatmap, RiskHeatmapLegend } from './RiskHeatmap';
 export { Minimap } from './Minimap';
 
+// System detail & search
+export { SystemDetailPanel } from './SystemDetailPanel';
+export { SystemSearch } from './SystemSearch';
+
 // Intel controls
 export { IntelControls, IntelStatusBadge } from './IntelControls';
 

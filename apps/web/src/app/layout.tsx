@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
-import { Analytics } from '@vercel/analytics/next';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/next';
 import { Navbar } from '@/components/layout';
 import { Providers } from '@/components/Providers';
+import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
+import { Analytics } from '@/components/Analytics';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -24,10 +26,13 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background">
         <Providers>
-          <Navbar />
-          <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+          <ErrorBoundaryWrapper>
+            <Navbar />
+            <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
+          </ErrorBoundaryWrapper>
         </Providers>
         <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );

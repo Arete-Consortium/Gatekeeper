@@ -10,7 +10,6 @@ import { Toggle } from '@/components/ui/Toggle';
 import {
   Map,
   Layers,
-  Search,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -33,6 +32,7 @@ import { useKillStream } from '@/components/map/useKillStream';
 import { IntelControls } from '@/components/map/IntelControls';
 import { RouteControls } from '@/components/map/RouteControls';
 import { SystemDetailPanel } from '@/components/map/SystemDetailPanel';
+import { SystemSearch } from '@/components/map/SystemSearch';
 
 // Dynamically import the UniverseMap to avoid SSR issues with PixiJS
 const UniverseMap = dynamic(
@@ -107,6 +107,8 @@ function transformMapConfig(config: MapConfig): {
       border: sys.border,
       spectralClass: sys.spectral_class,
       npcStations: sys.npc_stations,
+      regionName: sys.region_name,
+      constellationName: sys.constellation_name,
     };
     nameToId.set(name, sys.id);
     idToSystem.set(sys.id, mapSystem);
@@ -162,7 +164,6 @@ function MapPageContent() {
   });
   const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>('security');
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showRoutePanel, setShowRoutePanel] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
@@ -286,12 +287,6 @@ function MapPageContent() {
     }
     return { sovereignty, alliances };
   }, [sovData]);
-
-  const filteredSystems = useMemo(() => {
-    if (!searchQuery) return [];
-    const lowerQuery = searchQuery.toLowerCase();
-    return systems.filter((s) => s.name.toLowerCase().includes(lowerQuery));
-  }, [systems, searchQuery]);
 
   // === URL Permalink Support ===
 
@@ -419,7 +414,6 @@ function MapPageContent() {
   }, [routeState.mode, selectRouteSystem]);
 
   const handleSearchSelect = useCallback((system: MapSystem) => {
-    setSearchQuery('');
     setSelectedSystem(system.systemId);
     mapRef.current?.panTo(system.systemId);
     if (routeState.mode !== 'idle') selectRouteSystem(system.systemId);
@@ -485,6 +479,8 @@ function MapPageContent() {
               kills={kills}
               onClose={() => setSelectedSystem(null)}
               onSystemClick={handleSystemSelect}
+              onSetOrigin={handleSetRouteOrigin}
+              onSetDestination={handleSetRouteDestination}
             />
           </Card>
         );
@@ -539,50 +535,10 @@ function MapPageContent() {
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <label htmlFor="system-search" className="sr-only">Search for a system</label>
-            <input
-              id="system-search"
-              type="text"
-              role="combobox"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search system..."
-              className="w-36 sm:w-48 px-3 py-1.5 bg-card border border-border rounded-lg text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-              aria-autocomplete="list"
-              aria-expanded={!!(searchQuery && filteredSystems.length > 0)}
-              aria-controls="search-results"
-              aria-haspopup="listbox"
-            />
-            <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" aria-hidden="true" />
-
-            {searchQuery && filteredSystems.length > 0 && (
-              <div
-                id="search-results"
-                className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto"
-                role="listbox"
-                aria-label="System search results"
-              >
-                {filteredSystems.slice(0, 10).map((system) => (
-                  <button
-                    key={system.systemId}
-                    onClick={() => handleSearchSelect(system)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-card-hover focus:bg-card-hover focus:outline-none flex justify-between items-center"
-                    role="option"
-                    aria-selected={false}
-                    aria-label={`${system.name}, security ${system.security.toFixed(1)}`}
-                  >
-                    <span className="text-text">{system.name}</span>
-                    <span className={`text-xs ${
-                      system.security >= 0.5 ? 'text-high-sec' : system.security > 0 ? 'text-low-sec' : 'text-null-sec'
-                    }`}>
-                      {system.security.toFixed(1)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SystemSearch
+            systems={systems}
+            onSelect={handleSearchSelect}
+          />
           <Button
             variant={showRoutePanel ? 'primary' : 'ghost'}
             size="sm"

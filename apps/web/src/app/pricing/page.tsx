@@ -1,9 +1,12 @@
 'use client';
 
+import { Suspense, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardTitle, CardDescription, Button } from '@/components/ui';
-import { Check, Zap } from 'lucide-react';
+import { Check, X, Zap } from 'lucide-react';
 import Link from 'next/link';
+import { GatekeeperAPI } from '@/lib/api';
 
 const FREE_FEATURES = [
   'Route planning (all profiles)',
@@ -25,7 +28,18 @@ const PRO_FEATURES = [
 ];
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8 text-text-secondary">Loading...</div>}>
+      <PricingContent />
+    </Suspense>
+  );
+}
+
+function PricingContent() {
   const { isAuthenticated, isPro, token } = useAuth();
+  const searchParams = useSearchParams();
+  const checkoutStatus = searchParams.get('checkout');
+  const [cancelDismissed, setCancelDismissed] = useState(false);
 
   const handleUpgrade = async () => {
     if (!isAuthenticated) {
@@ -33,33 +47,36 @@ export default function PricingPage() {
       return;
     }
 
-    const apiUrl =
-      localStorage.getItem('gatekeeper_api_url') ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:8000';
-
-    const currentUrl = window.location.origin;
-
-    const response = await fetch(`${apiUrl}/api/v1/billing/create-checkout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        success_url: `${currentUrl}/account?checkout=success`,
-        cancel_url: `${currentUrl}/pricing?checkout=cancelled`,
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      window.location.href = data.checkout_url;
+    try {
+      const currentUrl = window.location.origin;
+      const { checkout_url } = await GatekeeperAPI.createCheckoutSession(
+        `${currentUrl}/account?checkout=success`,
+        `${currentUrl}/pricing?checkout=cancelled`
+      );
+      window.location.href = checkout_url;
+    } catch {
+      // Checkout creation failed
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Checkout cancelled notice */}
+      {checkoutStatus === 'cancelled' && !cancelDismissed && (
+        <Card className="border-risk-orange/40 bg-risk-orange/10 py-4 px-6 flex items-center justify-between">
+          <p className="text-risk-orange text-sm font-medium">
+            Checkout was cancelled. No charges were made. You can upgrade anytime.
+          </p>
+          <button
+            onClick={() => setCancelDismissed(true)}
+            className="text-risk-orange hover:text-text ml-4 flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Card>
+      )}
+
       <div className="text-center py-8">
         <h1 className="text-3xl font-bold text-text">Navigate New Eden Safely</h1>
         <p className="text-text-secondary mt-2">

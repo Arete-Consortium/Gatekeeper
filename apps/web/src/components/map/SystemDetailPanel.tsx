@@ -44,6 +44,8 @@ interface SystemDetailPanelProps {
   kills?: MapKill[];
   onClose: () => void;
   onSystemClick?: (systemId: number) => void;
+  onSetOrigin?: (systemId: number) => void;
+  onSetDestination?: (systemId: number) => void;
 }
 
 export function SystemDetailPanel({
@@ -57,6 +59,8 @@ export function SystemDetailPanel({
   kills = [],
   onClose,
   onSystemClick,
+  onSetOrigin,
+  onSetDestination,
 }: SystemDetailPanelProps) {
   const sid = String(system.systemId);
 
@@ -159,9 +163,34 @@ export function SystemDetailPanel({
         />
       </div>
 
+      {/* Route Actions */}
+      {(onSetOrigin || onSetDestination) && (
+        <div className="flex gap-2">
+          {onSetOrigin && (
+            <button
+              onClick={() => onSetOrigin(system.systemId)}
+              className="flex-1 text-xs py-1.5 bg-green-900/40 hover:bg-green-800/50 border border-green-700/50 rounded text-green-400 transition-colors"
+            >
+              Set as Origin
+            </button>
+          )}
+          {onSetDestination && (
+            <button
+              onClick={() => onSetDestination(system.systemId)}
+              className="flex-1 text-xs py-1.5 bg-blue-900/40 hover:bg-blue-800/50 border border-blue-700/50 rounded text-blue-400 transition-colors"
+            >
+              Set as Destination
+            </button>
+          )}
+        </div>
+      )}
+
       {/* System Info */}
       <Section title="System Info">
-        <InfoRow label="Region" value={system.regionId ? String(system.regionId) : '—'} />
+        <InfoRow label="Region" value={system.regionName || String(system.regionId)} />
+        {system.constellationName && (
+          <InfoRow label="Constellation" value={system.constellationName} />
+        )}
         {system.npcStations != null && system.npcStations > 0 && (
           <InfoRow label="NPC Stations" value={String(system.npcStations)} />
         )}
