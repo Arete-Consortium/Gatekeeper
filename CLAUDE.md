@@ -6,10 +6,28 @@ EVE Online navigation, routing, and intel visualization platform
 
 ## Current State
 
-- **Version**: 1.4.0
-- **Language**: Python
-- **Files**: 492 across 5 languages
-- **Lines**: 132,312
+- **Version**: 1.5.0
+- **Language**: Python, TypeScript
+- **Tests**: 2,157+ backend passing
+- **Deployment**: Fly.io (backend) + Vercel (frontend)
+- **Domain**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
+- **Database**: PostgreSQL on Fly.io
+
+## Key Features (Live)
+
+- **New Eden Map**: Canvas2D interactive universe map with 8,000+ systems
+  - Kill stream via backend WebSocket (/ws/killfeed) with zKillboard fallback
+  - Route planning with context menu (origin/destination/avoid)
+  - System detail panel, search, Thera wormhole overlay (EVE Scout)
+  - Sovereignty, faction warfare, landmark overlays
+  - URL permalinks, keyboard shortcuts, mobile sidebar
+- **Route Planning**: Multi-profile (safer/shortest/paranoid), jump bridges, Thera, Pochven
+- **Intel Feed**: Real-time kill data, risk heatmap, hot systems
+- **Fitting Analyzer**: EFT paste → travel advice
+- **Auth**: EVE SSO OAuth2 → JWT (scopes: read_location, write_waypoint)
+- **Billing**: Stripe checkout (Pro $3/mo), billing portal, webhook lifecycle
+- **Error Monitoring**: React ErrorBoundary → POST /api/v1/errors
+- **Analytics**: Page view tracking → POST /api/v1/analytics/pageview
 
 ## Architecture
 
@@ -86,21 +104,30 @@ EVE_Gatekeeper/
 ## Common Commands
 
 ```bash
-# test
-pytest tests/ -v
+# backend tests
+python3 -m pytest tests/ -v --timeout=30
+# frontend build
+cd apps/web && npx next build
 # lint
-ruff check src/ tests/
+ruff check backend/ tests/
 # format
-ruff format src/ tests/
-# type check
-mypy src/
-# coverage
-pytest --cov=src/ tests/
-# gatekeeper-mcp
-backend.app.mcp.server:main
-
+ruff format backend/ tests/
+# deploy backend
+/home/arete/.fly/bin/flyctl deploy --remote-only --wait-timeout 600 --app eve-gatekeeper
+# fly secrets
+/home/arete/.fly/bin/flyctl secrets set KEY=VALUE --app eve-gatekeeper
 # docker CMD
 ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## ESI OAuth Scopes (Active)
+
+```python
+DEFAULT_SCOPES = [
+    "esi-location.read_location.v1",
+    "esi-ui.write_waypoint.v1",
+]
+# DEPRECATED (removed): read_online, read_standings, search_structures
 ```
 
 ## Anti-Patterns (Do NOT Do)
