@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
-import { Card, Button, Badge, ErrorMessage, getUserFriendlyError } from '@/components/ui';
+import { Card, Button, ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { Toggle } from '@/components/ui/Toggle';
 import Link from 'next/link';
 import {
@@ -749,30 +749,65 @@ function MapPageContent() {
     <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col lg:flex-row gap-4">
       {/* Left Column: toolbar + map (aligned edges) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
-        {/* Header Controls — right edge aligns with map below */}
-        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-3 flex-wrap">
-          <div className="hidden sm:flex items-center gap-2">
-            <h1 className="text-xl font-bold text-text flex items-center gap-2">
-              <Map className="h-5 w-5" />
-              New Eden Map
-            </h1>
-            <Badge variant="info">Beta</Badge>
-            {systems.length > 0 && (
-              <Badge variant="default">{systems.length} systems</Badge>
-            )}
-          </div>
+        {/* Single toolbar row — title, search, controls, intel */}
+        <div className="flex items-center gap-2 mb-2 sm:mb-3 min-h-[36px]">
+          {/* Title (desktop only) */}
+          <h1 className="hidden sm:flex items-center gap-1.5 text-sm font-bold text-text whitespace-nowrap">
+            <Map className="h-4 w-4" />
+            New Eden
+          </h1>
 
-          {/* Intel Strip */}
-          <div className="hidden sm:flex items-center gap-2 text-xs">
+          {/* Search */}
+          <SystemSearch
+            systems={systems}
+            onSelect={handleSearchSelect}
+          />
+
+          {/* Map controls */}
+          <Button
+            variant={showRoutePanel ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setShowRoutePanel(!showRoutePanel)}
+            aria-label={showRoutePanel ? 'Close route planner' : 'Open route planner'}
+            aria-pressed={showRoutePanel}
+          >
+            <Navigation className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in" className="hidden sm:inline-flex">
+            <ZoomIn className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out" className="hidden sm:inline-flex">
+            <ZoomOut className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode" className="hidden sm:inline-flex">
+            <Maximize2 className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyLink}
+            aria-label="Copy map link to clipboard"
+            title="Copy link"
+            className="hidden sm:inline-flex"
+          >
+            {linkCopied ? (
+              <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
+            ) : (
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
+
+          {/* Intel strip (right-aligned, desktop) */}
+          <div className="hidden sm:flex items-center gap-2 text-xs ml-auto">
             <span className="font-semibold text-text-secondary uppercase tracking-wide">Intel</span>
             <div className={`w-2 h-2 rounded-full ${killsConnected ? 'bg-green-500' : 'bg-red-500'}`} />
             {isPro ? (
-              <span className="text-text-secondary">
+              <span className="text-text-secondary whitespace-nowrap">
                 {totalKills} kills · {totalPods} pods
               </span>
             ) : (
               <>
-                <span className="text-text-secondary">--- kills · --- pods</span>
+                <span className="text-text-secondary">---</span>
                 <Link href="/pricing" className="flex items-center gap-1 text-[10px] text-primary hover:underline">
                   <Lock className="h-3 w-3" />
                   Pro
@@ -782,7 +817,7 @@ function MapPageContent() {
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
-              className="px-1.5 py-0.5 bg-card border border-border rounded text-xs text-text ml-1"
+              className="px-1.5 py-0.5 bg-card border border-border rounded text-xs text-text"
             >
               <option value="1h">1h</option>
               <option value="4h">4h</option>
@@ -800,54 +835,16 @@ function MapPageContent() {
             </button>
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <SystemSearch
-              systems={systems}
-              onSelect={handleSearchSelect}
-            />
-            <Button
-              variant={showRoutePanel ? 'primary' : 'ghost'}
-              size="sm"
-              onClick={() => setShowRoutePanel(!showRoutePanel)}
-              aria-label={showRoutePanel ? 'Close route planner' : 'Open route planner'}
-              aria-pressed={showRoutePanel}
-            >
-              <Navigation className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in" className="hidden sm:inline-flex">
-              <ZoomIn className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out" className="hidden sm:inline-flex">
-              <ZoomOut className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode" className="hidden sm:inline-flex">
-              <Maximize2 className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCopyLink}
-              aria-label="Copy map link to clipboard"
-              title="Copy link"
-              className="hidden sm:inline-flex"
-            >
-              {linkCopied ? (
-                <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
-              ) : (
-                <Link2 className="h-4 w-4" aria-hidden="true" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="lg:hidden"
-              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-              aria-label={showMobileSidebar ? 'Close sidebar' : 'Open sidebar'}
-            >
-              <Menu className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
+          {/* Mobile sidebar toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden ml-auto sm:ml-0"
+            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+            aria-label={showMobileSidebar ? 'Close sidebar' : 'Open sidebar'}
+          >
+            <Menu className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
 
         {/* Map Container — Pochven aesthetic */}

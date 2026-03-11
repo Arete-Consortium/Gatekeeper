@@ -926,8 +926,8 @@ export function FWMap() {
           </div>
         )}
 
-        {/* Canvas */}
-        <div ref={containerRef} className="w-full relative">
+        {/* Canvas — Pochven aesthetic */}
+        <div ref={containerRef} className="w-full relative rounded-lg border border-border overflow-hidden" style={{ backgroundColor: '#0a0e17' }}>
           <canvas
             ref={canvasRef}
             onClick={handleClick}
@@ -939,7 +939,7 @@ export function FWMap() {
               handleMouseUp();
             }}
             onWheel={handleWheel}
-            className="w-full rounded-lg border border-border"
+            className="w-full"
             style={{ touchAction: 'none', cursor: 'grab' }}
           />
 
