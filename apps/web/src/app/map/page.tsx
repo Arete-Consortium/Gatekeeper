@@ -189,20 +189,31 @@ function MapPageContent() {
   const router = useRouter();
   const [linkCopied, setLinkCopied] = useState(false);
   const initializedFromUrl = useRef(false);
-  const [layers, setLayers] = useState<MapLayers>({
-    showGates: true,
-    showLabels: true,
-    showRoute: true,
-    showKills: true,
-    showHeatmap: false,
-    showRegionLabels: true,
-    showSovereignty: false,
-    showThera: true,
-    showFW: false,
-    showLandmarks: true,
-    showSovStructures: false,
+  const [layers, setLayers] = useState<MapLayers>(() => {
+    const defaults: MapLayers = {
+      showGates: true,
+      showLabels: true,
+      showRoute: true,
+      showKills: true,
+      showHeatmap: false,
+      showRegionLabels: true,
+      showSovereignty: false,
+      showThera: true,
+      showFW: false,
+      showLandmarks: true,
+      showSovStructures: false,
+    };
+    if (typeof window === 'undefined') return defaults;
+    try {
+      const saved = localStorage.getItem('gk_map_layers');
+      if (saved) return { ...defaults, ...JSON.parse(saved) };
+    } catch { /* ignore corrupt data */ }
+    return defaults;
   });
-  const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>('security');
+  const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>(() => {
+    if (typeof window === 'undefined') return 'security';
+    return (localStorage.getItem('gk_map_color_mode') as 'security' | 'risk' | 'star') || 'security';
+  });
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [showRoutePanel, setShowRoutePanel] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -465,7 +476,11 @@ function MapPageContent() {
   );
 
   const updateLayer = useCallback((key: keyof MapLayers, value: boolean) => {
-    setLayers((prev) => ({ ...prev, [key]: value }));
+    setLayers((prev) => {
+      const next = { ...prev, [key]: value };
+      try { localStorage.setItem('gk_map_layers', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
   }, []);
 
   const isLoading = loadingConfig;
@@ -612,9 +627,9 @@ function MapPageContent() {
         defaultOpen={false}
       >
         <div className="flex gap-2 flex-wrap">
-          <Button variant={colorMode === 'security' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('security')} className="flex-1">Security</Button>
-          <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('risk')} className="flex-1">Risk</Button>
-          <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => setColorMode('star')} className="flex-1">Star</Button>
+          <Button variant={colorMode === 'security' ? 'primary' : 'secondary'} size="sm" onClick={() => { setColorMode('security'); try { localStorage.setItem('gk_map_color_mode', 'security'); } catch {} }} className="flex-1">Security</Button>
+          <Button variant={colorMode === 'risk' ? 'primary' : 'secondary'} size="sm" onClick={() => { setColorMode('risk'); try { localStorage.setItem('gk_map_color_mode', 'risk'); } catch {} }} className="flex-1">Risk</Button>
+          <Button variant={colorMode === 'star' ? 'primary' : 'secondary'} size="sm" onClick={() => { setColorMode('star'); try { localStorage.setItem('gk_map_color_mode', 'star'); } catch {} }} className="flex-1">Star</Button>
         </div>
       </CollapsibleSection>
 
