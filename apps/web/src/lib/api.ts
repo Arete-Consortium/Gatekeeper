@@ -32,6 +32,9 @@ import {
   BookmarkListResponse,
   BookmarkResponse,
   BookmarkCreate,
+  WormholeListResponse,
+  CharacterLocation,
+  SetWaypointsResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -483,6 +486,31 @@ class GatekeeperAPIService {
   async deleteBookmark(id: number): Promise<void> {
     await this.request<void>(`/api/v1/bookmarks/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ==================== Wormhole Connections ====================
+
+  async getWormholes(): Promise<WormholeListResponse> {
+    return this.request<WormholeListResponse>('/api/v1/wormholes/');
+  }
+
+  async getSystemWormholes(systemName: string): Promise<WormholeListResponse> {
+    return this.request<WormholeListResponse>(
+      `/api/v1/wormholes/system/${encodeURIComponent(systemName)}`
+    );
+  }
+
+  // ==================== Character ====================
+
+  async getCharacterLocation(): Promise<CharacterLocation> {
+    return this.request<CharacterLocation>('/api/v1/character/location');
+  }
+
+  async setWaypoints(systems: string[], clearExisting: boolean = true): Promise<SetWaypointsResponse> {
+    return this.request<SetWaypointsResponse>('/api/v1/character/set-waypoints', {
+      method: 'POST',
+      body: JSON.stringify({ systems, clear_existing: clearExisting }),
     });
   }
 

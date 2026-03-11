@@ -183,7 +183,7 @@ export default function MapPage() {
 }
 
 function MapPageContent() {
-  const { isPro } = useAuth();
+  const { isPro, user } = useAuth();
   const mapRef = useRef<UniverseMapRef>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -202,6 +202,7 @@ function MapPageContent() {
       showFW: false,
       showLandmarks: true,
       showSovStructures: false,
+      showWormholes: false,
     };
     if (typeof window === 'undefined') return defaults;
     try {
@@ -264,6 +265,20 @@ function MapPageContent() {
     queryFn: () => GatekeeperAPI.getSystemActivity(),
     staleTime: 5 * 60 * 1000,
     enabled: !!mapConfig,
+  });
+
+  const { data: wormholeData } = useQuery({
+    queryKey: ['wormholes'],
+    queryFn: () => GatekeeperAPI.getWormholes(),
+    staleTime: 2 * 60 * 1000,
+    enabled: !!mapConfig && layers.showWormholes === true,
+  });
+
+  const { data: characterLocation } = useQuery({
+    queryKey: ['characterLocation'],
+    queryFn: () => GatekeeperAPI.getCharacterLocation(),
+    refetchInterval: 10_000, // Poll every 10s
+    enabled: !!user && !!mapConfig,
   });
 
   // === Transform ===
@@ -562,6 +577,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
+          <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
 
         {/* Intel controls */}
@@ -708,6 +724,14 @@ function MapPageContent() {
             <span className="text-text-secondary">Thera Connection</span>
           </div>
           <div className="flex items-center gap-2">
+            <div className="h-2 w-4 border border-purple-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
+            <span className="text-text-secondary">Wormhole</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-cyan-400" aria-hidden="true" />
+            <span className="text-text-secondary">Your Location</span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="flex gap-0.5" aria-hidden="true">
               <span className="inline-block w-3.5 h-3.5 rounded-full bg-red-900 border border-red-300 text-red-300 text-[8px] font-bold text-center leading-[14px]">1</span>
               <span className="inline-block w-3.5 h-3.5 rounded-full bg-green-900 border border-green-300 text-green-300 text-[8px] font-bold text-center leading-[14px]">5</span>
@@ -852,6 +876,9 @@ function MapPageContent() {
                 fwSystems={fwData?.fw_systems}
                 landmarks={mapConfig?.landmarks}
                 sovStructures={sovStructData?.structures}
+                wormholeConnections={wormholeData?.connections}
+                characterSystemId={characterLocation?.solar_system_id}
+                characterName={user?.character_name}
                 layers={layers}
                 colorMode={colorMode}
                 selectedSystem={selectedSystem}

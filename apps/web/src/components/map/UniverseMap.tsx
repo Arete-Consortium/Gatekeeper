@@ -35,6 +35,8 @@ import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
+import { WormholeOverlay } from './WormholeOverlay';
+import { CharacterMarker } from './CharacterMarker';
 
 // Default layer visibility
 const DEFAULT_LAYERS: MapLayers = {
@@ -49,6 +51,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showFW: false,
   showLandmarks: true,
   showSovStructures: false,
+  showWormholes: false,
 };
 
 // Animation duration in ms
@@ -74,6 +77,9 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       fwSystems,
       landmarks = [],
       sovStructures,
+      wormholeConnections = [],
+      characterSystemId,
+      characterName,
       selectedSystem,
       highlightedSystems = [],
       onSystemClick,
@@ -386,10 +392,29 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           />
         )}
 
+        {/* Wormhole Connections */}
+        {layers.showWormholes && wormholeConnections && wormholeConnections.length > 0 && (
+          <WormholeOverlay
+            connections={wormholeConnections}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
         {/* Landmarks */}
         {layers.showLandmarks && landmarks.length > 0 && (
           <LandmarksOverlay
             landmarks={landmarks}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Character location marker */}
+        {characterSystemId && characterName && (
+          <CharacterMarker
+            systemId={characterSystemId}
+            characterName={characterName}
             systems={systemMap}
             viewport={viewport}
           />

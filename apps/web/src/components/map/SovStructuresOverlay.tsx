@@ -34,9 +34,17 @@ interface StructMarker {
   name: string;
   x: number;
   y: number;
+  offsetY: number;
   ihubAdm: number | null;
   hasTcu: boolean;
   hasSkyhook: boolean;
+}
+
+function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
@@ -81,7 +89,43 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       // Render block for any system with iHub or Skyhook (even if ADM is null)
       if (!hasIhub && !hasSkyhook) continue;
 
-      result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
+      result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, offsetY: 0, ihubAdm, hasTcu, hasSkyhook });
+    }
+
+    // Collision avoidance: sort by x, then shift overlapping labels down
+    result.sort((a, b) => a.x - b.x);
+
+    // Estimated block dimensions for collision detection
+    // Use conservative char width estimate (~0.62em of larger font)
+    const estCharW = (isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0) * 0.62;
+    const estPadX = 4;
+    const estBlockOffsetY = 4;
+    const estFontName = Math.round((isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0));
+    const estFontAdm = Math.round((isMobile ? 8 : 7) * (isZoomed ? 1.3 : 1.0));
+    const estLineH1 = estFontName + 3;
+    const estLineH2 = estFontAdm + 3;
+    const estPadY = 2;
+    const estRowGap = 1;
+    const estFullH = estPadY + estLineH1 + estRowGap + estLineH2 + estPadY;
+    const collisionGap = 2;
+
+    const placed: { x: number; y: number; w: number; h: number }[] = [];
+
+    for (const m of result) {
+      const w = m.name.length * estCharW + estPadX * 2;
+      let curY = m.y + estBlockOffsetY + m.offsetY;
+      const rect = { x: m.x - w / 2, y: curY, w, h: estFullH };
+
+      // Shift down until no overlap
+      let maxAttempts = 10;
+      while (maxAttempts-- > 0) {
+        const hasOverlap = placed.some((p) => rectsOverlap(rect, p));
+        if (!hasOverlap) break;
+        rect.y += estFullH + collisionGap;
+      }
+
+      m.offsetY = rect.y - (m.y + estBlockOffsetY);
+      placed.push(rect);
     }
 
     return result;
@@ -136,7 +180,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         const thisBlockH = hasRow2 ? blockH : padY + lineH1 + padY;
 
         const bx = m.x - blockW / 2;
-        const by = m.y + blockOffsetY;
+        const by = m.y + blockOffsetY + m.offsetY;
 
         // Text positions (vertically centered in each row)
         const nameY = by + padY + lineH1 / 2 + fontName * 0.35;

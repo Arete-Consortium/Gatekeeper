@@ -89,6 +89,7 @@ export interface MapLayers {
   showFW: boolean;
   showLandmarks: boolean;
   showSovStructures: boolean;
+  showWormholes?: boolean;
 }
 
 // Region data for map labels
@@ -120,6 +121,9 @@ export interface UniverseMapProps {
   fwSystems?: Record<string, import('@/lib/types').FWSystem>;
   landmarks?: import('@/lib/types').Landmark[];
   sovStructures?: Record<string, import('@/lib/types').SovStructure[]>;
+  wormholeConnections?: import('@/lib/types').WormholeConnection[];
+  characterSystemId?: number | null;
+  characterName?: string | null;
 
   // Interaction
   selectedSystem?: number | null;

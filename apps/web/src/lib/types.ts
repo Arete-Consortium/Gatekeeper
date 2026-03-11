@@ -473,3 +473,46 @@ export interface BookmarkCreate {
   use_bridges?: boolean;
   notes?: string | null;
 }
+
+// Wormhole connection (user-submitted)
+export interface WormholeConnection {
+  id: string;
+  from_system: string;
+  from_system_id: number;
+  to_system: string;
+  to_system_id: number;
+  wormhole_type: 'static' | 'wandering' | 'k162' | 'frigate' | 'drifter';
+  mass_status: 'stable' | 'destabilized' | 'critical' | 'collapsed';
+  life_status: 'stable' | 'eol' | 'expired';
+  bidirectional: boolean;
+  created_at: string;
+  created_by: string | null;
+  notes: string | null;
+}
+
+export interface WormholeListResponse {
+  count: number;
+  connections: WormholeConnection[];
+}
+
+// Character location
+export interface CharacterLocation {
+  solar_system_id: number;
+  solar_system_name: string | null;
+  security: number | null;
+  region_name: string | null;
+  station_id: number | null;
+  structure_id: number | null;
+}
+
+// Waypoint sync
+export interface SetWaypointsRequest {
+  systems: string[];
+  clear_existing: boolean;
+}
+
+export interface SetWaypointsResponse {
+  success: boolean;
+  waypoints_set: number;
+  systems: string[];
+}

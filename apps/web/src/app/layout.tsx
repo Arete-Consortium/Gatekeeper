@@ -10,7 +10,8 @@ import '@/styles/globals.css';
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0f172a',
+  viewportFit: 'cover',
+  themeColor: '#0e7490',
 };
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico',
   },
+  manifest: '/manifest.json',
   metadataBase: new URL('https://gatekeeper.aretedriver.dev'),
   appleWebApp: {
     capable: true,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardTitle, Badge } from '@/components/ui';
 import { RiskBadge } from '@/components/system';
 import { RouteHopRow } from './RouteHopRow';
@@ -7,7 +8,8 @@ import { RouteMap } from './RouteMap';
 import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteResponse } from '@/lib/types';
-import { Gauge, Route, Zap, MapPin } from 'lucide-react';
+import { Gauge, Route, Zap, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { GatekeeperAPI } from '@/lib/api';
 
 interface RouteResultProps {
   route: RouteResponse;
@@ -22,6 +24,32 @@ function getRiskColor(risk: number): 'green' | 'yellow' | 'orange' | 'red' {
 
 export function RouteResult({ route }: RouteResultProps) {
   const profile = ROUTE_PROFILES[route.profile];
+  const [waypointStatus, setWaypointStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [waypointMessage, setWaypointMessage] = useState('');
+
+  const handleSetInGameRoute = async () => {
+    if (route.path.length === 0) return;
+    setWaypointStatus('loading');
+    setWaypointMessage('');
+    try {
+      const systemNames = route.path.map((hop) => hop.system_name);
+      const result = await GatekeeperAPI.setWaypoints(systemNames);
+      if (result.success) {
+        setWaypointStatus('success');
+        setWaypointMessage(`Set ${result.waypoints_set} waypoint${result.waypoints_set !== 1 ? 's' : ''} in-game`);
+      } else {
+        setWaypointStatus('error');
+        setWaypointMessage('Failed to set waypoints');
+      }
+    } catch (err) {
+      setWaypointStatus('error');
+      setWaypointMessage(err instanceof Error ? err.message : 'Failed to set waypoints');
+    }
+    setTimeout(() => {
+      setWaypointStatus('idle');
+      setWaypointMessage('');
+    }, 4000);
+  };
 
   return (
     <div className="space-y-4">
@@ -29,10 +57,37 @@ export function RouteResult({ route }: RouteResultProps) {
       <Card>
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <CardTitle className="flex-1">Route Summary</CardTitle>
+          {route.path.length > 0 && (
+            <button
+              onClick={handleSetInGameRoute}
+              disabled={waypointStatus === 'loading'}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
+                bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
+                hover:bg-cyan-600/30 hover:border-cyan-500/50
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-colors"
+            >
+              {waypointStatus === 'loading' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="h-4 w-4" />
+              )}
+              Set In-Game Route
+            </button>
+          )}
           <Badge variant="info" size="md">
             {profile.label}
           </Badge>
         </div>
+        {waypointMessage && (
+          <div className={`text-sm mb-3 px-3 py-1.5 rounded ${
+            waypointStatus === 'success' ? 'text-green-400 bg-green-500/10' :
+            waypointStatus === 'error' ? 'text-red-400 bg-red-500/10' :
+            'text-text-secondary'
+          }`}>
+            {waypointMessage}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {/* Total Jumps */}
