@@ -91,12 +91,12 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
   if (markers.length === 0) return null;
 
-  // Badge dimensions — pill shape offset below-right of system node
+  // Badge dimensions — pill shape centered below system name
+  // System names render at y+12 with ~10px font, so clear at y+22
   const badgeH = isMobile ? 16 : 14;
   const badgeR = badgeH / 2;
   const fontSize = isMobile ? 11 : 10;
-  const offsetX = 6;
-  const offsetY = 6;
+  const offsetY = 24; // below system node + name label
 
   return (
     <svg
@@ -111,8 +111,6 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         </filter>
       </defs>
       {markers.map((m) => {
-        // Position badges offset from system
-        const bx = m.x + offsetX;
         const by = m.y + offsetY;
 
         // ADM badge width based on content
@@ -121,7 +119,14 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
         // Skyhook badge
         const skBadgeW = badgeH + 6;
-        const skX = bx + (admBadgeW > 0 ? admBadgeW + 2 : 0);
+        const hasAdm = admBadgeW > 0;
+        const hasSky = m.hasSkyhook;
+
+        // Center all badges as a group under the system
+        const totalW = (hasAdm ? admBadgeW : 0) + (hasSky ? skBadgeW : 0) + (hasAdm && hasSky ? 2 : 0);
+        const groupX = m.x - totalW / 2;
+        const admCx = groupX + admBadgeW / 2;
+        const skCx = groupX + (hasAdm ? admBadgeW + 2 : 0) + skBadgeW / 2;
 
         return (
           <g key={m.systemId} filter="url(#adm-shadow)">
@@ -129,7 +134,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
             {admText !== null && (
               <>
                 <rect
-                  x={bx - admBadgeW / 2}
+                  x={admCx - admBadgeW / 2}
                   y={by - badgeR}
                   width={admBadgeW}
                   height={badgeH}
@@ -140,7 +145,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
                   opacity={0.92}
                 />
                 <text
-                  x={bx}
+                  x={admCx}
                   y={by + fontSize * 0.35}
                   textAnchor="middle"
                   fill={admFgColor(m.ihubAdm)}
@@ -156,7 +161,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
             {m.hasSkyhook && (
               <>
                 <rect
-                  x={skX - skBadgeW / 2}
+                  x={skCx - skBadgeW / 2}
                   y={by - badgeR}
                   width={skBadgeW}
                   height={badgeH}
@@ -167,7 +172,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
                   opacity={0.92}
                 />
                 <text
-                  x={skX}
+                  x={skCx}
                   y={by + fontSize * 0.35}
                   textAnchor="middle"
                   fill={SKYHOOK_FG}
