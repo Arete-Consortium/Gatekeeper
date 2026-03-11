@@ -12,11 +12,11 @@ import { buildQuadtree, type Quadtree } from './utils/spatial';
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 20;
-const SYSTEM_RADIUS = 2;
+const SYSTEM_RADIUS = 3;
 
 // Zoom thresholds for showing different label types
 const REGION_LABEL_MAX_ZOOM = 2.5;
-const SYSTEM_LABEL_MIN_ZOOM = 3;
+const SYSTEM_LABEL_MIN_ZOOM = 2.5;
 
 // Well-known trade hubs
 const TRADE_HUBS = new Set([30000142, 30002187, 30002659, 30002510, 30002053]); // Jita, Amarr, Dodixie, Rens, Hek
@@ -219,12 +219,12 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
-    // Draw gates with visual hierarchy
+    // Draw gates — Pochven subway style
     if (layers.showGates) {
-      // Intra-region gates — thin Photon-style lines
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 0.5;
-      ctx.globalAlpha = 0.4;
+      // Intra-region gates — visible colored lines
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = Math.max(0.8, Math.min(1.5, viewport.zoom * 0.8));
+      ctx.globalAlpha = 0.5;
       ctx.beginPath();
 
       const crossRegionPaths: Array<{ fx: number; fy: number; tx: number; ty: number }> = [];
@@ -253,16 +253,20 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       }
       ctx.stroke();
 
-      // Cross-region gates — very subtle
+      // Cross-region gates — dashed, subtle (Pochven cross-Krai style)
       if (crossRegionPaths.length > 0) {
-        ctx.strokeStyle = '#1e293b';
-        ctx.globalAlpha = 0.2;
+        ctx.save();
+        ctx.strokeStyle = '#334155';
+        ctx.globalAlpha = 0.25;
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = Math.max(0.5, Math.min(1, viewport.zoom * 0.5));
         ctx.beginPath();
         for (const p of crossRegionPaths) {
           ctx.moveTo(p.fx, p.fy);
           ctx.lineTo(p.tx, p.ty);
         }
         ctx.stroke();
+        ctx.restore();
       }
 
       ctx.globalAlpha = 1.0;
@@ -297,9 +301,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         color = getSecurityColor(system.security);
       }
 
-      // Scale radius with zoom + hub importance — tight Photon-style dots
+      // Scale radius with zoom + hub importance — subway-style nodes
       const isHub = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 5);
-      const baseRadius = Math.max(1, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 2)));
+      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 1.5)));
       const hubBonus = isTradeHub ? baseRadius * 1.2 : isHub ? baseRadius * 0.5 : 0;
       const radius = isSelected ? (baseRadius + hubBonus) * 1.8 : baseRadius + hubBonus;
 
@@ -413,9 +417,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
         placedLabels.push(rect);
 
-        // Dark background pill for readability
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = '#000000';
+        // Dark background pill for readability (Pochven-style)
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#0f172a';
         const padX = 6;
         const padY = 3;
         ctx.beginPath();
@@ -449,13 +453,13 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.restore();
     }
 
-    // Draw system labels at high zoom
+    // Draw system labels at zoom — Pochven-style clean text
     if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
-      ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+      const labelFontSize = Math.max(9, Math.min(11, 10 * (viewport.zoom / 3)));
+      ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = 'center';
 
       // Skip labels for systems that have sov structure overlays (rendered by SVG)
-      // Only suppress when zoom >= 1.5 (sov overlay visibility threshold)
       const skipLabelSet = layers.showSovStructures && viewport.zoom >= 1.5 ? sovStructureSystems : undefined;
 
       for (const system of systems) {
@@ -469,12 +473,16 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
           screen.y > viewport.height
         ) continue;
 
-        // Subtle text shadow for readability
+        const isSelected = system.systemId === selectedSystem;
+        const isHovered = system.systemId === hoveredSystemId;
+
+        // Text shadow for readability
         ctx.fillStyle = '#000000';
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = 0.6;
         ctx.fillText(system.name, screen.x + 0.5, screen.y + 11.5);
-        ctx.fillStyle = '#94a3b8';
-        ctx.globalAlpha = 0.8;
+        // Brighter labels for hovered/selected
+        ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#94a3b8';
+        ctx.globalAlpha = isSelected || isHovered ? 1 : 0.85;
         ctx.fillText(system.name, screen.x, screen.y + 11);
       }
 
