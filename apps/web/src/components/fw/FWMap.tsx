@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Button } from '@/components/ui';
 import { GatekeeperAPI } from '@/lib/api';
 import type { MapConfig, FWSystem, HotSystem } from '@/lib/types';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Route, X } from 'lucide-react';
 import { FWSystemDetail } from './FWSystemDetail';
 import { FWSidebar } from './FWSidebar';
 
@@ -48,6 +48,48 @@ interface FWGateConnection {
 
 type WarzoneFilter = number | null; // null = all, 0 = Cal/Gal, 1 = Amarr/Min
 
+// ── BFS pathfinding through FW gates ────────────────────────────────────────
+
+function bfsFW(
+  from: number,
+  to: number,
+  gates: FWGateConnection[]
+): number[] {
+  if (from === to) return [from];
+
+  const adj: Record<number, number[]> = {};
+  for (const g of gates) {
+    if (!adj[g.fromId]) adj[g.fromId] = [];
+    if (!adj[g.toId]) adj[g.toId] = [];
+    adj[g.fromId].push(g.toId);
+    adj[g.toId].push(g.fromId);
+  }
+
+  const visited = new Set<number>([from]);
+  const parent: Record<number, number> = {};
+  const queue = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const neighbor of adj[current] || []) {
+      if (visited.has(neighbor)) continue;
+      visited.add(neighbor);
+      parent[neighbor] = current;
+      if (neighbor === to) {
+        const path: number[] = [];
+        let node: number | undefined = to;
+        while (node !== undefined) {
+          path.unshift(node);
+          node = parent[node];
+        }
+        return path;
+      }
+      queue.push(neighbor);
+    }
+  }
+  return []; // unreachable
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function FWMap() {
@@ -56,6 +98,10 @@ export function FWMap() {
   const [size, setSize] = useState({ w: 900, h: 650 });
   const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+
+  // Route planner
+  const [routeMode, setRouteMode] = useState(false);
+  const [routeEndpoints, setRouteEndpoints] = useState<[number | null, number | null]>([null, null]);
 
   // Pan & zoom state
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
@@ -185,6 +231,22 @@ export function FWMap() {
     return map;
   }, [hotSystems]);
 
+  // Route path (BFS through visible FW gates)
+  const routePath = useMemo(() => {
+    const [a, b] = routeEndpoints;
+    if (a && b) return bfsFW(a, b, fwGates);
+    return [];
+  }, [routeEndpoints, fwGates]);
+
+  const routeEdges = useMemo(() => {
+    const edges = new Set<string>();
+    for (let i = 0; i < routePath.length - 1; i++) {
+      edges.add(`${routePath[i]}|${routePath[i + 1]}`);
+      edges.add(`${routePath[i + 1]}|${routePath[i]}`);
+    }
+    return edges;
+  }, [routePath]);
+
   // ── Coordinate mapping ──────────────────────────────────────────────────────
 
   // Compute bounds of visible systems for viewport fitting
@@ -307,9 +369,23 @@ export function FWMap() {
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       const hit = hitTest(x, y);
-      setSelected(hit);
+
+      if (routeMode) {
+        if (!hit) {
+          setRouteEndpoints([null, null]);
+          return;
+        }
+        setRouteEndpoints((prev) => {
+          if (!prev[0]) return [hit, null];
+          if (prev[0] === hit) return [null, null];
+          if (prev[1]) return [hit, null]; // reset and start new route
+          return [prev[0], hit];
+        });
+      } else {
+        setSelected(hit);
+      }
     },
-    [hitTest]
+    [hitTest, routeMode]
   );
 
   const handleMove = useCallback(
@@ -421,12 +497,19 @@ export function FWMap() {
         (wz) => wz.factions.includes(fromFaction) && wz.factions.includes(toFaction)
       );
 
+      const isRouteEdge = routeEdges.has(`${gate.fromId}|${gate.toId}`);
+
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(fromPos.x, fromPos.y);
       ctx.lineTo(toPos.x, toPos.y);
 
-      if (sameWarzone) {
+      if (isRouteEdge) {
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#22d3ee';
+        ctx.shadowBlur = 8;
+      } else if (sameWarzone) {
         ctx.strokeStyle = '#334155';
         ctx.lineWidth = 1;
       } else {
@@ -455,6 +538,8 @@ export function FWMap() {
       const r = getNodeRadius(sys.fw);
       const isHovered = hovered === sys.systemId;
       const isSelected = selected === sys.systemId;
+      const isRouteNode = routePath.includes(sys.systemId);
+      const isRouteEndpoint = routeEndpoints[0] === sys.systemId || routeEndpoints[1] === sys.systemId;
       const isContested = sys.fw.contested === 'contested' || sys.fw.contested === 'vulnerable';
       const isVulnerable = sys.fw.contested === 'vulnerable';
       const drawR = isHovered ? r + 2 : r;
@@ -491,22 +576,28 @@ export function FWMap() {
         ctx.setLineDash([]);
       }
 
-      // Selection ring
-      if (isSelected) {
+      // Selection / route endpoint ring
+      if (isSelected || isRouteEndpoint) {
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, drawR + 3, 0, Math.PI * 2);
         ctx.strokeStyle = '#22d3ee';
         ctx.lineWidth = 2;
         ctx.shadowColor = '#22d3ee';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = isRouteEndpoint ? 12 : 8;
         ctx.stroke();
         ctx.shadowBlur = 0;
+      } else if (isRouteNode) {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, drawR + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
 
       // System dot
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, drawR, 0, Math.PI * 2);
-      ctx.fillStyle = isSelected ? '#22d3ee' : faction.fill;
+      ctx.fillStyle = isSelected || isRouteEndpoint ? '#22d3ee' : faction.fill;
       ctx.fill();
 
       // Owner ring (if different from occupier)
@@ -538,12 +629,12 @@ export function FWMap() {
 
       ctx.restore();
 
-      // Labels at higher zoom or for hovered/selected
-      const showLabel = viewport.zoom >= 0.8 || isHovered || isSelected;
+      // Labels at higher zoom or for hovered/selected/route
+      const showLabel = viewport.zoom >= 0.8 || isHovered || isSelected || isRouteNode;
       if (showLabel) {
         const fontSize = Math.max(9, Math.min(12, size.w / 90 * viewport.zoom));
         ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#94a3b8';
+        ctx.fillStyle = isSelected || isHovered || isRouteNode ? '#ffffff' : '#94a3b8';
         ctx.textAlign = 'center';
         ctx.fillText(sys.name, pos.x, pos.y - drawR - 4);
       }
@@ -620,7 +711,7 @@ export function FWMap() {
         ctx.fillText(label, size.w / 2, 25);
       }
     }
-  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap, warzoneFilter]);
+  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap, warzoneFilter, routePath, routeEdges, routeEndpoints]);
 
   // ── Animation loop for contested pulse + kill blink ────────────────────────
 
@@ -716,8 +807,9 @@ export function FWMap() {
     <div className="flex gap-3 relative">
       {/* Main map area */}
       <div className="flex-1 min-w-0 space-y-3">
-        {/* Warzone filter buttons */}
-        <div className="flex flex-wrap items-center gap-2 min-h-[36px]">
+        {/* Toolbar: warzone buttons + intel feed */}
+        <div className="flex items-center gap-2 min-h-[36px] flex-wrap">
+          {/* Warzone filter buttons */}
           <Button
             variant={warzoneFilter === null ? 'primary' : 'ghost'}
             size="sm"
@@ -758,41 +850,81 @@ export function FWMap() {
               </button>
             );
           })}
-        </div>
 
-        {/* Intel feed bar */}
-        <div className="flex items-center justify-between bg-card border border-border rounded-lg px-3 py-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-text uppercase tracking-wider">Intel Feed</span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] text-green-400 font-medium">Live</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-text-secondary">
+          {/* Route mode toggle */}
+          <button
+            onClick={() => { setRouteMode(!routeMode); setRouteEndpoints([null, null]); }}
+            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 h-7 rounded-md transition-all cursor-pointer ${
+              routeMode
+                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                : 'text-text-secondary hover:text-text hover:bg-card-hover border border-transparent'
+            }`}
+          >
+            <Route className="h-3.5 w-3.5" />
+            Route
+          </button>
+
+          {/* Separator + Intel feed (right-aligned) */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs font-bold text-text uppercase tracking-wider">Intel</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] text-text-secondary hidden sm:inline">
               {fwKillCount} kills · {hotSystems.reduce((s, h) => s + h.recent_pods, 0)} pods
             </span>
             <select
               value={intelHours}
               onChange={(e) => setIntelHours(Number(e.target.value))}
-              className="text-xs bg-background border border-border rounded px-2 py-1 text-text cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+              className="text-[11px] bg-background border border-border rounded px-1.5 py-0.5 text-text cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary h-7"
             >
-              <option value={1}>Last 1 Hour</option>
-              <option value={4}>Last 4 Hours</option>
-              <option value={12}>Last 12 Hours</option>
-              <option value={24}>Last 24 Hours</option>
-              <option value={48}>Last 48 Hours</option>
+              <option value={1}>1h</option>
+              <option value={4}>4h</option>
+              <option value={12}>12h</option>
+              <option value={24}>24h</option>
+              <option value={48}>48h</option>
             </select>
             <button
               onClick={() => fetchHotSystems(intelHours)}
               className="text-text-secondary hover:text-text transition-colors"
               aria-label="Refresh intel"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="h-3 w-3" />
             </button>
           </div>
         </div>
+
+        {/* Route info bar */}
+        {routeMode && (
+          <div className="flex items-center gap-2 text-xs px-1">
+            {!routeEndpoints[0] ? (
+              <span className="text-text-secondary">Click a system to set route origin</span>
+            ) : !routeEndpoints[1] ? (
+              <div className="flex items-center gap-2">
+                <span className="text-cyan-400 font-medium">{systemMap.get(routeEndpoints[0])?.name}</span>
+                <span className="text-text-secondary">→ Click destination</span>
+              </div>
+            ) : routePath.length > 0 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-cyan-400 font-medium">{systemMap.get(routeEndpoints[0])?.name}</span>
+                <span className="text-text-secondary">→</span>
+                <span className="text-cyan-400 font-medium">{systemMap.get(routeEndpoints[1])?.name}</span>
+                <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                  {routePath.length - 1} {routePath.length - 1 === 1 ? 'jump' : 'jumps'}
+                </span>
+                <span className="text-text-secondary hidden sm:inline">
+                  {routePath.map((id) => systemMap.get(id)?.name).join(' → ')}
+                </span>
+                <button
+                  onClick={() => setRouteEndpoints([null, null])}
+                  className="text-text-secondary hover:text-text ml-1"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <span className="text-red-400">No route found</span>
+            )}
+          </div>
+        )}
 
         {/* Canvas */}
         <div ref={containerRef} className="w-full relative">
@@ -826,7 +958,7 @@ export function FWMap() {
 
         {/* Zoom controls hint */}
         <div className="text-[10px] text-text-secondary text-center">
-          Scroll to zoom &middot; Drag to pan &middot; Click a system for details
+          Scroll to zoom · Drag to pan · {routeMode ? 'Click two systems to route' : 'Click a system for details'}
           {warzoneFilter !== null && ' · Click warzone button again to reset'}
         </div>
       </div>
