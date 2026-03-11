@@ -279,6 +279,12 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       };
     }, []);
 
+    // Set of system IDs that have sov structures (for label suppression)
+    const sovStructureSystemIds = useMemo(() => {
+      if (!sovStructures) return undefined;
+      return new Set(Object.keys(sovStructures).map(Number));
+    }, [sovStructures]);
+
     return (
       <div
         ref={containerRef}
@@ -302,6 +308,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           onSetRouteDestination={onSetRouteDestination}
           onAvoidSystem={onAvoidSystem}
           onDeselect={onDeselect}
+          sovStructureSystems={sovStructureSystemIds}
         />
 
         {/* Risk Heatmap (renders behind other overlays) */}

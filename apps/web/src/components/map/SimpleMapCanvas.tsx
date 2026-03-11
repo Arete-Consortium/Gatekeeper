@@ -46,6 +46,7 @@ interface SimpleMapCanvasProps {
   risks?: SystemRisk[];
   regions?: MapRegion[];
   hoveredSystemId?: number | null;
+  sovStructureSystems?: Set<number>;
 }
 
 export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
@@ -66,6 +67,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   risks = [],
   regions = [],
   hoveredSystemId,
+  sovStructureSystems,
 }: SimpleMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -445,7 +447,12 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'center';
 
+      // Skip labels for systems that have sov structure overlays (rendered by SVG)
+      const skipLabelSet = layers.showSovStructures ? sovStructureSystems : undefined;
+
       for (const system of systems) {
+        if (skipLabelSet?.has(system.systemId)) continue;
+
         const screen = worldToScreen(system.x, system.y);
         if (
           screen.x < 0 ||

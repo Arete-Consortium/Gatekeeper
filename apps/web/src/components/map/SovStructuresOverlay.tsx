@@ -102,9 +102,9 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   const charW = fontName * 0.62;
   const charWAdm = fontAdm * 0.62;
 
-  // Position: cover the Pixi label area (label is at ~y+12, 10px font)
-  // Block starts at y+5 to cover the Pixi label with opaque bg
-  const blockOffsetY = 5;
+  // Position: covers the canvas label area (canvas label is at ~y+11, 9px font)
+  // Canvas labels are suppressed for sov systems, so this block replaces them
+  const blockOffsetY = 4;
 
   return (
     <svg
