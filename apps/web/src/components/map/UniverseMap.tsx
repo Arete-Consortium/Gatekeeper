@@ -48,7 +48,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showHeatmap: false,
   showRegionLabels: true,
   showSovereignty: false,
-  showThera: true,
+  showThera: false,
   showFW: false,
   showLandmarks: true,
   showSovStructures: false,

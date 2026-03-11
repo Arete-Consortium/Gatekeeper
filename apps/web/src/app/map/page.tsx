@@ -194,11 +194,11 @@ function MapPageContent() {
       showGates: true,
       showLabels: true,
       showRoute: true,
-      showKills: true,
+      showKills: false,
       showHeatmap: false,
       showRegionLabels: true,
       showSovereignty: false,
-      showThera: true,
+      showThera: false,
       showFW: false,
       showLandmarks: true,
       showSovStructures: false,
@@ -237,28 +237,28 @@ function MapPageContent() {
     queryKey: ['sovereignty'],
     queryFn: () => GatekeeperAPI.getSovereignty(),
     staleTime: 10 * 60 * 1000,
-    enabled: !!mapConfig,
+    enabled: !!mapConfig && isPro && layers.showSovereignty,
   });
 
   const { data: theraData, error: theraError } = useQuery({
     queryKey: ['thera'],
     queryFn: () => GatekeeperAPI.getTheraConnections(),
     staleTime: 5 * 60 * 1000,
-    enabled: !!mapConfig,
+    enabled: !!mapConfig && isPro && layers.showThera,
   });
 
   const { data: fwData, error: fwError } = useQuery({
     queryKey: ['fw'],
     queryFn: () => GatekeeperAPI.getFWStatus(),
     staleTime: 10 * 60 * 1000,
-    enabled: !!mapConfig,
+    enabled: !!mapConfig && isPro && layers.showFW,
   });
 
   const { data: sovStructData, error: sovStructError } = useQuery({
     queryKey: ['sovStructures'],
     queryFn: () => GatekeeperAPI.getSovStructures(),
     staleTime: 30 * 60 * 1000,
-    enabled: !!mapConfig,
+    enabled: !!mapConfig && isPro && layers.showSovStructures,
   });
 
   const { data: activityData, error: activityError } = useQuery({
