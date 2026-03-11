@@ -23,6 +23,7 @@ import {
   CreditCard,
   Triangle,
   TrendingUp,
+  Swords,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { href: '/route', label: 'Route', icon: Route },
   { href: '/appraisal', label: 'Appraisal', icon: Scale },
   { href: '/pochven', label: 'Pochven', icon: Triangle },
+  { href: '/fw', label: 'FW Map', icon: Swords },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
   { href: '/fleet', label: 'Fleet', icon: Users },
