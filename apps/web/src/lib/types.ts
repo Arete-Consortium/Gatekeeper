@@ -496,6 +496,32 @@ export interface WormholeListResponse {
   connections: WormholeConnection[];
 }
 
+// Jump bridge connection (user-submitted)
+export interface JumpBridgeConnection {
+  id: string;
+  from_system: string;
+  from_system_id: number;
+  to_system: string;
+  to_system_id: number;
+  owner_alliance: string | null;
+  status: 'online' | 'offline' | 'unknown';
+  created_at: string;
+  created_by: string | null;
+  notes: string;
+}
+
+export interface JumpBridgeListResponse {
+  bridges: JumpBridgeConnection[];
+  total: number;
+}
+
+export interface JumpBridgeImportResponse {
+  imported: number;
+  skipped: number;
+  errors: string[];
+  bridges: JumpBridgeConnection[];
+}
+
 // Character location
 export interface CharacterLocation {
   solar_system_id: number;
@@ -518,6 +544,92 @@ export interface MarketHub {
 
 export interface MarketHubsResponse {
   hubs: MarketHub[];
+}
+
+// Intel chat parser types
+export interface ParsedSystem {
+  system_name: string;
+  system_id: number;
+  status: 'clear' | 'hostile' | 'unknown';
+  hostile_count: number;
+  mentioned_at: string;
+}
+
+export interface IntelParseResponse {
+  systems: ParsedSystem[];
+  unknown_lines: string[];
+}
+
+// Fleet composition analysis
+export interface FleetShipEntry {
+  name: string;
+  count: number;
+  role: string;
+}
+
+export interface FleetAnalysisResponse {
+  total_pilots: number;
+  total_ships: number;
+  threat_level: 'minimal' | 'moderate' | 'significant' | 'critical' | 'overwhelming';
+  composition: Record<string, number>;
+  ship_list: FleetShipEntry[];
+  has_logistics: boolean;
+  has_capitals: boolean;
+  has_tackle: boolean;
+  estimated_dps_category: 'low' | 'medium' | 'high' | 'extreme';
+  advice: string[];
+}
+
+// Multi-character management
+export interface LinkedCharacter {
+  character_id: number;
+  character_name: string;
+  is_active: boolean;
+  preferences: Record<string, unknown> | null;
+  location: CharacterLocation | null;
+}
+
+export interface CharacterListResponse {
+  characters: LinkedCharacter[];
+  active_character_id: number | null;
+  total_count: number;
+}
+
+export interface LinkCharacterResponse {
+  auth_url: string;
+  state: string;
+  message: string;
+}
+
+export interface UnlinkCharacterResponse {
+  status: string;
+  character_id: number;
+  character_name: string | null;
+}
+
+// Market ticker
+export interface MarketTickerItem {
+  type_id: number;
+  type_name: string;
+  region_id: number;
+  region_name: string;
+  average_price: number;
+  highest: number;
+  lowest: number;
+  volume: number;
+  date: string;
+  price_change_pct: number;
+}
+
+export interface MarketTickerResponse {
+  items: MarketTickerItem[];
+  item_count: number;
+}
+
+export interface MarketTickerHistoryResponse {
+  type_id: number;
+  type_name: string;
+  history: MarketTickerItem[];
 }
 
 // Waypoint sync

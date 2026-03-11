@@ -235,3 +235,33 @@ class WormholeConnectionDB(Base):
 
     def __repr__(self) -> str:
         return f"<WormholeConnectionDB(id={self.id}, {self.from_system} -> {self.to_system})>"
+
+
+class JumpBridgeConnectionDB(Base):
+    """User-submitted Ansiblex jump bridge connection between two systems."""
+
+    __tablename__ = "jumpbridge_connections"
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    from_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    from_system_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    to_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    to_system_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    owner_alliance: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_jumpbridge_connections_from", "from_system"),
+        Index("ix_jumpbridge_connections_to", "to_system"),
+        Index("ix_jumpbridge_connections_status", "status"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<JumpBridgeConnectionDB(id={self.id}, {self.from_system} \u00bb {self.to_system})>"

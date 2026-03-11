@@ -62,10 +62,18 @@ class Settings(BaseSettings):
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_PER_MINUTE: int = 100  # Default for unauthenticated (IP-based)
+    RATE_LIMIT_PER_MINUTE: int = 60  # Default for unauthenticated (IP-based)
     RATE_LIMIT_PER_MINUTE_USER: int = 100  # Per authenticated free user
     RATE_LIMIT_PER_MINUTE_PRO: int = 300  # Per authenticated Pro user
     RATE_LIMIT_PER_MINUTE_APIKEY: int = 300  # Per API key
+
+    # Per-endpoint rate limits (requests per minute)
+    RATE_LIMIT_HEALTH: int = 120  # Health/status — monitoring probes
+    RATE_LIMIT_MAP: int = 30  # Map config/data — cached, heavy responses
+    RATE_LIMIT_ROUTE: int = 20  # Route calculation — CPU intensive
+    RATE_LIMIT_AUTH: int = 10  # Auth endpoints — brute force protection
+    RATE_LIMIT_WRITE: int = 15  # Write endpoints (POST/PUT/DELETE)
+    RATE_LIMIT_DEFAULT: int = 60  # Default fallback
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]

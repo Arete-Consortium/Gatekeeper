@@ -47,3 +47,6 @@ prometheus-client>=0.19.0
 
 # WebSocket
 websockets>=12.0
+
+# Error Monitoring
+sentry-sdk[fastapi]>=2.0.0

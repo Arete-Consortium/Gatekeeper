@@ -2,6 +2,7 @@
 
 Provides endpoints for:
 - Listing all authenticated characters
+- Linking / unlinking alt characters
 - Switching active character
 - Managing per-character preferences
 - Bulk operations across characters
@@ -11,6 +12,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from pydantic import BaseModel
 
 from ...models.character_preferences import (
     ActiveCharacterResponse,
@@ -88,6 +90,136 @@ async def list_characters(
         characters=result,
         active_character_id=active_id,
         total_count=len(result),
+    )
+
+
+class LinkCharacterResponse(BaseModel):
+    """Response after linking a new character."""
+
+    auth_url: str
+    state: str
+    message: str = "Redirect user to auth_url to complete SSO for the alt character."
+
+
+class UnlinkCharacterResponse(BaseModel):
+    """Response after unlinking a character."""
+
+    status: str
+    character_id: int
+    character_name: str | None = None
+
+
+@router.post(
+    "/link",
+    response_model=LinkCharacterResponse,
+    summary="Link an additional character",
+    description="Starts a new SSO flow to link an alt character. "
+    "The callback will store the token, making the character available.",
+)
+async def link_character() -> LinkCharacterResponse:
+    """
+    Initiate SSO flow to link an additional character.
+
+    Returns an authorization URL. The user should be redirected to this URL.
+    On successful SSO callback, the new character's token is stored and
+    the character appears in the /characters/ listing.
+    """
+    from .auth import login
+
+    login_response = await login(redirect_uri=None, scopes=None)
+    return LinkCharacterResponse(
+        auth_url=login_response.auth_url,
+        state=login_response.state,
+    )
+
+
+@router.delete(
+    "/{character_id}",
+    response_model=UnlinkCharacterResponse,
+    summary="Unlink a character",
+    description="Remove a character's stored token and preferences, unlinking it from the account.",
+)
+async def unlink_character(
+    character_id: int,
+    token_store: TokenStore = Depends(get_token_store),
+    prefs_store: CharacterPreferencesStore = Depends(get_preferences_store),
+) -> UnlinkCharacterResponse:
+    """
+    Unlink a character by removing its token and preferences.
+
+    The character will no longer appear in the listing and cannot be
+    switched to until re-authenticated.
+    """
+    token = await token_store.get_token(character_id)
+    if not token:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No token found for character {character_id}",
+        )
+
+    character_name = token["character_name"]
+    await token_store.remove_token(character_id)
+    await prefs_store.delete_preferences(character_id)
+
+    logger.info(
+        "Character unlinked",
+        extra={"character_id": character_id, "character_name": character_name},
+    )
+
+    return UnlinkCharacterResponse(
+        status="unlinked",
+        character_id=character_id,
+        character_name=character_name,
+    )
+
+
+@router.post(
+    "/{character_id}/active",
+    response_model=ActiveCharacterResponse,
+    summary="Set active character",
+    description="Set a character as the active character for this session.",
+)
+async def set_active_character(
+    character_id: int,
+    x_session_id: str = Header(..., description="Session ID for active character tracking"),
+    token_store: TokenStore = Depends(get_token_store),
+    prefs_store: CharacterPreferencesStore = Depends(get_preferences_store),
+    active_manager: ActiveCharacterManager = Depends(get_active_manager),
+) -> ActiveCharacterResponse:
+    """
+    Set a character as active for the current session.
+
+    Equivalent to /switch but using the character_id in the path.
+    """
+    token = await token_store.get_token(character_id)
+    if not token:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No token found for character {character_id}. Please authenticate first.",
+        )
+
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    if now >= token["expires_at"]:
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired. Please refresh via /auth/refresh first.",
+        )
+
+    active_manager.set_active(x_session_id, character_id)
+    prefs = await prefs_store.get_or_create(token["character_id"], token["character_name"])
+
+    logger.info(
+        "Active character set",
+        extra={"session_id": x_session_id, "character_id": character_id},
+    )
+
+    return ActiveCharacterResponse(
+        character_id=token["character_id"],
+        character_name=token["character_name"],
+        is_active=True,
+        preferences=prefs,
     )
 
 

@@ -11,15 +11,18 @@ import {
   Scale,
   Bell,
   Radar,
+  MessageSquareText,
   Settings,
   Menu,
   X,
   LogIn,
   LogOut,
   User,
+  Users,
   Zap,
   CreditCard,
   Triangle,
+  TrendingUp,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
@@ -37,6 +40,9 @@ const navItems: NavItem[] = [
   { href: '/pochven', label: 'Pochven', icon: Triangle },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
+  { href: '/fleet', label: 'Fleet', icon: Users },
+  { href: '/intel-parse', label: 'Intel Parser', icon: MessageSquareText },
+  { href: '/market', label: 'Market', icon: TrendingUp },
 ];
 
 export function Navbar() {
@@ -88,7 +94,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2" aria-label="EVE Gatekeeper home">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Map className="h-5 w-5 text-white" />
             </div>
@@ -245,6 +251,7 @@ export function Navbar() {
             <button
               className="md:hidden p-2 text-text-secondary hover:text-text"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
             >
               {mobileMenuOpen ? (
                 <X className="h-6 w-6" />

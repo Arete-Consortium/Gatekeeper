@@ -33,9 +33,20 @@ import {
   BookmarkResponse,
   BookmarkCreate,
   WormholeListResponse,
+  JumpBridgeListResponse,
+  JumpBridgeConnection,
+  JumpBridgeImportResponse,
   CharacterLocation,
   SetWaypointsResponse,
   MarketHubsResponse,
+  MarketTickerResponse,
+  MarketTickerHistoryResponse,
+  IntelParseResponse,
+  FleetAnalysisResponse,
+  CharacterListResponse,
+  LinkCharacterResponse,
+  UnlinkCharacterResponse,
+  LinkedCharacter,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -323,6 +334,18 @@ class GatekeeperAPIService {
     });
   }
 
+  // ==================== Fleet Analysis ====================
+
+  /**
+   * Analyze a fleet composition for threat assessment
+   */
+  async analyzeFleet(text: string): Promise<FleetAnalysisResponse> {
+    return this.request<FleetAnalysisResponse>('/api/v1/fleet/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
   // ==================== Appraisal ====================
 
   /**
@@ -502,6 +525,36 @@ class GatekeeperAPIService {
     );
   }
 
+  // ==================== Jump Bridge Connections ====================
+
+  async getJumpBridges(): Promise<JumpBridgeListResponse> {
+    return this.request<JumpBridgeListResponse>('/api/v1/jumpbridges/');
+  }
+
+  async addJumpBridge(fromSystem: string, toSystem: string, ownerAlliance?: string): Promise<JumpBridgeConnection> {
+    return this.request<JumpBridgeConnection>('/api/v1/jumpbridges/', {
+      method: 'POST',
+      body: JSON.stringify({
+        from_system: fromSystem,
+        to_system: toSystem,
+        owner_alliance: ownerAlliance || null,
+      }),
+    });
+  }
+
+  async deleteJumpBridge(bridgeId: string): Promise<void> {
+    await this.request<void>(`/api/v1/jumpbridges/${bridgeId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async importJumpBridges(text: string): Promise<JumpBridgeImportResponse> {
+    return this.request<JumpBridgeImportResponse>('/api/v1/jumpbridges/import', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
   // ==================== Character ====================
 
   async getCharacterLocation(): Promise<CharacterLocation> {
@@ -515,6 +568,59 @@ class GatekeeperAPIService {
     });
   }
 
+  // ==================== Characters (Multi-Character) ====================
+
+  /**
+   * List all linked characters with their status
+   */
+  async getLinkedCharacters(sessionId?: string): Promise<CharacterListResponse> {
+    const headers: Record<string, string> = {};
+    if (sessionId) {
+      headers['X-Session-Id'] = sessionId;
+    }
+    return this.request<CharacterListResponse>('/api/v1/characters/', { headers });
+  }
+
+  /**
+   * Link a new alt character (starts SSO flow)
+   */
+  async linkCharacter(): Promise<LinkCharacterResponse> {
+    return this.request<LinkCharacterResponse>('/api/v1/characters/link', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Unlink a character by removing its token and preferences
+   */
+  async unlinkCharacter(characterId: number): Promise<UnlinkCharacterResponse> {
+    return this.request<UnlinkCharacterResponse>(`/api/v1/characters/${characterId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Set a character as the active character
+   */
+  async setActiveCharacter(characterId: number, sessionId: string): Promise<LinkedCharacter> {
+    return this.request<LinkedCharacter>(`/api/v1/characters/${characterId}/active`, {
+      method: 'POST',
+      headers: { 'X-Session-Id': sessionId },
+    });
+  }
+
+  // ==================== Intel Parse ====================
+
+  /**
+   * Parse intel/local chat text to extract systems and status
+   */
+  async parseIntel(text: string): Promise<IntelParseResponse> {
+    return this.request<IntelParseResponse>('/api/v1/intel-parse/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
   // ==================== Market Hubs ====================
 
   /**
@@ -522,6 +628,22 @@ class GatekeeperAPIService {
    */
   async getMarketHubs(): Promise<MarketHubsResponse> {
     return this.request<MarketHubsResponse>('/map/market-hubs');
+  }
+
+  // ==================== Market Ticker ====================
+
+  /**
+   * Get market ticker with latest prices for all tracked items
+   */
+  async getMarketTicker(): Promise<MarketTickerResponse> {
+    return this.request<MarketTickerResponse>('/api/v1/market/ticker');
+  }
+
+  /**
+   * Get market history for a specific item across trade hub regions
+   */
+  async getMarketTickerItem(typeId: number): Promise<MarketTickerHistoryResponse> {
+    return this.request<MarketTickerHistoryResponse>(`/api/v1/market/ticker/${typeId}`);
   }
 
   // ==================== Utility ====================

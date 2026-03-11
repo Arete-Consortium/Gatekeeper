@@ -274,6 +274,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "100 per 1 minute"
 
@@ -282,6 +284,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = False
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -294,6 +302,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "100 per 1 minute"
 
@@ -302,6 +312,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = False
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -315,6 +331,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "100 per 1 minute"
 
@@ -323,6 +341,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = False
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -338,6 +362,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "100 per 1 minute"
 
@@ -346,6 +372,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = False
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -353,7 +385,8 @@ class TestRateLimitExceededHandler:
             body = json.loads(response.body)
             assert body["user_type"] == "anonymous"
             assert response.headers["X-RateLimit-User-Type"] == "anonymous"
-            assert response.headers["X-RateLimit-Limit"] == "100"
+            # Endpoint limit (60) is lower than per-identifier limit (100)
+            assert response.headers["X-RateLimit-Limit"] == "60"
 
     def test_includes_user_type_in_response_for_authenticated(self):
         """Test that response includes user_type for authenticated requests."""
@@ -361,6 +394,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {"Authorization": "Bearer valid-token"}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "200 per 1 minute"
 
@@ -377,6 +412,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = False
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -384,7 +425,8 @@ class TestRateLimitExceededHandler:
             body = json.loads(response.body)
             assert body["user_type"] == "authenticated"
             assert response.headers["X-RateLimit-User-Type"] == "authenticated"
-            assert response.headers["X-RateLimit-Limit"] == "200"
+            # Endpoint limit (60) is lower than per-user limit (200)
+            assert response.headers["X-RateLimit-Limit"] == "60"
 
     def test_includes_user_type_in_response_for_api_key(self):
         """Test that response includes user_type for API key requests."""
@@ -392,6 +434,8 @@ class TestRateLimitExceededHandler:
         mock_request.headers = {"X-API-Key": "test-api-key"}
         mock_request.query_params = {}
         mock_request.client.host = "192.168.1.100"
+        mock_request.url.path = "/api/v1/some-endpoint"
+        mock_request.method = "GET"
         mock_exc = MagicMock()
         mock_exc.detail = "300 per 1 minute"
 
@@ -400,6 +444,12 @@ class TestRateLimitExceededHandler:
             mock_settings.RATE_LIMIT_PER_MINUTE_USER = 200
             mock_settings.RATE_LIMIT_PER_MINUTE_PRO = 300
             mock_settings.RATE_LIMIT_PER_MINUTE_APIKEY = 300
+            mock_settings.RATE_LIMIT_DEFAULT = 60
+            mock_settings.RATE_LIMIT_HEALTH = 120
+            mock_settings.RATE_LIMIT_MAP = 30
+            mock_settings.RATE_LIMIT_ROUTE = 20
+            mock_settings.RATE_LIMIT_AUTH = 10
+            mock_settings.RATE_LIMIT_WRITE = 15
             mock_settings.API_KEY_ENABLED = True
 
             response = rate_limit_exceeded_handler(mock_request, mock_exc)
@@ -407,7 +457,8 @@ class TestRateLimitExceededHandler:
             body = json.loads(response.body)
             assert body["user_type"] == "api_key"
             assert response.headers["X-RateLimit-User-Type"] == "api_key"
-            assert response.headers["X-RateLimit-Limit"] == "300"
+            # Endpoint limit (60) is lower than per-apikey limit (300)
+            assert response.headers["X-RateLimit-Limit"] == "60"
 
 
 class TestLimiterConfiguration:

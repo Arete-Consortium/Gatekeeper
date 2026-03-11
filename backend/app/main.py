@@ -30,6 +30,21 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    # Initialize Sentry error monitoring (no-op if DSN not configured)
+    if settings.SENTRY_DSN:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            integrations=[StarletteIntegration(), FastApiIntegration()],
+            traces_sample_rate=0.1,
+            profiles_sample_rate=0.1,
+            environment="production" if settings.is_production else "development",
+            release=settings.API_VERSION,
+        )
+
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.API_VERSION,
@@ -158,6 +173,16 @@ async def startup_event() -> None:
         logger.info(f"Loaded {loaded} wormhole connections from database")
     except Exception:
         logger.warning("Failed to load wormhole connections from database", exc_info=True)
+
+    # Load persisted jump bridge connections from database
+    from .services.jumpbridge_connections import get_jumpbridge_connection_service
+
+    jb_service = get_jumpbridge_connection_service()
+    try:
+        loaded = await jb_service.load_from_db()
+        logger.info(f"Loaded {loaded} jump bridge connections from database")
+    except Exception:
+        logger.warning("Failed to load jump bridge connections from database", exc_info=True)
 
     # Start periodic wormhole cleanup (every hour)
     global _wormhole_cleanup_task

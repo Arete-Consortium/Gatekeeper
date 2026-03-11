@@ -192,7 +192,7 @@ describe('RegionFilter', () => {
     expect(regionNames).toContain('Domain');
     expect(regionNames).toContain('Delve');
     expect(regionNames).toContain('Pochven');
-    expect(regionNames).toContain('Jita' === 'system' ? 'The Forge' : 'The Forge'); // Jita is in The Forge
+    expect(regionNames).toContain('The Forge'); // Jita is in The Forge
   });
 
   it('has unique region IDs', () => {
