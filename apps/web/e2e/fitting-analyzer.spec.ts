@@ -131,14 +131,9 @@ test.describe('Fitting Analyzer', () => {
     // The actual API response handling depends on backend availability
   });
 
-  test('should navigate from dashboard tools section', async ({ page }) => {
-    // Start from dashboard
-    await page.goto('/');
-
-    // Click Fitting Analyzer in tools
-    await page.getByRole('link', { name: /Fitting Analyzer/i }).click();
-
-    // Verify navigation
+  test('should load fitting page directly', async ({ page }) => {
+    // Fitting page is accessible via direct URL (not in main navbar)
+    await page.goto('/fitting');
     await expect(page).toHaveURL('/fitting');
     await expect(page.getByRole('heading', { name: 'Fitting Analyzer', level: 1 })).toBeVisible();
   });

@@ -20,6 +20,14 @@ function formatVolume(value: number): string {
   return `${billions.toFixed(0)}B ISK/day`;
 }
 
+/** Format active order count with K suffix */
+function formatOrders(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(0)}K orders`;
+  }
+  return `${count} orders`;
+}
+
 /** Scale diamond size based on volume relative to Jita */
 function getDiamondSize(volume: number, maxVolume: number): number {
   const ratio = volume / maxVolume;
@@ -119,6 +127,11 @@ export const MarketHubsOverlay = React.memo(function MarketHubsOverlay({
               <div className="text-amber-200 text-[11px] mt-1 font-medium">
                 {formatVolume(m.hub.daily_volume_estimate)}
               </div>
+              {(m.hub.active_orders ?? 0) > 0 && (
+                <div className="text-gray-300 text-[10px] mt-0.5">
+                  {formatOrders(m.hub.active_orders!)}
+                </div>
+              )}
               {m.hub.is_primary && (
                 <div className="text-amber-500 text-[9px] mt-0.5 uppercase tracking-wider font-semibold">
                   Primary Trade Hub

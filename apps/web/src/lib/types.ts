@@ -513,6 +513,7 @@ export interface MarketHub {
   region_name: string;
   is_primary: boolean;
   daily_volume_estimate: number;
+  active_orders?: number;
 }
 
 export interface MarketHubsResponse {

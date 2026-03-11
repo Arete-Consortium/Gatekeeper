@@ -335,6 +335,9 @@ class MarketHubResponse(BaseModel):
     region_name: str
     is_primary: bool = Field(description="True for Jita (the dominant hub)")
     daily_volume_estimate: float = Field(description="Estimated daily ISK volume")
+    active_orders: int = Field(
+        default=0, description="Estimated active market orders in the region"
+    )
 
 
 class MarketHubsResponse(BaseModel):
@@ -343,55 +346,31 @@ class MarketHubsResponse(BaseModel):
     hubs: list[MarketHubResponse]
 
 
-# Static trade hub data — will be replaced with live ESI data later
-_MARKET_HUBS: list[MarketHubResponse] = [
-    MarketHubResponse(
-        system_id=30000142,
-        system_name="Jita",
-        region_name="The Forge",
-        is_primary=True,
-        daily_volume_estimate=50_000_000_000_000,  # ~50T ISK/day
-    ),
-    MarketHubResponse(
-        system_id=30002187,
-        system_name="Amarr",
-        region_name="Domain",
-        is_primary=False,
-        daily_volume_estimate=15_000_000_000_000,  # ~15T ISK/day
-    ),
-    MarketHubResponse(
-        system_id=30002659,
-        system_name="Dodixie",
-        region_name="Sinq Laison",
-        is_primary=False,
-        daily_volume_estimate=3_000_000_000_000,  # ~3T ISK/day
-    ),
-    MarketHubResponse(
-        system_id=30002510,
-        system_name="Rens",
-        region_name="Heimatar",
-        is_primary=False,
-        daily_volume_estimate=2_000_000_000_000,  # ~2T ISK/day
-    ),
-    MarketHubResponse(
-        system_id=30002053,
-        system_name="Hek",
-        region_name="Metropolis",
-        is_primary=False,
-        daily_volume_estimate=1_000_000_000_000,  # ~1T ISK/day
-    ),
-]
-
-
 @router.get(
     "/market-hubs",
     response_model=MarketHubsResponse,
     summary="Get major trade hub data",
-    description="Returns market activity data for the 5 major EVE trade hubs.",
+    description="Returns market activity data for the 5 major EVE trade hubs with live ESI order counts.",
 )
 async def get_market_hubs() -> MarketHubsResponse:
     """Get trade hub data for map overlay.
 
-    Returns static estimates for now — will be wired to ESI market data later.
+    Fetches live active order counts from ESI (cached 30 min).
+    Falls back to static estimates if ESI is unavailable.
     """
-    return MarketHubsResponse(hubs=_MARKET_HUBS)
+    from ...services.market_hubs import fetch_market_hub_data
+
+    hub_data = await fetch_market_hub_data()
+    return MarketHubsResponse(
+        hubs=[
+            MarketHubResponse(
+                system_id=h.system_id,
+                system_name=h.system_name,
+                region_name=h.region_name,
+                is_primary=h.is_primary,
+                daily_volume_estimate=h.daily_volume_estimate,
+                active_orders=h.active_orders,
+            )
+            for h in hub_data
+        ]
+    )
