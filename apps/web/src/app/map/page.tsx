@@ -570,7 +570,10 @@ function MapPageContent() {
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
           <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
-          <ProToggle checked={layers.showSkyhooks} onChange={(v) => updateLayer('showSkyhooks', v)} label="Skyhooks" isPro={isPro} />
+          <div className="flex items-center gap-2">
+            <Toggle checked={false} onChange={() => {}} label="Skyhooks" disabled />
+            <span className="text-[10px] text-text-secondary italic">No ESI data source</span>
+          </div>
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
 
@@ -737,8 +740,8 @@ function MapPageContent() {
             <span className="text-text-secondary">iHub ADM Level</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded-full border border-sky-300" style={{ boxShadow: '0 0 4px #7dd3fc' }} aria-hidden="true" />
-            <span className="text-text-secondary">Skyhook</span>
+            <div className="h-3 w-3 rounded-full border border-sky-300 opacity-40" style={{ boxShadow: '0 0 4px #7dd3fc' }} aria-hidden="true" />
+            <span className="text-text-secondary">Skyhook <span className="text-[9px] italic">(pending data)</span></span>
           </div>
         </div>
       </CollapsibleSection>

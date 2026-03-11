@@ -122,7 +122,7 @@ apps/web/src/
 
 ### Sov Structures Overlay Details
 
-- **Structure types**: iHub (32458), TCU (32226), Skyhook (81826)
+- **Structure types**: iHub (32458), TCU (32226), Orbital Skyhook (81080), Metenox Moon Drill (81826)
 - **Rendering**: 2-row stacked text block — Row 1: system name, Row 2: ADM level + "S" for skyhook
 - **ADM colors**: red (≤1) → orange (≤2) → yellow (≤3) → lime (≤4) → green (≥5), gray for null
 - **Font scaling**: 30% increase at zoom ≥ 3
@@ -217,7 +217,7 @@ zKillboard RedisQ → zkill_listener._process_kill()
 - **Filaments**: Random destinations — not predictable, don't model as fixed routes
 - **Security classes**: highsec (>=0.5), lowsec (0.1-0.4), nullsec (<=0.0)
 - **ESI scopes**: Only `read_location` + `write_waypoint` remain valid (CCP deprecated others)
-- **Sov structures**: iHub (32458) has ADM 0-6 (can be null), TCU (32226), Skyhook (81826)
+- **Sov structures**: iHub (32458) has ADM 0-6 (can be null), TCU (32226), Orbital Skyhook (81080), Metenox Moon Drill (81826)
 
 ## Common Commands
 
@@ -282,6 +282,6 @@ alembic upgrade head
 - Do NOT use synchronous database calls in async endpoints
 - Do NOT use mutable default arguments in Python
 - Do NOT use `latest` tag in Docker — pin specific versions
-- Do NOT suppress canvas labels for TCU-only systems — only iHub (32458) and Skyhook (81826)
+- Do NOT suppress canvas labels for TCU-only systems — only iHub (32458) and Orbital Skyhook (81080), Metenox Moon Drill (81826)
 - Do NOT render SVG overlay for systems with null ADM without a name-only fallback block
 - Do NOT forget `credentials: 'include'` on cross-origin fetch calls (cookie auth breaks)
