@@ -53,7 +53,7 @@ test.describe('Map Page', () => {
   test('should display pro-gated layer toggles', async ({ page }) => {
     await expect(page.getByText('Kill markers')).toBeVisible();
     await expect(page.getByText('Risk heatmap')).toBeVisible();
-    await expect(page.getByText('Skyhooks', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('iHub ADM')).toBeVisible();
     await expect(page.getByText('Thera connections')).toBeVisible();
   });
 

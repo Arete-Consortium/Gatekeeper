@@ -197,7 +197,6 @@ function MapPageContent() {
       showKills: false,
       showHeatmap: false,
       showRegionLabels: true,
-      showSkyhooks: false,
       showThera: false,
       showFW: false,
       showLandmarks: true,
@@ -259,7 +258,7 @@ function MapPageContent() {
     queryKey: ['sovStructures'],
     queryFn: () => GatekeeperAPI.getSovStructures(),
     staleTime: 30 * 60 * 1000,
-    enabled: !!mapConfig && isPro && (layers.showSovStructures || layers.showSkyhooks),
+    enabled: !!mapConfig && isPro && layers.showSovStructures,
   });
 
   const { data: activityData, error: activityError } = useQuery({
@@ -565,12 +564,11 @@ function MapPageContent() {
           <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
           <ProToggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" isPro={isPro} />
           <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
-          <ProToggle checked={layers.showSkyhooks} onChange={(v) => updateLayer('showSkyhooks', v)} label="Skyhooks" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
-          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
+          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
 
@@ -736,10 +734,6 @@ function MapPageContent() {
             </div>
             <span className="text-text-secondary">iHub ADM Level</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-4 h-3.5 rounded-full bg-sky-900 border border-sky-300 text-sky-300 text-[8px] font-bold text-center leading-[14px]" aria-hidden="true">S</span>
-            <span className="text-text-secondary">Skyhook</span>
-          </div>
         </div>
       </CollapsibleSection>
     </>
@@ -880,7 +874,6 @@ function MapPageContent() {
                   ...layers,
                   showKills: false,
                   showHeatmap: false,
-                  showSkyhooks: false,
                   showThera: false,
                   showFW: false,
                   showSovStructures: false,

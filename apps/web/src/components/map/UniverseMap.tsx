@@ -30,7 +30,6 @@ import { RouteOverlay } from './RouteOverlay';
 import { KillMarkers } from './KillMarkers';
 import { RiskHeatmap } from './RiskHeatmap';
 import { Minimap } from './Minimap';
-import { SkyhookOverlay } from './SkyhookOverlay';
 import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
@@ -47,7 +46,6 @@ const DEFAULT_LAYERS: MapLayers = {
   showKills: false,
   showHeatmap: false,
   showRegionLabels: true,
-  showSkyhooks: false,
   showThera: false,
   showFW: false,
   showLandmarks: true,
@@ -351,15 +349,6 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
             systems={systemMap}
             viewport={viewport}
             maxAge={60 * 60 * 1000}
-          />
-        )}
-
-        {/* Skyhook Overlay */}
-        {layers.showSkyhooks && sovStructures && (
-          <SkyhookOverlay
-            structures={sovStructures}
-            systems={systemMap}
-            viewport={viewport}
           />
         )}
 

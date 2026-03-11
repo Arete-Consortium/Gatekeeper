@@ -84,7 +84,6 @@ export interface MapLayers {
   showKills: boolean;
   showHeatmap: boolean;
   showRegionLabels: boolean;
-  showSkyhooks: boolean;
   showThera: boolean;
   showFW: boolean;
   showLandmarks: boolean;
