@@ -61,18 +61,27 @@ async def get_character_from_bearer(
     db: AsyncSession = Depends(get_db),
 ) -> AuthenticatedCharacter | None:
     """
-    Extract character from JWT Bearer token.
+    Extract character from JWT Bearer token or httpOnly session cookie.
 
-    Returns None if no valid Bearer token is present.
+    Priority: Authorization header > gk_session cookie.
+    Returns None if no valid token is present.
     """
-    if not authorization:
-        return None
+    token = None
+    auth_method = "bearer"
 
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return None
+    # 1. Try Authorization header first
+    if authorization:
+        parts = authorization.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1]
 
-    token = parts[1]
+    # 2. Fall back to httpOnly cookie
+    if not token:
+        token = request.cookies.get("gk_session")
+        auth_method = "cookie"
+
+    if not token:
+        return None
 
     # Generate fingerprint for validation
     client_ip = None
@@ -117,7 +126,7 @@ async def get_character_from_bearer(
         access_token=stored["access_token"],
         scopes=stored["scopes"],
         expires_at=stored["expires_at"],
-        auth_method="bearer",
+        auth_method=auth_method,
         subscription_tier=tier,
     )
 
@@ -264,8 +273,8 @@ async def get_optional_character(
             else:
                 # Anonymous access
     """
-    # Try Bearer token first (don't raise on error, just return None)
-    if authorization:
+    # Try Bearer token or cookie (don't raise on error, just return None)
+    if authorization or request.cookies.get("gk_session"):
         try:
             bearer_char = await get_character_from_bearer(
                 request=request,

@@ -21,7 +21,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -94,6 +94,16 @@ class JWTTokenResponse(BaseModel):
     refresh_recommended: bool = False
 
 
+class SessionResponse(BaseModel):
+    """Response for cookie-based session info."""
+
+    character_id: int
+    character_name: str
+    subscription_tier: str
+    scopes: list[str]
+    expires_at: datetime
+
+
 class TokenVerification(BaseModel):
     """JWT token verification result."""
 
@@ -102,6 +112,32 @@ class TokenVerification(BaseModel):
     character_name: str | None = None
     expires_at: datetime | None = None
     error: str | None = None
+
+
+def _set_session_cookie(response: JSONResponse, jwt_token: str) -> None:
+    """Set the gk_session httpOnly cookie on a response."""
+    response.set_cookie(
+        key="gk_session",
+        value=jwt_token,
+        max_age=settings.COOKIE_MAX_AGE,
+        path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=True,
+        samesite=settings.COOKIE_SAMESITE,
+    )
+
+
+def _clear_session_cookie(response: JSONResponse) -> None:
+    """Clear the gk_session cookie."""
+    response.set_cookie(
+        key="gk_session",
+        value="",
+        max_age=0,
+        path="/",
+        secure=settings.COOKIE_SECURE,
+        httponly=True,
+        samesite=settings.COOKIE_SAMESITE,
+    )
 
 
 # =============================================================================
@@ -517,22 +553,30 @@ async def list_characters(
 
 @router.post("/logout")
 async def logout(
-    character_id: int = Query(..., description="Character ID to log out"),
+    request: Request,
+    character_id: int | None = Query(None, description="Character ID to log out"),
     token_store: TokenStore = Depends(get_token_store),
-) -> dict[str, str]:
+) -> JSONResponse:
     """
-    Log out a character by removing their stored tokens.
+    Log out a character by removing their stored tokens and clearing the session cookie.
     """
-    removed = await token_store.remove_token(character_id)
+    # Extract character_id from cookie if not provided
+    if character_id is None:
+        token = request.cookies.get("gk_session")
+        if token:
+            payload, _ = validate_jwt(token)
+            if payload:
+                character_id = payload.sub
 
-    if not removed:
-        raise HTTPException(
-            status_code=404,
-            detail="No token found for character",
-        )
+    if character_id:
+        await token_store.remove_token(character_id)
+        logger.info("Character logged out", extra={"character_id": character_id})
 
-    logger.info("Character logged out", extra={"character_id": character_id})
-    return {"status": "logged_out", "character_id": str(character_id)}
+    response = JSONResponse(
+        content={"status": "logged_out", "character_id": str(character_id) if character_id else None}
+    )
+    _clear_session_cookie(response)
+    return response
 
 
 @router.delete("/tokens")
@@ -561,19 +605,16 @@ async def issue_jwt_token(
     db: AsyncSession = Depends(get_db),
     request: Request = None,  # type: ignore[assignment]
     user_agent: str | None = Header(None),
-) -> JWTTokenResponse:
+) -> JSONResponse:
     """
     Issue a JWT session token for API authentication.
 
-    This endpoint issues a stateless JWT that can be used with Bearer authentication
-    instead of passing character_id in query parameters. The JWT is bound to the
-    client fingerprint for additional security.
-
-    The returned token should be included in requests as:
-        Authorization: Bearer <token>
+    Sets an httpOnly session cookie (gk_session) AND returns the JWT in the
+    response body for backwards compatibility. New clients should use the
+    cookie; the body token will be removed in a future version.
 
     Returns:
-        JWT token with expiration info
+        JWT token with expiration info + Set-Cookie header
     """
     stored = await token_store.get_token(character_id)
 
@@ -618,13 +659,59 @@ async def issue_jwt_token(
         "JWT token issued",
         extra={"character_id": stored["character_id"], "character_name": stored["character_name"]},
     )
-    return JWTTokenResponse(
+
+    body = JWTTokenResponse(
         access_token=jwt_token.access_token,
         token_type=jwt_token.token_type,
         expires_at=jwt_token.expires_at,
         character_id=jwt_token.character_id,
         character_name=jwt_token.character_name,
         refresh_recommended=needs_refresh,
+    )
+    response = JSONResponse(content=body.model_dump(mode="json"))
+    _set_session_cookie(response, jwt_token.access_token)
+    return response
+
+
+@router.get("/session", response_model=SessionResponse)
+async def get_session(
+    request: Request,
+    user_agent: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
+) -> SessionResponse:
+    """
+    Get current session info from the httpOnly cookie.
+
+    Returns user metadata without exposing the JWT. This replaces
+    client-side JWT decoding for cookie-based auth.
+    """
+    token = request.cookies.get("gk_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="No session cookie")
+
+    # Generate fingerprint for validation
+    client_ip = request.client.host if request.client else None
+    fingerprint = generate_client_fingerprint(user_agent, client_ip)
+
+    payload, error = validate_jwt(token, verify_fingerprint=fingerprint)
+    if error or payload is None:
+        raise HTTPException(status_code=401, detail=f"Invalid session: {error}")
+
+    if is_token_revoked(payload.jti):
+        raise HTTPException(status_code=401, detail="Session revoked")
+
+    # Look up subscription tier (may have changed since JWT was issued)
+    tier_result = await db.execute(
+        select(User.subscription_tier).where(User.character_id == payload.sub)
+    )
+    tier = tier_result.scalar_one_or_none() or "free"
+
+    return SessionResponse(
+        character_id=payload.sub,
+        character_name=payload.name,
+        subscription_tier=tier,
+        scopes=payload.scopes,
+        expires_at=payload.exp,
     )
 
 

@@ -41,13 +41,14 @@ function AuthCallbackContent() {
       try {
         const response = await fetch(
           `${apiUrl}/api/v1/auth/token?character_id=${encodeURIComponent(characterId)}`,
-          { method: 'POST' }
+          { method: 'POST', credentials: 'include' }
         );
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
           throw new Error(body.detail || `Auth failed: ${response.status}`);
         }
         const data = await response.json();
+        // Cookie is set via Set-Cookie header; also pass token for backwards compat
         login(data.access_token);
         router.replace('/');
       } catch (err) {

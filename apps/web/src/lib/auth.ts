@@ -100,6 +100,34 @@ export function userFromToken(token: string): AuthUser | null {
 }
 
 /**
+ * Fetch session info from the httpOnly cookie via /auth/session.
+ * Returns null if no valid session exists.
+ */
+export async function fetchSession(): Promise<AuthUser | null> {
+  if (typeof window === 'undefined') return null;
+  const apiUrl =
+    localStorage.getItem('gatekeeper_api_url') ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8000';
+  try {
+    const res = await fetch(`${apiUrl}/api/v1/auth/session`, {
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      character_id: data.character_id,
+      character_name: data.character_name,
+      subscription_tier: data.subscription_tier,
+      scopes: data.scopes,
+      expires_at: data.expires_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build the ESI OAuth login URL.
  */
 export function getLoginUrl(): string {

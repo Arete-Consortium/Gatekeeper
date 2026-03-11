@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -16,6 +17,7 @@ import {
   clearStoredToken,
   userFromToken,
   isTokenExpired,
+  fetchSession,
 } from '@/lib/auth';
 
 interface AuthContextValue {
@@ -24,7 +26,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isPro: boolean;
   isLoading: boolean;
-  login: (token: string) => void;
+  login: (token?: string) => void;
   logout: () => void;
 }
 
@@ -47,17 +49,53 @@ function restoreSession(): { token: string | null; user: AuthUser | null } {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState(() => restoreSession());
-  const isLoading = false;
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = useCallback((newToken: string) => {
-    const newUser = userFromToken(newToken);
-    if (!newUser) return;
-    setStoredToken(newToken);
-    setStoredUser(newUser);
-    setSession({ token: newToken, user: newUser });
+  // On mount, try cookie-based session first, fall back to localStorage
+  useEffect(() => {
+    let cancelled = false;
+    fetchSession()
+      .then((cookieUser) => {
+        if (cancelled) return;
+        if (cookieUser) {
+          setSession({ token: null, user: cookieUser });
+        }
+        // If no cookie session but localStorage has a token, keep it (already restored)
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const login = useCallback((newToken?: string) => {
+    if (newToken) {
+      // Legacy: token provided in body (backwards compat)
+      const newUser = userFromToken(newToken);
+      if (!newUser) return;
+      setStoredToken(newToken);
+      setStoredUser(newUser);
+      setSession({ token: newToken, user: newUser });
+    } else {
+      // Cookie-based: fetch session from server
+      fetchSession().then((cookieUser) => {
+        if (cookieUser) {
+          setSession({ token: null, user: cookieUser });
+        }
+      });
+    }
   }, []);
 
   const logout = useCallback(() => {
+    const apiUrl =
+      (typeof window !== 'undefined' ? localStorage.getItem('gatekeeper_api_url') : null) ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:8000';
+    // Call backend to clear cookie + revoke
+    fetch(`${apiUrl}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => { /* best effort */ });
     clearStoredToken();
     setSession({ token: null, user: null });
   }, []);

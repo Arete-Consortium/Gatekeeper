@@ -106,6 +106,7 @@ class GatekeeperAPIService {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         signal: controller.signal,
+        credentials: 'include',
         headers: {
           ...headers,
           ...options.headers,

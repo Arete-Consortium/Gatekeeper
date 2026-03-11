@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
 
+    # Cookie settings (for httpOnly JWT auth)
+    COOKIE_SECURE: bool = True  # Must be True for SameSite=None
+    COOKIE_SAMESITE: str = "none"  # Required for cross-origin
+    COOKIE_MAX_AGE: int = 86400  # 24h, matches JWT expiry
+    FRONTEND_ORIGIN: str = "https://gatekeeper.aretedriver.dev"
+
     # Security
     API_KEY_ENABLED: bool = False
     API_KEY: str | None = None

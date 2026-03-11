@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Analytics as VercelAnalytics } from '@vercel/analytics/next';
 import { Footer, Navbar } from '@/components/layout';
 import { Providers } from '@/components/Providers';
 import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
 import { Analytics } from '@/components/Analytics';
+import { ConsentGatedVercelAnalytics } from '@/components/ConsentGatedVercelAnalytics';
+import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import '@/styles/globals.css';
 
 export const viewport: Viewport = {
@@ -61,9 +62,10 @@ export default function RootLayout({
             <main className="max-w-7xl mx-auto px-4 py-6">{children}</main>
             <Footer />
           </ErrorBoundaryWrapper>
+          <Analytics />
+          <ConsentGatedVercelAnalytics />
+          <CookieConsentBanner />
         </Providers>
-        <Analytics />
-        <VercelAnalytics />
       </body>
     </html>
   );

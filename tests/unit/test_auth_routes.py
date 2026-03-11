@@ -220,14 +220,15 @@ class TestAuthEndpoints:
         data = response.json()
         assert isinstance(data, list)
 
-    def test_logout_not_found(self, test_client):
-        """Test logout returns 404 for unknown character."""
+    def test_logout_unknown_character(self, test_client):
+        """Test logout returns 200 and clears cookie even for unknown character."""
         response = test_client.post(
             "/api/v1/auth/logout",
             params={"character_id": 99999},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == 200
+        assert response.json()["status"] == "logged_out"
 
     def test_clear_tokens(self, test_client):
         """Test clearing all tokens."""
