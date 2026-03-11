@@ -158,18 +158,25 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     [highlightedSystems]
   );
 
+  // Build system lookup map for cross-region check (avoids ref access during render)
+  const systemLookup = useMemo(() => {
+    const map = new Map<number, MapSystem>();
+    for (const s of systems) map.set(s.systemId, s);
+    return map;
+  }, [systems]);
+
   // Build cross-region gate set for dimming
   const crossRegionGates = useMemo(() => {
     const set = new Set<string>();
     for (const gate of gates) {
-      const from = systemMapRef.current.get(gate.fromSystemId);
-      const to = systemMapRef.current.get(gate.toSystemId);
+      const from = systemLookup.get(gate.fromSystemId);
+      const to = systemLookup.get(gate.toSystemId);
       if (from && to && from.regionId !== to.regionId) {
         set.add(`${gate.fromSystemId}-${gate.toSystemId}`);
       }
     }
     return set;
-  }, [gates, systems]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gates, systemLookup]);
 
   // World to screen transformation
   const worldToScreen = useCallback(
@@ -473,7 +480,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
 
       ctx.globalAlpha = 1;
     }
-  }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, risks, crossRegionGates, hoveredSystemId]);
+  }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, risks, crossRegionGates, hoveredSystemId, sovStructureSystems]);
 
   // Mouse wheel zoom — exponential curve (#2)
   const handleWheel = useCallback(

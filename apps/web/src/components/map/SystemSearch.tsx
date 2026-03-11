@@ -46,8 +46,8 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
 
   // Open dropdown when we have results
   useEffect(() => {
-    setIsOpen(results.length > 0 && query.length > 0); // eslint-disable-line react-hooks/set-state-in-effect -- synced to focus/blur handlers
-    setActiveIndex(0); // eslint-disable-line react-hooks/set-state-in-effect
+    setIsOpen(results.length > 0 && query.length > 0);
+    setActiveIndex(0);
   }, [results, query]);
 
   // Scroll active item into view
