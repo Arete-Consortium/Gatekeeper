@@ -30,7 +30,7 @@ import { RouteOverlay } from './RouteOverlay';
 import { KillMarkers } from './KillMarkers';
 import { RiskHeatmap } from './RiskHeatmap';
 import { Minimap } from './Minimap';
-import { SovereigntyOverlay } from './SovereigntyOverlay';
+import { SkyhookOverlay } from './SkyhookOverlay';
 import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
@@ -47,7 +47,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showKills: false,
   showHeatmap: false,
   showRegionLabels: true,
-  showSovereignty: false,
+  showSkyhooks: false,
   showThera: false,
   showFW: false,
   showLandmarks: true,
@@ -72,9 +72,6 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       routes = [],
       kills = [],
       risks = [],
-      sovereignty,
-      alliances,
-      factions,
       theraConnections = [],
       fwSystems,
       landmarks = [],
@@ -357,14 +354,12 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           />
         )}
 
-        {/* Sovereignty Overlay */}
-        {layers.showSovereignty && sovereignty && (
-          <SovereigntyOverlay
-            sovereignty={sovereignty}
-            alliances={alliances || {}}
+        {/* Skyhook Overlay */}
+        {layers.showSkyhooks && sovStructures && (
+          <SkyhookOverlay
+            structures={sovStructures}
             systems={systemMap}
             viewport={viewport}
-            factions={factions || {}}
           />
         )}
 

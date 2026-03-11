@@ -84,7 +84,7 @@ export interface MapLayers {
   showKills: boolean;
   showHeatmap: boolean;
   showRegionLabels: boolean;
-  showSovereignty: boolean;
+  showSkyhooks: boolean;
   showThera: boolean;
   showFW: boolean;
   showLandmarks: boolean;
@@ -114,10 +114,7 @@ export interface UniverseMapProps {
   kills?: MapKill[];
   risks?: SystemRisk[];
 
-  // Sovereignty & live data
-  sovereignty?: Record<string, { alliance_id: number | null; faction_id: number | null }>;
-  alliances?: Record<string, { name: string }>;
-  factions?: Record<string, { name: string }>;
+  // Live data overlays
   theraConnections?: import('@/lib/types').TheraConnection[];
   fwSystems?: Record<string, import('@/lib/types').FWSystem>;
   landmarks?: import('@/lib/types').Landmark[];

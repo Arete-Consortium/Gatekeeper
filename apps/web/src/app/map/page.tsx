@@ -197,7 +197,7 @@ function MapPageContent() {
       showKills: false,
       showHeatmap: false,
       showRegionLabels: true,
-      showSovereignty: false,
+      showSkyhooks: false,
       showThera: false,
       showFW: false,
       showLandmarks: true,
@@ -233,11 +233,12 @@ function MapPageContent() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Sov data for system detail panel (not an overlay — available to all users)
   const { data: sovData, error: sovError } = useQuery({
     queryKey: ['sovereignty'],
     queryFn: () => GatekeeperAPI.getSovereignty(),
     staleTime: 10 * 60 * 1000,
-    enabled: !!mapConfig && isPro && layers.showSovereignty,
+    enabled: !!mapConfig,
   });
 
   const { data: theraData, error: theraError } = useQuery({
@@ -258,7 +259,7 @@ function MapPageContent() {
     queryKey: ['sovStructures'],
     queryFn: () => GatekeeperAPI.getSovStructures(),
     staleTime: 30 * 60 * 1000,
-    enabled: !!mapConfig && isPro && layers.showSovStructures,
+    enabled: !!mapConfig && isPro && (layers.showSovStructures || layers.showSkyhooks),
   });
 
   const { data: activityData, error: activityError } = useQuery({
@@ -346,22 +347,6 @@ function MapPageContent() {
   });
 
   // === Derived ===
-
-  const sovOverlay = useMemo(() => {
-    if (!sovData) return { sovereignty: undefined, alliances: undefined };
-    const sovereignty: Record<string, { alliance_id: number | null; faction_id: number | null }> = {};
-    for (const [sid, entry] of Object.entries(sovData.sovereignty)) {
-      sovereignty[sid] = {
-        alliance_id: entry.alliance_id ?? null,
-        faction_id: entry.faction_id ?? null,
-      };
-    }
-    const alliances: Record<string, { name: string }> = {};
-    for (const [aid, info] of Object.entries(sovData.alliances)) {
-      alliances[aid] = { name: info.name };
-    }
-    return { sovereignty, alliances };
-  }, [sovData]);
 
   // === URL Permalink Support ===
 
@@ -580,7 +565,7 @@ function MapPageContent() {
           <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
           <ProToggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" isPro={isPro} />
           <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
-          <ProToggle checked={layers.showSovereignty} onChange={(v) => updateLayer('showSovereignty', v)} label="Sovereignty" isPro={isPro} />
+          <ProToggle checked={layers.showSkyhooks} onChange={(v) => updateLayer('showSkyhooks', v)} label="Skyhooks" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
@@ -690,7 +675,7 @@ function MapPageContent() {
               system={system}
               gates={gates}
               systemMap={systemMap}
-              sovData={isPro ? sovData : undefined}
+              sovData={sovData}
               fwData={isPro ? fwData?.fw_systems : undefined}
               theraConnections={isPro ? theraData?.connections : undefined}
               activityData={activityData}
@@ -883,8 +868,6 @@ function MapPageContent() {
                 routes={mapRoutes}
                 kills={isPro ? kills : []}
                 risks={risks}
-                sovereignty={isPro ? sovOverlay.sovereignty : undefined}
-                alliances={isPro ? sovOverlay.alliances : undefined}
                 theraConnections={isPro ? theraData?.connections : undefined}
                 fwSystems={isPro ? fwData?.fw_systems : undefined}
                 landmarks={mapConfig?.landmarks}
@@ -897,7 +880,7 @@ function MapPageContent() {
                   ...layers,
                   showKills: false,
                   showHeatmap: false,
-                  showSovereignty: false,
+                  showSkyhooks: false,
                   showThera: false,
                   showFW: false,
                   showSovStructures: false,
