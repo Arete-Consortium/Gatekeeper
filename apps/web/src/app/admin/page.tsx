@@ -39,48 +39,78 @@ function isAdmin(characterId: number | undefined): boolean {
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
+// Matches GET /api/v1/status/
 interface ApiStatus {
   version?: string;
   uptime_seconds?: number;
-  database?: { status: string };
-  cache?: { status: string; backend?: string };
-  systems_loaded?: number;
-  debug?: boolean;
+  uptime_formatted?: string;
+  status?: string;
+  environment?: { debug: boolean; log_level: string };
+  checks?: {
+    database: string;
+    cache: string;
+    systems_loaded: number;
+  };
   features?: Record<string, boolean>;
 }
 
+// Matches GET /api/v1/status/websocket-health
 interface WebSocketHealth {
-  zkill_listener?: { connected: boolean; last_kill_at?: string; kills_processed?: number };
-  connections?: { total: number; killfeed?: number; map?: number };
+  zkill_listener?: {
+    state: string;
+    is_connected: boolean;
+    is_running: boolean;
+    health: {
+      total_connections: number;
+      total_disconnections: number;
+      total_failed_reconnections: number;
+      consecutive_failures: number;
+      current_retry_attempt: number;
+      last_message_received_at: number | null;
+      total_reconnections: number;
+    };
+  };
+  client_connections?: {
+    active_connections: number;
+  };
 }
 
+// Matches GET /api/v1/status/cache/stats
 interface CacheStats {
+  cache_type?: string;
   hits?: number;
   misses?: number;
+  total_requests?: number;
   hit_ratio?: number;
-  route_cache?: { hits: number; misses: number; hit_ratio: number };
-  risk_cache?: { hits: number; misses: number; hit_ratio: number };
+  hit_percentage?: number;
+  entries?: number;
 }
 
+// Matches GET /api/v1/status/universe
 interface UniverseStatus {
-  file_path?: string;
-  file_size_mb?: number;
+  file?: string;
+  exists?: boolean;
   last_modified?: string;
-  systems_count?: number;
-  gates_count?: number;
+  age_hours?: number;
+  age_days?: number;
+  status?: string;
 }
 
+// Matches GET /api/v1/status/kills/stats
 interface KillStats {
-  total_kills?: number;
-  kills_24h?: number;
-  kills_1h?: number;
-  oldest_kill?: string;
-  newest_kill?: string;
+  enabled?: boolean;
+  total_stored?: number;
+  total_received?: number;
+  systems_tracked?: number;
+  regions_tracked?: number;
+  max_entries?: number;
 }
 
+// Matches GET /api/v1/analytics/summary
 interface AnalyticsSummary {
-  pageviews?: Record<string, number>;
-  total?: number;
+  total_views?: number;
+  unique_paths?: number;
+  paths?: Array<{ path: string; views: number }>;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -213,16 +243,16 @@ export default function AdminDashboard() {
     return null;
   }
 
-  const dbOk = status?.database?.status === 'ok' || status?.database?.status === 'connected';
-  const cacheOk = status?.cache?.status === 'ok' || status?.cache?.status === 'connected';
-  const zkillOk = wsHealth?.zkill_listener?.connected ?? false;
+  const dbOk = status?.checks?.database === 'ok';
+  const cacheOk = status?.checks?.cache === 'memory' || status?.checks?.cache === 'redis';
+  const zkillOk = wsHealth?.zkill_listener?.is_connected ?? false;
   const allHealthy = dbOk && cacheOk && zkillOk;
 
   // Pageview data sorted by count
-  const pageviewEntries = analytics?.pageviews
-    ? Object.entries(analytics.pageviews).sort(([, a], [, b]) => b - a)
+  const pageviewEntries = analytics?.paths
+    ? analytics.paths.sort((a, b) => b.views - a.views)
     : [];
-  const totalPageviews = pageviewEntries.reduce((sum, [, count]) => sum + count, 0);
+  const totalPageviews = analytics?.total_views ?? 0;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -265,8 +295,13 @@ export default function AdminDashboard() {
             {allHealthy ? 'All Systems Operational' : 'Degraded Performance'}
           </span>
           <span className="text-xs text-text-secondary ml-2">
-            v{status?.version || '?'} &middot; uptime {status?.uptime_seconds ? formatUptime(status.uptime_seconds) : '?'}
+            v{status?.version || '?'} &middot; uptime {status?.uptime_formatted || (status?.uptime_seconds ? formatUptime(status.uptime_seconds) : '?')}
           </span>
+          {!zkillOk && wsHealth?.zkill_listener && (
+            <span className="text-xs text-red-400 ml-2">
+              zKill: {wsHealth.zkill_listener.state} ({wsHealth.zkill_listener.health.consecutive_failures} failures)
+            </span>
+          )}
         </div>
       </div>
 
@@ -283,7 +318,7 @@ export default function AdminDashboard() {
             </div>
             <div className="text-lg font-bold text-text">{dbOk ? 'Connected' : 'Down'}</div>
             <div className="text-[10px] text-text-secondary">
-              {status?.systems_loaded ? `${status.systems_loaded.toLocaleString()} systems loaded` : ''}
+              {status?.checks?.systems_loaded ? `${status.checks.systems_loaded.toLocaleString()} systems loaded` : ''}
             </div>
           </Card>
 
@@ -294,7 +329,7 @@ export default function AdminDashboard() {
             </div>
             <div className="text-lg font-bold text-text">{cacheOk ? 'Active' : 'Down'}</div>
             <div className="text-[10px] text-text-secondary">
-              {status?.cache?.backend || 'memory'} backend
+              {status?.checks?.cache || 'memory'} backend &middot; {cacheStats?.entries ?? 0} entries
             </div>
           </Card>
 
@@ -303,9 +338,13 @@ export default function AdminDashboard() {
               <StatusDot ok={zkillOk} />
               <span className="text-xs font-medium text-text">zKill Listener</span>
             </div>
-            <div className="text-lg font-bold text-text">{zkillOk ? 'Connected' : 'Disconnected'}</div>
+            <div className="text-lg font-bold text-text">
+              {zkillOk ? 'Connected' : wsHealth?.zkill_listener?.state || 'Disconnected'}
+            </div>
             <div className="text-[10px] text-text-secondary">
-              {wsHealth?.zkill_listener?.kills_processed?.toLocaleString() || 0} kills processed
+              {wsHealth?.zkill_listener?.health.consecutive_failures
+                ? `${wsHealth.zkill_listener.health.consecutive_failures} consecutive failures`
+                : 'Healthy'}
             </div>
           </Card>
 
@@ -315,10 +354,10 @@ export default function AdminDashboard() {
               <span className="text-xs font-medium text-text">WebSockets</span>
             </div>
             <div className="text-lg font-bold text-text">
-              {wsHealth?.connections?.total ?? 0}
+              {wsHealth?.client_connections?.active_connections ?? 0}
             </div>
             <div className="text-[10px] text-text-secondary">
-              {wsHealth?.connections?.killfeed ?? 0} killfeed, {wsHealth?.connections?.map ?? 0} map
+              active client connections
             </div>
           </Card>
         </div>
@@ -339,15 +378,15 @@ export default function AdminDashboard() {
           />
           <MetricCard
             icon={Zap}
-            label="Kills (1h)"
-            value={killStats?.kills_1h?.toLocaleString() ?? '—'}
-            sub={`${killStats?.kills_24h?.toLocaleString() ?? '?'} in 24h`}
+            label="Kills Received"
+            value={killStats?.total_received?.toLocaleString() ?? '0'}
+            sub={`${killStats?.total_stored?.toLocaleString() ?? '0'} stored / ${killStats?.max_entries?.toLocaleString() ?? '?'} max`}
             color="text-red-400"
           />
           <MetricCard
             icon={Users}
             label="WS Clients"
-            value={wsHealth?.connections?.total ?? 0}
+            value={wsHealth?.client_connections?.active_connections ?? 0}
             sub="Active connections"
             color="text-green-400"
           />
@@ -361,63 +400,43 @@ export default function AdminDashboard() {
           <MetricCard
             icon={Globe}
             label="Universe Data"
-            value={universeStatus?.systems_count?.toLocaleString() ?? '—'}
-            sub={universeStatus?.file_size_mb ? formatBytes(universeStatus.file_size_mb) : 'systems'}
+            value={universeStatus?.status === 'fresh' ? 'Fresh' : universeStatus?.status ?? '—'}
+            sub={universeStatus?.age_hours != null ? `${universeStatus.age_hours.toFixed(1)}h old` : ''}
             color="text-blue-400"
           />
         </div>
       </section>
 
       {/* Cache Details */}
-      {cacheStats && (cacheStats.route_cache || cacheStats.risk_cache) && (
+      {cacheStats && cacheStats.hit_ratio != null && (
         <section>
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> Cache Breakdown
+            <BarChart3 className="h-4 w-4" /> Cache Performance
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {cacheStats.route_cache && (
-              <Card className="p-3">
-                <div className="text-xs font-medium text-text mb-2">Route Cache</div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-cyan-500 rounded-full"
-                        style={{ width: `${(cacheStats.route_cache.hit_ratio * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-cyan-400">
-                    {(cacheStats.route_cache.hit_ratio * 100).toFixed(1)}%
-                  </span>
+          <Card className="p-3">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="text-xs font-medium text-text">
+                {cacheStats.cache_type || 'memory'} cache &middot; {cacheStats.entries ?? 0} entries
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-cyan-500 rounded-full transition-all"
+                    style={{ width: `${(cacheStats.hit_ratio * 100).toFixed(0)}%` }}
+                  />
                 </div>
-                <div className="text-[10px] text-text-secondary mt-1">
-                  {cacheStats.route_cache.hits.toLocaleString()} hits / {cacheStats.route_cache.misses.toLocaleString()} misses
-                </div>
-              </Card>
-            )}
-            {cacheStats.risk_cache && (
-              <Card className="p-3">
-                <div className="text-xs font-medium text-text mb-2">Risk Cache</div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-500 rounded-full"
-                        style={{ width: `${(cacheStats.risk_cache.hit_ratio * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-amber-400">
-                    {(cacheStats.risk_cache.hit_ratio * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="text-[10px] text-text-secondary mt-1">
-                  {cacheStats.risk_cache.hits.toLocaleString()} hits / {cacheStats.risk_cache.misses.toLocaleString()} misses
-                </div>
-              </Card>
-            )}
-          </div>
+              </div>
+              <span className="text-sm font-bold text-cyan-400">
+                {cacheStats.hit_percentage?.toFixed(1) ?? (cacheStats.hit_ratio * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex justify-between text-[10px] text-text-secondary mt-1">
+              <span>{cacheStats.hits?.toLocaleString() ?? 0} hits / {cacheStats.misses?.toLocaleString() ?? 0} misses</span>
+              <span>{cacheStats.total_requests?.toLocaleString() ?? 0} total requests</span>
+            </div>
+          </Card>
         </section>
       )}
 
@@ -429,12 +448,12 @@ export default function AdminDashboard() {
           </h2>
           <Card className="p-3">
             <div className="space-y-2">
-              {pageviewEntries.map(([path, count]) => {
-                const pct = totalPageviews > 0 ? (count / totalPageviews) * 100 : 0;
+              {pageviewEntries.map((entry) => {
+                const pct = totalPageviews > 0 ? (entry.views / totalPageviews) * 100 : 0;
                 return (
-                  <div key={path} className="flex items-center gap-3 text-xs">
-                    <span className="w-28 text-text-secondary font-mono truncate" title={path}>
-                      {path}
+                  <div key={entry.path} className="flex items-center gap-3 text-xs">
+                    <span className="w-28 text-text-secondary font-mono truncate" title={entry.path}>
+                      {entry.path}
                     </span>
                     <div className="flex-1">
                       <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -445,7 +464,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <span className="w-12 text-right text-text font-medium">
-                      {count.toLocaleString()}
+                      {entry.views.toLocaleString()}
                     </span>
                     <span className="w-12 text-right text-text-secondary">
                       {pct.toFixed(1)}%
@@ -467,26 +486,25 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <MetricCard
               icon={Zap}
-              label="Total Stored"
-              value={killStats.total_kills?.toLocaleString() ?? '—'}
-            />
-            <MetricCard
-              icon={Clock}
-              label="Last 24h"
-              value={killStats.kills_24h?.toLocaleString() ?? '—'}
+              label="Total Received"
+              value={killStats.total_received?.toLocaleString() ?? '0'}
               color="text-red-400"
             />
             <MetricCard
-              icon={Clock}
-              label="Last Hour"
-              value={killStats.kills_1h?.toLocaleString() ?? '—'}
-              color="text-amber-400"
+              icon={Database}
+              label="Stored"
+              value={killStats.total_stored?.toLocaleString() ?? '0'}
+              sub={`max ${killStats.max_entries?.toLocaleString() ?? '?'}`}
             />
             <MetricCard
-              icon={Clock}
-              label="Latest Kill"
-              value={killStats.newest_kill ? new Date(killStats.newest_kill).toLocaleTimeString() : '—'}
-              sub={killStats.newest_kill ? new Date(killStats.newest_kill).toLocaleDateString() : ''}
+              icon={Globe}
+              label="Systems Tracked"
+              value={killStats.systems_tracked?.toLocaleString() ?? '0'}
+            />
+            <MetricCard
+              icon={Globe}
+              label="Regions Tracked"
+              value={killStats.regions_tracked?.toLocaleString() ?? '0'}
             />
           </div>
         </section>
@@ -500,19 +518,21 @@ export default function AdminDashboard() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <MetricCard
-              icon={Globe}
-              label="Systems"
-              value={universeStatus.systems_count?.toLocaleString() ?? '—'}
+              icon={CheckCircle2}
+              label="Status"
+              value={universeStatus.status ?? '—'}
+              color={universeStatus.status === 'fresh' ? 'text-green-400' : 'text-amber-400'}
             />
             <MetricCard
-              icon={Globe}
-              label="Gates"
-              value={universeStatus.gates_count?.toLocaleString() ?? '—'}
+              icon={Clock}
+              label="Data Age"
+              value={universeStatus.age_hours != null ? `${universeStatus.age_hours.toFixed(1)}h` : '—'}
+              sub={universeStatus.age_days != null ? `${universeStatus.age_days.toFixed(1)} days` : ''}
             />
             <MetricCard
               icon={Database}
-              label="File Size"
-              value={universeStatus.file_size_mb ? formatBytes(universeStatus.file_size_mb) : '—'}
+              label="Systems Loaded"
+              value={status?.checks?.systems_loaded?.toLocaleString() ?? '—'}
             />
             <MetricCard
               icon={Clock}
@@ -556,7 +576,7 @@ export default function AdminDashboard() {
 
       {/* Footer */}
       <div className="text-center text-[10px] text-text-secondary py-4 border-t border-border">
-        EVE Gatekeeper Admin &middot; v{status?.version || '?'} &middot; {status?.debug ? 'Debug Mode' : 'Production'}
+        EVE Gatekeeper Admin &middot; v{status?.version || '?'} &middot; {status?.environment?.debug ? 'Debug Mode' : 'Production'}
       </div>
     </div>
   );

@@ -158,41 +158,6 @@ const WH_TYPES = [
   { type: 'F216', dir: 'WH Space → Pochven', mass: '1B kg', jump: '300M kg', life: '16h', note: '' },
 ];
 
-// ── BFS pathfinding ─────────────────────────────────────────────────────────
-
-function bfs(from: string, to: string): string[] {
-  if (from === to) return [from];
-  const adj: Record<string, string[]> = {};
-  for (const g of GATES) {
-    if (!adj[g.from]) adj[g.from] = [];
-    if (!adj[g.to]) adj[g.to] = [];
-    adj[g.from].push(g.to);
-    adj[g.to].push(g.from);
-  }
-  const visited = new Set<string>([from]);
-  const parent: Record<string, string> = {};
-  const queue = [from];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const neighbor of adj[current] || []) {
-      if (visited.has(neighbor)) continue;
-      visited.add(neighbor);
-      parent[neighbor] = current;
-      if (neighbor === to) {
-        const path: string[] = [];
-        let node: string | undefined = to;
-        while (node) {
-          path.unshift(node);
-          node = parent[node];
-        }
-        return path;
-      }
-      queue.push(neighbor);
-    }
-  }
-  return [];
-}
-
 // ── Component ───────────────────────────────────────────────────────────────
 
 const SYSTEM_MAP = new Map(SYSTEMS.map((s) => [s.name, s]));
@@ -214,22 +179,7 @@ export function PochvenMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 900, h: 700 });
   const [hovered, setHovered] = useState<string | null>(null);
-  const [selected, setSelected] = useState<[string | null, string | null]>([null, null]);
-
-  const path = useMemo(() => {
-    const [a, b] = selected;
-    if (a && b) return bfs(a, b);
-    return [];
-  }, [selected]);
-
-  const pathEdges = useMemo(() => {
-    const edges = new Set<string>();
-    for (let i = 0; i < path.length - 1; i++) {
-      edges.add(`${path[i]}|${path[i + 1]}`);
-      edges.add(`${path[i + 1]}|${path[i]}`);
-    }
-    return edges;
-  }, [path]);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -291,18 +241,10 @@ export function PochvenMap() {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const hit = hitTest(x, y);
-      if (!hit) { setSelected([null, null]); return; }
-      setSelected((prev) => {
-        if (!prev[0]) return [hit, null];
-        if (prev[0] === hit) return [null, null];
-        if (prev[1]) return [hit, null];
-        return [prev[0], hit];
-      });
+      const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+      setSelected(hit === selected ? null : hit);
     },
-    [hitTest]
+    [hitTest, selected]
   );
 
   const handleMove = useCallback(
@@ -326,15 +268,10 @@ export function PochvenMap() {
       const hit = hitTest(touch.clientX - rect.left, touch.clientY - rect.top);
       if (hit) {
         e.preventDefault();
-        setSelected((prev) => {
-          if (!prev[0]) return [hit, null];
-          if (prev[0] === hit) return [null, null];
-          if (prev[1]) return [hit, null];
-          return [prev[0], hit];
-        });
+        setSelected(hit === selected ? null : hit);
       }
     },
-    [hitTest]
+    [hitTest, selected]
   );
 
   // ── Canvas draw ───────────────────────────────────────────────────────────
@@ -388,7 +325,7 @@ export function PochvenMap() {
 
       const fromEdge = getEdgePoint(fromSys, toSys);
       const toEdge = getEdgePoint(toSys, fromSys);
-      const isOnPath = pathEdges.has(`${gate.from}|${gate.to}`);
+      const isOnPath = false;
 
       ctx.save();
       ctx.beginPath();
@@ -423,8 +360,8 @@ export function PochvenMap() {
       const halfW = w / 2;
       const halfH = NODE_H / 2;
       const isHovered = hovered === sys.name;
-      const isSelected = selected[0] === sys.name || selected[1] === sys.name;
-      const isOnPath = path.includes(sys.name);
+      const isSelected = selected === sys.name;
+      const isOnPath = false;
       const color = KRAI_COLORS[sys.krai];
 
       ctx.save();
@@ -491,63 +428,45 @@ export function PochvenMap() {
     ctx.fillStyle = KRAI_COLORS.perun + '25';
     ctx.fillText('KRAI PERUN', perunLabel.x, perunLabel.y);
 
-  }, [size, hovered, selected, path, pathEdges, toCanvas, nodeWidths]);
+  }, [size, hovered, selected, toCanvas, nodeWidths]);
 
   // ── Info panel data ─────────────────────────────────────────────────────────
 
   const selectedSys = useMemo(() => {
-    return selected[0] ? SYSTEM_MAP.get(selected[0]) ?? null : null;
+    return selected ? SYSTEM_MAP.get(selected) ?? null : null;
   }, [selected]);
 
   const selectedAdj = useMemo(() => {
-    if (!selected[0]) return [];
-    return getAdjacent(selected[0]).map((name) => SYSTEM_MAP.get(name)!).filter(Boolean);
-  }, [selected]);
-
-  const selectedInfo = useMemo(() => {
-    const [a, b] = selected;
-    return { sysA: a ? SYSTEM_MAP.get(a) : null, sysB: b ? SYSTEM_MAP.get(b) : null };
+    if (!selected) return [];
+    return getAdjacent(selected).map((name) => SYSTEM_MAP.get(name)!).filter(Boolean);
   }, [selected]);
 
   const c729Systems = useMemo(() => {
-    if (!selected[0]) return [];
-    return C729_CANDIDATES[selected[0]] || [];
+    if (!selected) return [];
+    return C729_CANDIDATES[selected] || [];
   }, [selected]);
 
   return (
     <div className="space-y-3">
       {/* Info bar */}
       <div className="flex flex-wrap items-center gap-2 min-h-[36px]">
-        {!selected[0] && (
+        {!selected && (
           <span className="text-sm text-text-secondary">
-            Click a system to view connections &amp; C729 entry points. Click a second for shortest route.
+            Click a system to view connections &amp; C729 entry points.
           </span>
         )}
-        {selectedInfo.sysA && !selectedInfo.sysB && (
+        {selectedSys && (
           <div className="flex items-center gap-2">
             <Badge
               variant="default"
               className="text-xs"
-              style={{ backgroundColor: KRAI_COLORS[selectedInfo.sysA.krai] + '30', color: KRAI_COLORS[selectedInfo.sysA.krai] }}
+              style={{ backgroundColor: KRAI_COLORS[selectedSys.krai] + '30', color: KRAI_COLORS[selectedSys.krai] }}
             >
-              {KRAI_LABELS[selectedInfo.sysA.krai]}
+              {KRAI_LABELS[selectedSys.krai]}
             </Badge>
-            <span className="text-sm text-text font-medium">{selectedInfo.sysA.name}</span>
-            <span className="text-sm text-text-secondary capitalize">({selectedInfo.sysA.type})</span>
-            <span className="text-xs text-text-secondary ml-2">Click another for route</span>
-          </div>
-        )}
-        {selectedInfo.sysA && selectedInfo.sysB && path.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-text font-medium">{selectedInfo.sysA.name}</span>
-            <span className="text-xs text-text-secondary">to</span>
-            <span className="text-sm text-text font-medium">{selectedInfo.sysB.name}</span>
-            <Badge variant="default" className="text-xs bg-cyan-500/20 text-cyan-400">
-              {path.length - 1} {path.length - 1 === 1 ? 'jump' : 'jumps'}
-            </Badge>
-            <span className="text-xs text-text-secondary hidden sm:inline">
-              {path.join(' \u2192 ')}
-            </span>
+            <span className="text-sm text-text font-medium">{selectedSys.name}</span>
+            <span className="text-sm text-text-secondary capitalize">({selectedSys.type})</span>
+            <span className="text-xs text-text-secondary ml-2">from {selectedSys.originRegion}</span>
           </div>
         )}
       </div>
@@ -555,7 +474,7 @@ export function PochvenMap() {
       {/* Canvas + detail panel side-by-side */}
       <div className="flex gap-3">
         {/* Canvas */}
-        <div ref={containerRef} className={`${selectedSys && !selected[1] ? 'flex-1 min-w-0' : 'w-full'}`}>
+        <div ref={containerRef} className={`${selectedSys ? 'flex-1 min-w-0' : 'w-full'}`}>
           <canvas
             ref={canvasRef}
             onClick={handleClick}
@@ -568,7 +487,7 @@ export function PochvenMap() {
         </div>
 
         {/* System detail panel — right side */}
-        {selectedSys && !selected[1] && (
+        {selectedSys && (
           <div className="w-[340px] shrink-0 bg-gray-900/95 border border-gray-700 rounded-lg shadow-2xl backdrop-blur-sm p-4 overflow-y-auto max-h-[750px]">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
@@ -580,7 +499,7 @@ export function PochvenMap() {
                 <span className="font-bold text-white text-base">{selectedSys.name}</span>
               </div>
               <button
-                onClick={() => setSelected([null, null])}
+                onClick={() => setSelected(null)}
                 className="text-gray-500 hover:text-white text-sm px-1"
               >
                 ✕
@@ -619,7 +538,7 @@ export function PochvenMap() {
                 {selectedAdj.map((adj) => (
                   <button
                     key={adj.name}
-                    onClick={() => setSelected([adj.name, null])}
+                    onClick={() => setSelected(adj.name)}
                     className="text-[11px] px-2 py-0.5 rounded-md font-medium transition-colors hover:brightness-125"
                     style={{
                       backgroundColor: KRAI_COLORS[adj.krai] + '25',
@@ -700,13 +619,6 @@ export function PochvenMap() {
         )}
       </div>
 
-      {/* Path detail on mobile */}
-      {path.length > 2 && (
-        <div className="sm:hidden text-xs text-text-secondary px-1">
-          <span className="font-medium text-text">Route: </span>
-          {path.join(' \u2192 ')}
-        </div>
-      )}
     </div>
   );
 }
