@@ -92,11 +92,12 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   if (markers.length === 0) return null;
 
   // Badge dimensions — pill shape centered below system name
-  // System names render at y+12 with ~10px font, so clear at y+22
+  // Pixi labels: center-anchored at y+12, 10px font → bottom edge ~y+17
+  // Add generous gap so badge never overlaps name text
   const badgeH = isMobile ? 16 : 14;
   const badgeR = badgeH / 2;
   const fontSize = isMobile ? 11 : 10;
-  const offsetY = 24; // below system node + name label
+  const offsetY = 32; // well below system node + name label
 
   return (
     <svg
