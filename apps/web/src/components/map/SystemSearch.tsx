@@ -44,10 +44,13 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
     return [...startsWith, ...includes].slice(0, 8);
   }, [systems, query]);
 
-  // Open dropdown when we have results
+  // Open dropdown when we have results (deferred to avoid sync setState in effect)
   useEffect(() => {
-    setIsOpen(results.length > 0 && query.length > 0);
-    setActiveIndex(0);
+    const id = requestAnimationFrame(() => {
+      setIsOpen(results.length > 0 && query.length > 0);
+      setActiveIndex(0);
+    });
+    return () => cancelAnimationFrame(id);
   }, [results, query]);
 
   // Scroll active item into view

@@ -196,14 +196,17 @@ export function JumpRangeMap({
     return ids;
   }, [waypoints, nameToSystem]);
 
-  // Fit viewport to visible systems on data load or origin change
+  // Fit viewport to visible systems on data load or origin change (deferred to avoid sync setState)
   useEffect(() => {
     if (visibleSystems.length === 0) return;
-    const container = containerRef.current;
-    const w = container?.clientWidth ?? 600;
-    const h = container?.clientHeight ?? 400;
-    const fit = calculateFitZoom(visibleSystems, w, h, 40);
-    setViewport({ x: fit.x, y: fit.y, zoom: fit.zoom, width: w, height: h });
+    const id = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      const w = container?.clientWidth ?? 600;
+      const h = container?.clientHeight ?? 400;
+      const fit = calculateFitZoom(visibleSystems, w, h, 40);
+      setViewport({ x: fit.x, y: fit.y, zoom: fit.zoom, width: w, height: h });
+    });
+    return () => cancelAnimationFrame(id);
   }, [visibleSystems, originSystem, destSystem]);
 
   // Resize observer
