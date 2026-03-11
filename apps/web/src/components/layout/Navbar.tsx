@@ -20,9 +20,18 @@ import {
   CreditCard,
   Triangle,
   Swords,
+  Shield,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
+
+// Admin gate — set NEXT_PUBLIC_ADMIN_IDS in env (comma-separated character IDs)
+const ADMIN_IDS = new Set(
+  (process.env.NEXT_PUBLIC_ADMIN_IDS || '')
+    .split(',')
+    .map((id) => parseInt(id.trim(), 10))
+    .filter((id) => !isNaN(id))
+);
 
 interface NavItem {
   href: string;
@@ -215,6 +224,21 @@ export function Navbar() {
                           <Settings className="h-4 w-4" />
                           Settings
                         </Link>
+                        {user?.character_id && ADMIN_IDS.has(user.character_id) && (
+                          <Link
+                            href="/admin"
+                            onClick={() => setUserMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-2 text-sm transition-colors',
+                              pathname === '/admin'
+                                ? 'text-amber-400 bg-amber-500/10'
+                                : 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
+                            )}
+                          >
+                            <Shield className="h-4 w-4" />
+                            Dashboard
+                          </Link>
+                        )}
                       </div>
 
                       {/* Logout */}
@@ -338,6 +362,21 @@ export function Navbar() {
                       <Settings className="h-5 w-5" />
                       Settings
                     </Link>
+                    {user?.character_id && ADMIN_IDS.has(user.character_id) && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                          pathname === '/admin'
+                            ? 'bg-amber-500/20 text-amber-400'
+                            : 'text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10'
+                        )}
+                      >
+                        <Shield className="h-5 w-5" />
+                        Dashboard
+                      </Link>
+                    )}
                     <button
                       onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
                       className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-text-secondary hover:text-red-400 hover:bg-card-hover w-full text-left"
