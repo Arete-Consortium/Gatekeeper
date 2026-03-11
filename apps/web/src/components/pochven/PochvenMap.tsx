@@ -14,7 +14,6 @@ interface PochvenSystem {
   type: SystemType;
   gx: number;
   gy: number;
-  /** Original k-space region before Triglavian invasion */
   originRegion: string;
 }
 
@@ -37,43 +36,43 @@ const KRAI_LABELS: Record<Krai, string> = {
 };
 
 // ── Triangle Layout ─────────────────────────────────────────────────────────
-// Positions match the canonical Pochven triangle diagram:
-//   Veles (green) at top, Svarog (red) bottom-left, Perun (blue) bottom-right
-//   Bottom row: horizontal baseline connecting Svarog → Perun
+// Perfect triangle: apex (0.50, 0.05) → bottom-left (0.05, 0.90) → bottom-right (0.95, 0.90)
+// Left edge:  x = 0.50 - (y - 0.05) * 0.5294
+// Right edge: x = 0.50 + (y - 0.05) * 0.5294
 
 const SYSTEMS: PochvenSystem[] = [
-  // ── Krai Veles (green) — top of triangle ──
-  { name: 'Archee',     krai: 'veles',  type: 'home',     gx: 0.50, gy: 0.04, originRegion: 'Solitude' },
-  { name: 'Vale',       krai: 'veles',  type: 'internal', gx: 0.42, gy: 0.12, originRegion: 'Solitude' },
-  { name: 'Angymonne',  krai: 'veles',  type: 'internal', gx: 0.56, gy: 0.12, originRegion: 'Solitude' },
-  { name: 'Ala',        krai: 'veles',  type: 'internal', gx: 0.39, gy: 0.20, originRegion: 'Domain' },
-  { name: 'Ichoriya',   krai: 'veles',  type: 'internal', gx: 0.60, gy: 0.20, originRegion: 'The Citadel' },
-  { name: 'Wirashoda',  krai: 'veles',  type: 'internal', gx: 0.33, gy: 0.28, originRegion: 'Sinq Laison' },
-  { name: 'Kaunokka',   krai: 'veles',  type: 'internal', gx: 0.65, gy: 0.28, originRegion: 'The Citadel' },
-  { name: 'Senda',      krai: 'veles',  type: 'border',   gx: 0.27, gy: 0.36, originRegion: 'Sinq Laison' },
-  { name: 'Arvasaras',  krai: 'veles',  type: 'border',   gx: 0.71, gy: 0.36, originRegion: 'The Citadel' },
+  // ── Krai Veles (green) — top pyramid ──
+  { name: 'Archee',     krai: 'veles',  type: 'home',     gx: 0.50, gy: 0.05, originRegion: 'Solitude' },
+  { name: 'Vale',       krai: 'veles',  type: 'internal', gx: 0.45, gy: 0.15, originRegion: 'Verge Vendor' },
+  { name: 'Angymonne',  krai: 'veles',  type: 'internal', gx: 0.55, gy: 0.15, originRegion: 'Everyshore' },
+  { name: 'Ala',        krai: 'veles',  type: 'internal', gx: 0.39, gy: 0.25, originRegion: 'Solitude' },
+  { name: 'Ichoriya',   krai: 'veles',  type: 'internal', gx: 0.61, gy: 0.25, originRegion: 'Black Rise' },
+  { name: 'Wirashoda',  krai: 'veles',  type: 'internal', gx: 0.34, gy: 0.35, originRegion: 'The Forge' },
+  { name: 'Kaunokka',   krai: 'veles',  type: 'internal', gx: 0.66, gy: 0.35, originRegion: 'Lonetrek' },
+  { name: 'Senda',      krai: 'veles',  type: 'border',   gx: 0.28, gy: 0.45, originRegion: 'The Forge' },
+  { name: 'Arvasaras',  krai: 'veles',  type: 'border',   gx: 0.72, gy: 0.45, originRegion: 'The Citadel' },
 
-  // ── Krai Svarog (red) — left leg ──
-  { name: 'Ahtila',     krai: 'svarog', type: 'border',   gx: 0.22, gy: 0.44, originRegion: 'Sinq Laison' },
-  { name: 'Kuharah',    krai: 'svarog', type: 'internal', gx: 0.18, gy: 0.51, originRegion: 'Kor-Azor' },
-  { name: 'Tunudan',    krai: 'svarog', type: 'internal', gx: 0.14, gy: 0.58, originRegion: 'Tash-Murkon' },
-  { name: 'Harva',      krai: 'svarog', type: 'internal', gx: 0.09, gy: 0.66, originRegion: 'Domain' },
-  { name: 'Niarja',     krai: 'svarog', type: 'home',     gx: 0.05, gy: 0.80, originRegion: 'Domain' },
-  { name: 'Raravoss',   krai: 'svarog', type: 'internal', gx: 0.15, gy: 0.80, originRegion: 'Domain' },
-  { name: 'Skarkon',    krai: 'svarog', type: 'internal', gx: 0.25, gy: 0.80, originRegion: 'Molden Heath' },
-  { name: 'Nani',       krai: 'svarog', type: 'internal', gx: 0.35, gy: 0.80, originRegion: 'Molden Heath' },
-  { name: 'Urhinichi',  krai: 'svarog', type: 'border',   gx: 0.45, gy: 0.80, originRegion: 'Molden Heath' },
+  // ── Krai Svarog (red) — left leg + bottom-left ──
+  { name: 'Ahtila',     krai: 'svarog', type: 'border',   gx: 0.24, gy: 0.53, originRegion: 'Black Rise' },
+  { name: 'Kuharah',    krai: 'svarog', type: 'internal', gx: 0.20, gy: 0.61, originRegion: 'Devoid' },
+  { name: 'Tunudan',    krai: 'svarog', type: 'internal', gx: 0.15, gy: 0.69, originRegion: 'Lonetrek' },
+  { name: 'Harva',      krai: 'svarog', type: 'internal', gx: 0.11, gy: 0.77, originRegion: 'Domain' },
+  { name: 'Niarja',     krai: 'svarog', type: 'home',     gx: 0.05, gy: 0.90, originRegion: 'Domain' },
+  { name: 'Raravoss',   krai: 'svarog', type: 'internal', gx: 0.15, gy: 0.90, originRegion: 'Domain' },
+  { name: 'Skarkon',    krai: 'svarog', type: 'internal', gx: 0.25, gy: 0.90, originRegion: 'Molden Heath' },
+  { name: 'Nani',       krai: 'svarog', type: 'internal', gx: 0.35, gy: 0.90, originRegion: 'The Citadel' },
+  { name: 'Urhinichi',  krai: 'svarog', type: 'border',   gx: 0.45, gy: 0.90, originRegion: 'The Forge' },
 
-  // ── Krai Perun (blue) — right leg ──
-  { name: 'Sakenta',    krai: 'perun',  type: 'border',   gx: 0.76, gy: 0.44, originRegion: 'The Citadel' },
-  { name: 'Komo',       krai: 'perun',  type: 'internal', gx: 0.80, gy: 0.51, originRegion: 'The Citadel' },
-  { name: 'Ignebaener', krai: 'perun',  type: 'internal', gx: 0.84, gy: 0.58, originRegion: 'Metropolis' },
-  { name: 'Otela',      krai: 'perun',  type: 'internal', gx: 0.88, gy: 0.66, originRegion: 'The Forge' },
-  { name: 'Kino',       krai: 'perun',  type: 'home',     gx: 0.95, gy: 0.80, originRegion: 'Lonetrek' },
-  { name: 'Nalvula',    krai: 'perun',  type: 'internal', gx: 0.85, gy: 0.80, originRegion: 'Lonetrek' },
-  { name: 'Konola',     krai: 'perun',  type: 'internal', gx: 0.75, gy: 0.80, originRegion: 'The Forge' },
-  { name: 'Krirald',    krai: 'perun',  type: 'internal', gx: 0.65, gy: 0.80, originRegion: 'The Forge' },
-  { name: 'Otanuomi',   krai: 'perun',  type: 'border',   gx: 0.55, gy: 0.80, originRegion: 'The Forge' },
+  // ── Krai Perun (blue) — right leg + bottom-right ──
+  { name: 'Sakenta',    krai: 'perun',  type: 'border',   gx: 0.76, gy: 0.53, originRegion: 'The Citadel' },
+  { name: 'Komo',       krai: 'perun',  type: 'internal', gx: 0.80, gy: 0.61, originRegion: 'The Citadel' },
+  { name: 'Ignebaener', krai: 'perun',  type: 'internal', gx: 0.85, gy: 0.69, originRegion: 'Sinq Laison' },
+  { name: 'Otela',      krai: 'perun',  type: 'internal', gx: 0.89, gy: 0.77, originRegion: 'The Forge' },
+  { name: 'Kino',       krai: 'perun',  type: 'home',     gx: 0.95, gy: 0.90, originRegion: 'Lonetrek' },
+  { name: 'Nalvula',    krai: 'perun',  type: 'internal', gx: 0.85, gy: 0.90, originRegion: 'Lonetrek' },
+  { name: 'Konola',     krai: 'perun',  type: 'internal', gx: 0.75, gy: 0.90, originRegion: 'The Forge' },
+  { name: 'Krirald',    krai: 'perun',  type: 'internal', gx: 0.65, gy: 0.90, originRegion: 'Metropolis' },
+  { name: 'Otanuomi',   krai: 'perun',  type: 'border',   gx: 0.55, gy: 0.90, originRegion: 'The Forge' },
 ];
 
 const GATES: PochvenGate[] = [
@@ -111,6 +110,52 @@ const GATES: PochvenGate[] = [
   { from: 'Senda', to: 'Ahtila', crossKrai: true },
   { from: 'Arvasaras', to: 'Sakenta', crossKrai: true },
   { from: 'Urhinichi', to: 'Otanuomi', crossKrai: true },
+];
+
+// ── C729 Wormhole Entry Candidates (from pochven.electusmatari.com) ─────────
+// Each Pochven system has a guaranteed C729 wormhole that spawns in one of these
+// k-space systems (within ~3 jumps of the system's original location).
+
+const C729_CANDIDATES: Record<string, string[]> = {
+  // Home systems
+  Archee: ['Adrallezoen', 'Ardene', 'Atier', 'Bawilan', 'Boillair', 'Brapelille', 'Brybier', 'Caretyn', 'Croleur', 'Fricoure', 'Ney', 'Ardallabier'],
+  Niarja: ['Amarr', 'Arbaz', 'Ashab', 'Bahromab', 'Bhizheba', 'Chaven', 'Fabum', 'Hedion', 'Kehour', 'Kudi', 'Madirmilire', 'Penirgman', 'Saana', 'Sayartchen', 'Sharji', 'Teshi', 'Aphend', 'Romi', 'Halaima', 'Ikao', 'Inaro', 'Kaaputenen', 'Kamio', 'Sirppala', 'Waskisen', 'Sirseshin'],
+  Kino: ['Ajanen', 'Erenta', 'Isanamo', 'Kuoka', 'Litiura', 'Ouranienen', 'Sotrentaira', 'Uemisaisen', 'Hogimo', 'Huttaken', 'Kulelen', 'Venilen', 'Yria'],
+  // Border systems
+  Senda: ['Geras', 'Shihuken', 'Sirseshin', 'Tuuriainas', 'Uitra', 'Unpas', 'Urlen'],
+  Ahtila: ['Aivonen', 'Akidagi', 'Asakai', 'Astoh', 'Enaluri', 'Ikoskio', 'Innia', 'Kinakka', 'Martoh', 'Nennamaila', 'Onnamon', 'Prism', 'Raihbaka', 'Rohamaa', 'Samanuni', 'Tsuruma', 'Uchomida', 'Uuhulanen', 'Elonaya', 'Haajinen', 'Piak'],
+  Arvasaras: ['Aikoro', 'Alikara', 'Kaimon', 'Akonoinen', 'Autaris', 'Hageken', 'Isanamo', 'Jan', 'Vaajaita', 'Vellaine', 'New Caldari'],
+  Sakenta: ['Ahynada', 'Muvolailen', 'Ansila', 'Aokannitoh', 'Hirtamon', 'Hykkota', 'Ikuchi', 'Maurasi', 'New Caldari', 'Niyabainen', 'Perimeter', 'Ichinumi', 'Nourvukaiken', 'Sarekuwa', 'Sobaseki', 'Tunttaras'],
+  Otanuomi: ['Akkilen', 'Eruka', 'Friggi', 'Hentogaira', 'Ihakana', 'Kiainti', 'Mastakomon', 'Ohkunen', 'Osaa', 'Otitoh', 'Otomainen', 'Otsela', 'Uchoshi', 'Vasala', 'Vouskiaho', 'Walvalin'],
+  Urhinichi: ['Anttiri', 'Inaro', 'Isikesu', 'Juunigaishi', 'Kaaputenen', 'Kusomonmon', 'Sirppala', 'Suroken', 'Waskisen', 'Kisogo', 'Perimeter', 'Sirseshin', 'Unpas', 'Urlen'],
+  // Internal systems
+  Harva: ['Aghesi', 'Airshaz', 'Charra', 'Fabin', 'Madimal', 'Maiah', 'Murema', 'Murzi', 'Patzcha', 'Yuhelia'],
+  Nani: ['Autama', 'Iidoken', 'Isanamo', 'Kirras', 'Nourvukaiken', 'Ouranienen', 'Sarekuwa', 'Tsuguwa', 'Tsukuras', 'Veisto'],
+  Otela: ['Alikara', 'Geras', 'Hirtamon', 'Josameto', 'Liekuri', 'New Caldari', 'Niyabainen', 'Nomaa', 'Obanen', 'Olo', 'Poinen', 'Saisio', 'Malkalen'],
+  Angymonne: ['Aice', 'Amattens', 'Antollare', 'Avele', 'Averon', 'Bereye', 'Carirgnottin', 'Enedore', 'Jurlesel', 'Laic', 'Leremblompes', 'Muer', 'Odixie', 'Scuelazyns', 'Tolle'],
+  Ala: ['Adrallezoen', 'Aliette', 'Ardene', 'Boillair', 'Fasse', 'Gratesier', 'Ney', 'Odette', 'Ravarin', 'Schoorasana', 'Stegette', 'Ardallabier', 'Mormelot', 'Kurniainen', 'Saidusairos'],
+  Ignebaener: ['Adirain', 'Aere', 'Aeschee', 'Arnon', 'Attyn', 'Hulmate', 'Ladistier', 'Laurvier', 'Lisbaetanne', 'Onne', 'Amoderia', 'Arraron', 'Chantrousse', 'Jovainnon', 'Stou'],
+  Raravoss: ['Anka', 'Gammel', 'Iesa', 'Kamela', 'Myyhera', 'Netsalakka', 'Saikamon', 'Sasiekko', 'Sosala', 'Uusanen', 'Ardishapur Prime', 'Ekid', 'Gid', 'Mai', 'Nakri', 'Orkashu', 'Rasile', 'Sharhelund', 'Thebeka', 'Youl', 'Zaimeth'],
+  Vale: ['Allamotte', 'Andole', 'Arant', 'Atlangeins', 'Cat', 'Derririntel', 'Old Man Star', 'Ommare', 'Pemene', 'Villore', 'Erme', 'Tierijev'],
+  Konola: ['Ahynada', 'Aikoro', 'Eitu', 'Erila', 'Horkkisen', 'Inoue', 'Isaziwa', 'Kaimon', 'Oiniken'],
+  Krirald: ['Anher', 'Ansen', 'Arifsdald', 'Arwa', 'Bei', 'Dudreda', 'Hagilur', 'Hakisalki', 'Ragnarg', 'Thelan'],
+  Kuharah: ['Doril', 'Futzchag', 'Jayneleb', 'Kazna', 'Lilmad', 'Mifrata', 'Onsooh', 'Podion', 'Sendaya'],
+  Kaunokka: ['Erenta', 'Hogimo', 'Huttaken', 'Hysera', 'Kulelen', 'Oisio', 'Oshaima', 'Venilen', 'Yria'],
+  Komo: ['Ahynada', 'Aikoro', 'Annaro', 'Aramachi', 'Auviken', 'Isaziwa', 'Isenairos', 'Kaimon', 'Kausaaja', 'Laah', 'Motsu', 'Muvolailen', 'Oichiya', 'Oiniken', 'Paara', 'Saila', 'Uotila', 'Ichinumi', 'Nourvukaiken', 'Sarekuwa', 'Tunttaras', 'Ikuchi', 'Niyabainen'],
+  Nalvula: ['Akonoinen', 'Aurohunen', 'Autaris', 'Hageken', 'Hakonen', 'Jan', 'Oimmo', 'Otsasai', 'Taisy', 'Uosusuokko', 'Vaajaita', 'Vellaine', 'Vuorrassi', 'E-OGL4', 'FY0W-N', 'J-GAMP', 'M-OEE8', 'V0DF-2', 'Obe', 'Ohkunen', 'P3EN-E'],
+  Skarkon: ['C-4D0W', 'CT8K-0', 'IL-H0A', 'L4X-1V', 'M9-LAN', 'PX-IHN', 'WPV-JN', 'Ennur', 'Fegomenko', 'Illamur', 'Meildolf', 'Mimiror', 'Orien', 'Osvetur', 'Unertek', 'Offikatlin', 'Tabbetzur'],
+  Tunudan: ['Enderailen', 'Hogimo', 'Huttaken', 'Kubinen', 'Kulelen', 'Oisio', 'Oshaima', 'Rairomon', 'Sivala', 'Uedama', 'Venilen', 'Yria'],
+  Wirashoda: ['Eruka', 'Mastakomon', 'Ohkunen', 'Osaa', 'Uchoshi', 'Vasala', 'Vouskiaho'],
+  Ichoriya: ['Aivonen', 'Akidagi', 'Enaluri', 'Hallanen', 'Hikkoken', 'Ikoskio', 'Immuri', 'Kinakka', 'Nennamaila', 'Onnamon', 'Pavanakka', 'Rohamaa', 'Samanuni', 'Tsuruma', 'Uchomida', 'Uuhulanen', 'Piak', 'Aldranette'],
+};
+
+// Wormhole types that connect to Pochven
+const WH_TYPES = [
+  { type: 'C729', dir: 'K-Space → Pochven', mass: '1B kg', jump: '410M kg', life: '12h', note: 'Guaranteed — every system always has one' },
+  { type: 'X450', dir: 'Pochven → Nullsec', mass: '1B kg', jump: '300M kg', life: '16h', note: '' },
+  { type: 'R081', dir: 'Pochven → C4 WH', mass: '1B kg', jump: '300M kg', life: '16h', note: '' },
+  { type: 'U372', dir: 'Drone Regions → Pochven', mass: '1B kg', jump: '300M kg', life: '16h', note: '' },
+  { type: 'F216', dir: 'WH Space → Pochven', mass: '1B kg', jump: '300M kg', life: '16h', note: '' },
 ];
 
 // ── BFS pathfinding ─────────────────────────────────────────────────────────
@@ -152,7 +197,6 @@ function bfs(from: string, to: string): string[] {
 
 const SYSTEM_MAP = new Map(SYSTEMS.map((s) => [s.name, s]));
 
-// Get adjacent systems for a given system
 function getAdjacent(name: string): string[] {
   const adj: string[] = [];
   for (const g of GATES) {
@@ -162,9 +206,8 @@ function getAdjacent(name: string): string[] {
   return adj;
 }
 
-// Node box dimensions
-const NODE_H = 22;
-const NODE_PAD_X = 10;
+const NODE_H = 24;
+const NODE_PAD_X = 12;
 
 export function PochvenMap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -188,7 +231,6 @@ export function PochvenMap() {
     return edges;
   }, [path]);
 
-  // Resize observer
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -201,10 +243,9 @@ export function PochvenMap() {
     return () => observer.disconnect();
   }, []);
 
-  // Convert normalized coords to canvas pixels
   const toCanvas = useCallback(
     (gx: number, gy: number) => {
-      const padX = 50;
+      const padX = 60;
       const padY = 30;
       return {
         x: padX + gx * (size.w - padX * 2),
@@ -214,7 +255,6 @@ export function PochvenMap() {
     [size]
   );
 
-  // Measure node box width (cached per render)
   const nodeWidths = useMemo(() => {
     if (typeof document === 'undefined') return new Map<string, number>();
     const canvas = document.createElement('canvas');
@@ -229,7 +269,6 @@ export function PochvenMap() {
     return widths;
   }, [size.w]);
 
-  // Hit test — check if point is inside any node rectangle
   const hitTest = useCallback(
     (cx: number, cy: number): string | null => {
       for (const sys of SYSTEMS) {
@@ -247,7 +286,6 @@ export function PochvenMap() {
     [toCanvas, nodeWidths]
   );
 
-  // Click handler
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -267,7 +305,6 @@ export function PochvenMap() {
     [hitTest]
   );
 
-  // Hover handler
   const handleMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -280,7 +317,6 @@ export function PochvenMap() {
     [hitTest]
   );
 
-  // Touch handler
   const handleTouch = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -322,7 +358,7 @@ export function PochvenMap() {
 
     const fontSize = Math.max(10, Math.min(13, size.w / 75));
 
-    // Helper: get node edge point towards another node (for line connections)
+    // Edge-to-edge line connection helper
     const getEdgePoint = (from: PochvenSystem, to: PochvenSystem) => {
       const fp = toCanvas(from.gx, from.gy);
       const tp = toCanvas(to.gx, to.gy);
@@ -331,16 +367,13 @@ export function PochvenMap() {
       const dx = tp.x - fp.x;
       const dy = tp.y - fp.y;
       const angle = Math.atan2(dy, dx);
-      // Determine exit side based on angle
       const tanA = Math.abs(dy / (dx || 0.001));
       const tanBox = fh / fw;
       let ex: number, ey: number;
       if (tanA <= tanBox) {
-        // Exit from left or right
         ex = fp.x + Math.sign(dx) * fw;
         ey = fp.y + Math.sign(dx) * fw * Math.tan(angle);
       } else {
-        // Exit from top or bottom
         ey = fp.y + Math.sign(dy) * fh;
         ex = fp.x + Math.sign(dy) * fh / Math.tan(angle);
       }
@@ -372,15 +405,14 @@ export function PochvenMap() {
         ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 1.5;
       } else {
-        // Same color as the krai, dimmed
-        ctx.strokeStyle = KRAI_COLORS[fromSys.krai] + '60';
+        ctx.strokeStyle = KRAI_COLORS[fromSys.krai] + '70';
         ctx.lineWidth = 2;
       }
       ctx.stroke();
       ctx.restore();
     }
 
-    // Draw system nodes as colored rectangles with labels
+    // Draw system nodes
     ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -397,30 +429,24 @@ export function PochvenMap() {
 
       ctx.save();
 
-      // Glow for selected/path nodes
       if (isSelected || isOnPath) {
         ctx.shadowColor = isSelected ? '#22d3ee' : color;
         ctx.shadowBlur = isSelected ? 14 : 8;
       }
-
-      // Hover glow
       if (isHovered && !isSelected) {
         ctx.shadowColor = color;
         ctx.shadowBlur = 10;
       }
 
-      // Rectangle background
       const rx = pos.x - halfW;
       const ry = pos.y - halfH;
-      const expandH = isHovered ? 2 : 0;
-      const expandW = isHovered ? 2 : 0;
+      const expand = isHovered ? 2 : 0;
 
       ctx.fillStyle = isSelected ? '#22d3ee' : color;
       ctx.beginPath();
-      ctx.roundRect(rx - expandW, ry - expandH, w + expandW * 2, NODE_H + expandH * 2, 4);
+      ctx.roundRect(rx - expand, ry - expand, w + expand * 2, NODE_H + expand * 2, 4);
       ctx.fill();
 
-      // Selection ring
       if (isSelected) {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
@@ -429,9 +455,18 @@ export function PochvenMap() {
         ctx.stroke();
       }
 
+      // Home system diamond marker
+      if (sys.type === 'home') {
+        ctx.strokeStyle = '#ffffff80';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(rx - 5, ry - 5, w + 10, NODE_H + 10, 8);
+        ctx.stroke();
+      }
+
       ctx.restore();
 
-      // Label text inside rectangle
+      // Label
       ctx.fillStyle = '#ffffff';
       ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'center';
@@ -439,36 +474,26 @@ export function PochvenMap() {
       ctx.fillText(sys.name, pos.x, pos.y);
     }
 
-    // ── Krai Labels ─────────────────────────────────────────────────────────
-
-    ctx.font = `600 ${Math.max(12, size.w / 60)}px system-ui, -apple-system, sans-serif`;
+    // Krai labels (dim, in background)
+    ctx.font = `600 ${Math.max(12, size.w / 55)}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Krai Veles — between the two legs at top
-    const velesLabel = toCanvas(0.50, 0.22);
-    ctx.fillStyle = KRAI_COLORS.veles + '40';
-    ctx.fillText('Krai Veles', velesLabel.x, velesLabel.y);
+    const velesLabel = toCanvas(0.50, 0.28);
+    ctx.fillStyle = KRAI_COLORS.veles + '25';
+    ctx.fillText('KRAI VELES', velesLabel.x, velesLabel.y);
 
-    // Krai Svarog — left side
-    const svarogLabel = toCanvas(0.18, 0.62);
-    ctx.fillStyle = KRAI_COLORS.svarog + '40';
-    ctx.fillText('Krai Svarog', svarogLabel.x, svarogLabel.y);
+    const svarogLabel = toCanvas(0.15, 0.65);
+    ctx.fillStyle = KRAI_COLORS.svarog + '25';
+    ctx.fillText('KRAI SVAROG', svarogLabel.x, svarogLabel.y);
 
-    // Krai Perun — right side
-    const perunLabel = toCanvas(0.82, 0.62);
-    ctx.fillStyle = KRAI_COLORS.perun + '40';
-    ctx.fillText('Krai Perun', perunLabel.x, perunLabel.y);
-
-    // "Pochven Region" — center
-    ctx.font = `bold ${Math.max(16, size.w / 40)}px system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = '#334155';
-    const centerLabel = toCanvas(0.50, 0.55);
-    ctx.fillText('Pochven Region', centerLabel.x, centerLabel.y);
+    const perunLabel = toCanvas(0.85, 0.65);
+    ctx.fillStyle = KRAI_COLORS.perun + '25';
+    ctx.fillText('KRAI PERUN', perunLabel.x, perunLabel.y);
 
   }, [size, hovered, selected, path, pathEdges, toCanvas, nodeWidths]);
 
-  // ── Info panel ────────────────────────────────────────────────────────────
+  // ── Info panel data ─────────────────────────────────────────────────────────
 
   const selectedSys = useMemo(() => {
     return selected[0] ? SYSTEM_MAP.get(selected[0]) ?? null : null;
@@ -481,9 +506,12 @@ export function PochvenMap() {
 
   const selectedInfo = useMemo(() => {
     const [a, b] = selected;
-    const sysA = a ? SYSTEM_MAP.get(a) : null;
-    const sysB = b ? SYSTEM_MAP.get(b) : null;
-    return { sysA, sysB };
+    return { sysA: a ? SYSTEM_MAP.get(a) : null, sysB: b ? SYSTEM_MAP.get(b) : null };
+  }, [selected]);
+
+  const c729Systems = useMemo(() => {
+    if (!selected[0]) return [];
+    return C729_CANDIDATES[selected[0]] || [];
   }, [selected]);
 
   return (
@@ -492,7 +520,7 @@ export function PochvenMap() {
       <div className="flex flex-wrap items-center gap-2 min-h-[36px]">
         {!selected[0] && (
           <span className="text-sm text-text-secondary">
-            Click a system to view connections. Click a second to find shortest path.
+            Click a system to view connections &amp; C729 entry points. Click a second for shortest route.
           </span>
         )}
         {selectedInfo.sysA && !selectedInfo.sysB && (
@@ -506,7 +534,7 @@ export function PochvenMap() {
             </Badge>
             <span className="text-sm text-text font-medium">{selectedInfo.sysA.name}</span>
             <span className="text-sm text-text-secondary capitalize">({selectedInfo.sysA.type})</span>
-            <span className="text-xs text-text-secondary ml-2">Click another system for route</span>
+            <span className="text-xs text-text-secondary ml-2">Click another for route</span>
           </div>
         )}
         {selectedInfo.sysA && selectedInfo.sysB && path.length > 0 && (
@@ -524,9 +552,10 @@ export function PochvenMap() {
         )}
       </div>
 
-      {/* Canvas + detail panel */}
-      <div className="relative">
-        <div ref={containerRef} className="w-full">
+      {/* Canvas + detail panel side-by-side */}
+      <div className="flex gap-3">
+        {/* Canvas */}
+        <div ref={containerRef} className={`${selectedSys && !selected[1] ? 'flex-1 min-w-0' : 'w-full'}`}>
           <canvas
             ref={canvasRef}
             onClick={handleClick}
@@ -538,9 +567,9 @@ export function PochvenMap() {
           />
         </div>
 
-        {/* System detail overlay — centered on canvas */}
+        {/* System detail panel — right side */}
         {selectedSys && !selected[1] && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-gray-900/95 border border-gray-600 rounded-lg shadow-2xl backdrop-blur-sm p-4 min-w-[260px] max-w-[340px]">
+          <div className="w-[340px] shrink-0 bg-gray-900/95 border border-gray-700 rounded-lg shadow-2xl backdrop-blur-sm p-4 overflow-y-auto max-h-[750px]">
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -548,19 +577,18 @@ export function PochvenMap() {
                   className="w-3 h-3 rounded-sm"
                   style={{ backgroundColor: KRAI_COLORS[selectedSys.krai] }}
                 />
-                <span className="font-bold text-white text-sm">{selectedSys.name}</span>
-                <span className="text-[10px] text-gray-400 capitalize">({selectedSys.type})</span>
+                <span className="font-bold text-white text-base">{selectedSys.name}</span>
               </div>
               <button
                 onClick={() => setSelected([null, null])}
-                className="text-gray-500 hover:text-white text-xs"
+                className="text-gray-500 hover:text-white text-sm px-1"
               >
                 ✕
               </button>
             </div>
 
-            {/* Krai + Origin */}
-            <div className="space-y-2 text-xs">
+            {/* System info */}
+            <div className="space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-gray-400">Krai</span>
                 <span style={{ color: KRAI_COLORS[selectedSys.krai] }}>
@@ -568,21 +596,30 @@ export function PochvenMap() {
                 </span>
               </div>
               <div className="flex justify-between">
+                <span className="text-gray-400">Type</span>
+                <span className="text-gray-200 capitalize">{selectedSys.type}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-400">Origin Region</span>
                 <span className="text-gray-200">{selectedSys.originRegion}</span>
               </div>
+              {selectedSys.type === 'home' && (
+                <div className="mt-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded text-amber-400 text-[10px]">
+                  Gate access requires 7.0 Triglavian standing
+                </div>
+              )}
             </div>
 
-            {/* Internal connections */}
-            <div className="mt-3 pt-3 border-t border-gray-700">
+            {/* Gate connections */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Gate Connections
+                Gate Connections ({selectedAdj.length})
               </span>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {selectedAdj.map((adj) => (
                   <button
                     key={adj.name}
-                    onClick={(e) => { e.stopPropagation(); setSelected([adj.name, null]); }}
+                    onClick={() => setSelected([adj.name, null])}
                     className="text-[11px] px-2 py-0.5 rounded-md font-medium transition-colors hover:brightness-125"
                     style={{
                       backgroundColor: KRAI_COLORS[adj.krai] + '25',
@@ -598,24 +635,65 @@ export function PochvenMap() {
               </div>
             </div>
 
-            {/* Wormhole connection info */}
-            <div className="mt-3 pt-3 border-t border-gray-700">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                Wormhole Connections
-              </span>
-              <p className="text-[11px] text-gray-300 mt-1.5">
-                {selectedSys.type === 'home' && (
-                  <>Wandering wormholes to C5/C6 space. Filament entry from k-space.</>
-                )}
-                {selectedSys.type === 'internal' && (
-                  <>Wormhole connections spawn to {selectedSys.originRegion} and adjacent regions.</>
-                )}
-                {selectedSys.type === 'border' && (
-                  <>Border system — cross-Krai gate access. Wormholes to {selectedSys.originRegion}.</>
-                )}
+            {/* C729 Entry Systems */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  C729 Entry Systems
+                </span>
+                <span className="text-[10px] text-cyan-400 font-mono">
+                  {c729Systems.length} candidates
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                K-space systems where the guaranteed C729 wormhole can spawn (scan from these systems to find entry)
               </p>
-              <p className="text-[10px] text-gray-500 mt-1 italic">
-                Connections change dynamically. Scan in-game for current exits.
+              <div className="mt-2 flex flex-wrap gap-1">
+                {c729Systems.map((sys) => (
+                  <span
+                    key={sys}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
+                  >
+                    {sys}
+                  </span>
+                ))}
+              </div>
+              {c729Systems.length === 0 && (
+                <p className="text-[10px] text-gray-500 mt-1 italic">No candidate data available</p>
+              )}
+            </div>
+
+            {/* Wormhole Types */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                Wormhole Types
+              </span>
+              <div className="mt-2 space-y-1.5">
+                {WH_TYPES.map((wh) => (
+                  <div key={wh.type} className="flex items-start gap-2 text-[10px]">
+                    <span className="font-mono text-cyan-400 w-8 shrink-0">{wh.type}</span>
+                    <span className="text-gray-300 flex-1">{wh.dir}</span>
+                    <span className="text-gray-500 shrink-0">{wh.life}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-500 mt-2 italic">
+                C729 guaranteed &amp; respawns instantly if rolled. Others spawn dynamically.
+              </p>
+            </div>
+
+            {/* Source attribution */}
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <p className="text-[9px] text-gray-600">
+                C729 candidate data from{' '}
+                <a
+                  href="https://pochven.electusmatari.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-600 hover:text-cyan-400 underline"
+                >
+                  Electus Matari Pochven Manual
+                </a>
               </p>
             </div>
           </div>
