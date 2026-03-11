@@ -203,6 +203,7 @@ function MapPageContent() {
       showLandmarks: true,
       showSovStructures: false,
       showWormholes: false,
+      showMarketHubs: false,
     };
     if (typeof window === 'undefined') return defaults;
     try {
@@ -272,6 +273,13 @@ function MapPageContent() {
     queryFn: () => GatekeeperAPI.getWormholes(),
     staleTime: 2 * 60 * 1000,
     enabled: !!mapConfig && layers.showWormholes === true,
+  });
+
+  const { data: marketHubData } = useQuery({
+    queryKey: ['marketHubs'],
+    queryFn: () => GatekeeperAPI.getMarketHubs(),
+    staleTime: 30 * 60 * 1000, // 30 min — static data
+    enabled: !!mapConfig && layers.showMarketHubs === true,
   });
 
   const { data: characterLocation } = useQuery({
@@ -576,6 +584,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
+          <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
           <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
@@ -718,6 +727,10 @@ function MapPageContent() {
           <div className="flex items-center gap-2 mt-2">
             <div className="h-3 w-3 rounded-full border-2 border-yellow-500" aria-hidden="true" />
             <span className="text-text-secondary">Trade Hub</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rotate-45 border border-amber-400 bg-amber-500/30" aria-hidden="true" />
+            <span className="text-text-secondary">Market Hub Volume</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-2 w-4 border border-cyan-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
@@ -877,6 +890,7 @@ function MapPageContent() {
                 landmarks={mapConfig?.landmarks}
                 sovStructures={sovStructData?.structures}
                 wormholeConnections={wormholeData?.connections}
+                marketHubs={marketHubData?.hubs}
                 characterSystemId={characterLocation?.solar_system_id}
                 characterName={user?.character_name}
                 layers={layers}

@@ -35,6 +35,7 @@ import {
   WormholeListResponse,
   CharacterLocation,
   SetWaypointsResponse,
+  MarketHubsResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -512,6 +513,15 @@ class GatekeeperAPIService {
       method: 'POST',
       body: JSON.stringify({ systems, clear_existing: clearExisting }),
     });
+  }
+
+  // ==================== Market Hubs ====================
+
+  /**
+   * Get market hub data for the 5 major trade hubs
+   */
+  async getMarketHubs(): Promise<MarketHubsResponse> {
+    return this.request<MarketHubsResponse>('/map/market-hubs');
   }
 
   // ==================== Utility ====================

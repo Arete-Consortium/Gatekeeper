@@ -148,6 +148,16 @@ async def startup_event() -> None:
 
     init_default_subscriptions()
 
+    # Load persisted wormhole connections from database
+    from .services.wormhole import get_wormhole_service
+
+    wh_service = get_wormhole_service()
+    try:
+        loaded = await wh_service.load_from_db()
+        logger.info(f"Loaded {loaded} wormhole connections from database")
+    except Exception:
+        logger.warning("Failed to load wormhole connections from database", exc_info=True)
+
     logger.info("Application startup complete")
 
 

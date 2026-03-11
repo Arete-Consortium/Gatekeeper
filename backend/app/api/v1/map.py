@@ -320,3 +320,78 @@ async def list_connection_types() -> list[str]:
 async def list_security_levels() -> list[str]:
     """List all security levels."""
     return [sl.value for sl in SecurityLevel]
+
+
+# =============================================================================
+# Market Hub Models & Endpoint
+# =============================================================================
+
+
+class MarketHubResponse(BaseModel):
+    """A major trade hub with estimated daily volume."""
+
+    system_id: int
+    system_name: str
+    region_name: str
+    is_primary: bool = Field(description="True for Jita (the dominant hub)")
+    daily_volume_estimate: float = Field(description="Estimated daily ISK volume")
+
+
+class MarketHubsResponse(BaseModel):
+    """All major trade hubs."""
+
+    hubs: list[MarketHubResponse]
+
+
+# Static trade hub data — will be replaced with live ESI data later
+_MARKET_HUBS: list[MarketHubResponse] = [
+    MarketHubResponse(
+        system_id=30000142,
+        system_name="Jita",
+        region_name="The Forge",
+        is_primary=True,
+        daily_volume_estimate=50_000_000_000_000,  # ~50T ISK/day
+    ),
+    MarketHubResponse(
+        system_id=30002187,
+        system_name="Amarr",
+        region_name="Domain",
+        is_primary=False,
+        daily_volume_estimate=15_000_000_000_000,  # ~15T ISK/day
+    ),
+    MarketHubResponse(
+        system_id=30002659,
+        system_name="Dodixie",
+        region_name="Sinq Laison",
+        is_primary=False,
+        daily_volume_estimate=3_000_000_000_000,  # ~3T ISK/day
+    ),
+    MarketHubResponse(
+        system_id=30002510,
+        system_name="Rens",
+        region_name="Heimatar",
+        is_primary=False,
+        daily_volume_estimate=2_000_000_000_000,  # ~2T ISK/day
+    ),
+    MarketHubResponse(
+        system_id=30002053,
+        system_name="Hek",
+        region_name="Metropolis",
+        is_primary=False,
+        daily_volume_estimate=1_000_000_000_000,  # ~1T ISK/day
+    ),
+]
+
+
+@router.get(
+    "/market-hubs",
+    response_model=MarketHubsResponse,
+    summary="Get major trade hub data",
+    description="Returns market activity data for the 5 major EVE trade hubs.",
+)
+async def get_market_hubs() -> MarketHubsResponse:
+    """Get trade hub data for map overlay.
+
+    Returns static estimates for now — will be wired to ESI market data later.
+    """
+    return MarketHubsResponse(hubs=_MARKET_HUBS)

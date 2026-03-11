@@ -5,8 +5,9 @@ import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
+import { MarketHubsOverlay } from './MarketHubsOverlay';
 import type { MapSystem, MapViewport } from './types';
-import type { TheraConnection, FWSystem, SovStructure, Landmark } from '@/lib/types';
+import type { TheraConnection, FWSystem, SovStructure, Landmark, MarketHub } from '@/lib/types';
 
 // === Shared Fixtures ===
 
@@ -508,5 +509,165 @@ describe('SovStructuresOverlay', () => {
     expect(text).toBeTruthy();
     // Base font 8, zoomed = 8 * 1.3 = 10.4 → rounded to 10
     expect(Number(text!.getAttribute('font-size'))).toBeGreaterThan(8);
+  });
+});
+
+// === MarketHubsOverlay ===
+
+describe('MarketHubsOverlay', () => {
+  const JITA_SYSTEM = makeSystem({ systemId: 30000142, name: 'Jita', x: 10, y: 10 });
+  const AMARR_SYSTEM = makeSystem({ systemId: 30002187, name: 'Amarr', x: 50, y: 50 });
+  const HUB_SYSTEMS = makeSystemMap(JITA_SYSTEM, AMARR_SYSTEM);
+
+  const makeHub = (overrides: Partial<MarketHub> = {}): MarketHub => ({
+    system_id: 30000142,
+    system_name: 'Jita',
+    region_name: 'The Forge',
+    is_primary: true,
+    daily_volume_estimate: 50_000_000_000_000,
+    ...overrides,
+  });
+
+  it('renders nothing with empty hubs', () => {
+    const { container } = render(
+      <MarketHubsOverlay hubs={[]} systems={HUB_SYSTEMS} viewport={VIEWPORT} />
+    );
+    expect(container.querySelector('[data-testid="market-hubs-overlay"]')).toBeNull();
+  });
+
+  it('renders diamond marker for hub', () => {
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const diamond = container.querySelector('.rotate-45');
+    expect(diamond).toBeTruthy();
+  });
+
+  it('applies pulse animation to primary hub (Jita)', () => {
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[makeHub({ is_primary: true })]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const diamond = container.querySelector('.animate-pulse');
+    expect(diamond).toBeTruthy();
+  });
+
+  it('does not apply pulse animation to non-primary hub', () => {
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[makeHub({ system_id: 30002187, system_name: 'Amarr', is_primary: false })]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const diamond = container.querySelector('.animate-pulse');
+    expect(diamond).toBeNull();
+  });
+
+  it('shows label at sufficient zoom', () => {
+    render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={HUB_SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 1 }}
+      />
+    );
+    expect(screen.getByText('Jita')).toBeInTheDocument();
+  });
+
+  it('hides label at low zoom', () => {
+    render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={HUB_SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 0.5 }}
+      />
+    );
+    expect(screen.queryByText('Jita')).toBeNull();
+  });
+
+  it('shows tooltip on hover with region and volume', () => {
+    render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const marker = document.querySelector('.pointer-events-auto');
+    expect(marker).toBeTruthy();
+    fireEvent.mouseEnter(marker!);
+    expect(screen.getByText('The Forge')).toBeInTheDocument();
+    expect(screen.getByText('Primary Trade Hub')).toBeInTheDocument();
+  });
+
+  it('hides tooltip on mouse leave', () => {
+    render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const marker = document.querySelector('.pointer-events-auto');
+    fireEvent.mouseEnter(marker!);
+    fireEvent.mouseLeave(marker!);
+    expect(screen.queryByText('Primary Trade Hub')).toBeNull();
+  });
+
+  it('skips hubs not in system map', () => {
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[makeHub({ system_id: 99999 })]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    expect(container.querySelector('[data-testid="market-hubs-overlay"]')).toBeNull();
+  });
+
+  it('skips hubs outside viewport', () => {
+    const farSystem = makeSystem({ systemId: 30000142, x: 5000, y: 5000 });
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[makeHub()]}
+        systems={makeSystemMap(farSystem)}
+        viewport={VIEWPORT}
+      />
+    );
+    expect(container.querySelector('[data-testid="market-hubs-overlay"]')).toBeNull();
+  });
+
+  it('renders multiple hubs', () => {
+    const { container } = render(
+      <MarketHubsOverlay
+        hubs={[
+          makeHub(),
+          makeHub({ system_id: 30002187, system_name: 'Amarr', is_primary: false, daily_volume_estimate: 15_000_000_000_000 }),
+        ]}
+        systems={HUB_SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const diamonds = container.querySelectorAll('.rotate-45');
+    expect(diamonds.length).toBe(2);
+  });
+
+  it('formats volume in trillions', () => {
+    render(
+      <MarketHubsOverlay
+        hubs={[makeHub({ daily_volume_estimate: 50_000_000_000_000 })]}
+        systems={HUB_SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 1 }}
+      />
+    );
+    expect(screen.getByText('50T ISK/day')).toBeInTheDocument();
   });
 });

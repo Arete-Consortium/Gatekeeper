@@ -36,6 +36,7 @@ import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
+import { MarketHubsOverlay } from './MarketHubsOverlay';
 import { CharacterMarker } from './CharacterMarker';
 
 // Default layer visibility
@@ -52,6 +53,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showLandmarks: true,
   showSovStructures: false,
   showWormholes: false,
+  showMarketHubs: false,
 };
 
 // Animation duration in ms
@@ -78,6 +80,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       landmarks = [],
       sovStructures,
       wormholeConnections = [],
+      marketHubs = [],
       characterSystemId,
       characterName,
       selectedSystem,
@@ -405,6 +408,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         {layers.showLandmarks && landmarks.length > 0 && (
           <LandmarksOverlay
             landmarks={landmarks}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Market Hubs */}
+        {layers.showMarketHubs && marketHubs.length > 0 && (
+          <MarketHubsOverlay
+            hubs={marketHubs}
             systems={systemMap}
             viewport={viewport}
           />

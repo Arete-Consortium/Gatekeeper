@@ -5,6 +5,7 @@ import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
 import { Analytics } from '@/components/Analytics';
 import { ConsentGatedVercelAnalytics } from '@/components/ConsentGatedVercelAnalytics';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
+import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 import '@/styles/globals.css';
 
 export const viewport: Viewport = {
@@ -67,6 +68,7 @@ export default function RootLayout({
           <Analytics />
           <ConsentGatedVercelAnalytics />
           <CookieConsentBanner />
+          <ServiceWorkerRegistration />
         </Providers>
       </body>
     </html>

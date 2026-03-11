@@ -90,6 +90,7 @@ export interface MapLayers {
   showLandmarks: boolean;
   showSovStructures: boolean;
   showWormholes?: boolean;
+  showMarketHubs?: boolean;
 }
 
 // Region data for map labels
@@ -122,6 +123,7 @@ export interface UniverseMapProps {
   landmarks?: import('@/lib/types').Landmark[];
   sovStructures?: Record<string, import('@/lib/types').SovStructure[]>;
   wormholeConnections?: import('@/lib/types').WormholeConnection[];
+  marketHubs?: import('@/lib/types').MarketHub[];
   characterSystemId?: number | null;
   characterName?: string | null;
 

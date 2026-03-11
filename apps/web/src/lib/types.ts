@@ -400,6 +400,7 @@ export interface CreateAlertSubscriptionRequest {
   name?: string;
   systems?: string[];
   regions?: number[];
+  region_name?: string;
   min_value?: number;
   include_pods?: boolean;
   ship_types?: string[];
@@ -503,6 +504,19 @@ export interface CharacterLocation {
   region_name: string | null;
   station_id: number | null;
   structure_id: number | null;
+}
+
+// Market hub data
+export interface MarketHub {
+  system_id: number;
+  system_name: string;
+  region_name: string;
+  is_primary: boolean;
+  daily_volume_estimate: number;
+}
+
+export interface MarketHubsResponse {
+  hubs: MarketHub[];
 }
 
 // Waypoint sync

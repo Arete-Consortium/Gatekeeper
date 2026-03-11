@@ -48,7 +48,7 @@ async def add_wormhole(
     """
     service = get_wormhole_service()
     try:
-        conn = service.add_connection(data, created_by=created_by)
+        conn = await service.add_connection(data, created_by=created_by)
         # Broadcast map update to WebSocket clients
         await connection_manager.broadcast_wormhole_update(
             "added",
@@ -90,7 +90,7 @@ async def update_wormhole(
 ) -> WormholeConnection:
     """Update a wormhole connection."""
     service = get_wormhole_service()
-    conn = service.update_connection(connection_id, data)
+    conn = await service.update_connection(connection_id, data)
     if not conn:
         raise HTTPException(status_code=404, detail="Wormhole connection not found")
 
@@ -121,7 +121,7 @@ async def delete_wormhole(connection_id: str) -> dict[str, str]:
     if not conn:
         raise HTTPException(status_code=404, detail="Wormhole connection not found")
 
-    service.delete_connection(connection_id)
+    await service.delete_connection(connection_id)
 
     # Broadcast map update to WebSocket clients
     await connection_manager.broadcast_wormhole_update(

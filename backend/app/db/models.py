@@ -6,7 +6,7 @@ Currently, the app uses JSON files for data storage.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -199,3 +199,39 @@ class RouteBookmark(Base):
 
     def __repr__(self) -> str:
         return f"<RouteBookmark(id={self.id}, name={self.name})>"
+
+
+class WormholeConnectionDB(Base):
+    """User-submitted wormhole connection between two systems."""
+
+    __tablename__ = "wormhole_connections"
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    from_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    from_system_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    to_system: Mapped[str] = mapped_column(String(100), nullable=False)
+    to_system_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    wormhole_type: Mapped[str] = mapped_column(String(20), nullable=False, default="UNKNOWN")
+    mass_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
+    life_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
+    bidirectional: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    max_lifetime_hours: Mapped[float] = mapped_column(Float, nullable=False, default=16.0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    from_sig: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    to_sig: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+
+    __table_args__ = (
+        Index("ix_wormhole_connections_from", "from_system"),
+        Index("ix_wormhole_connections_to", "to_system"),
+        Index("ix_wormhole_connections_expires", "expires_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<WormholeConnectionDB(id={self.id}, {self.from_system} -> {self.to_system})>"
