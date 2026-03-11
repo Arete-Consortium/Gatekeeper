@@ -448,7 +448,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.textAlign = 'center';
 
       // Skip labels for systems that have sov structure overlays (rendered by SVG)
-      const skipLabelSet = layers.showSovStructures ? sovStructureSystems : undefined;
+      // Only suppress when zoom >= 1.5 (sov overlay visibility threshold)
+      const skipLabelSet = layers.showSovStructures && viewport.zoom >= 1.5 ? sovStructureSystems : undefined;
 
       for (const system of systems) {
         if (skipLabelSet?.has(system.systemId)) continue;

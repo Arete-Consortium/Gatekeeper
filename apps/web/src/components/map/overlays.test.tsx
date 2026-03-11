@@ -506,7 +506,7 @@ describe('SovStructuresOverlay', () => {
     );
     const text = container.querySelector('text');
     expect(text).toBeTruthy();
-    // Base font 16, zoomed = 16 * 1.3 = 20.8 → rounded to 21
-    expect(Number(text!.getAttribute('font-size'))).toBeGreaterThan(16);
+    // Base font 8, zoomed = 8 * 1.3 = 10.4 → rounded to 10
+    expect(Number(text!.getAttribute('font-size'))).toBeGreaterThan(8);
   });
 });

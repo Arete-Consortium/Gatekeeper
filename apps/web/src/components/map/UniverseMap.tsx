@@ -279,10 +279,18 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       };
     }, []);
 
-    // Set of system IDs that have sov structures (for label suppression)
+    // Set of system IDs where the SVG overlay renders (iHub or Skyhook only)
+    // TCU-only systems still need canvas labels
     const sovStructureSystemIds = useMemo(() => {
       if (!sovStructures) return undefined;
-      return new Set(Object.keys(sovStructures).map(Number));
+      const ids = new Set<number>();
+      for (const [sid, structs] of Object.entries(sovStructures)) {
+        const hasRenderable = structs.some(
+          (s) => s.structure_type_id === 32458 || s.structure_type_id === 81826
+        );
+        if (hasRenderable) ids.add(Number(sid));
+      }
+      return ids.size > 0 ? ids : undefined;
     }, [sovStructures]);
 
     return (

@@ -84,19 +84,19 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
   if (markers.length === 0) return null;
 
-  // Font sizes: doubled base, +30% boost when zoomed in deep
-  const baseFontName = isMobile ? 18 : 16;
-  const baseFontAdm = isMobile ? 16 : 14;
+  // Font sizes: readable but compact
+  const baseFontName = isMobile ? 9 : 8;
+  const baseFontAdm = isMobile ? 8 : 7;
   const fontScale = isZoomed ? 1.3 : 1.0;
   const fontName = Math.round(baseFontName * fontScale);
   const fontAdm = Math.round(baseFontAdm * fontScale);
 
   // Layout constants
-  const lineH1 = fontName + 6; // row 1 height (name)
-  const lineH2 = fontAdm + 6;  // row 2 height (ADM)
-  const padX = 8;
-  const padY = 4;
-  const rowGap = 2;
+  const lineH1 = fontName + 3; // row 1 height (name)
+  const lineH2 = fontAdm + 3;  // row 2 height (ADM)
+  const padX = 4;
+  const padY = 2;
+  const rowGap = 1;
   const blockH = padY + lineH1 + rowGap + lineH2 + padY;
   // Char width estimate for monospace (~0.6em)
   const charW = fontName * 0.62;
@@ -154,7 +154,6 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
               textAnchor="middle"
               fill={NAME_COLOR}
               fontSize={fontName}
-              fontWeight="bold"
               fontFamily="monospace"
             >
               {m.name}
