@@ -69,6 +69,7 @@ export interface RouteHop {
   risk_score: number;
   distance: number;
   cumulative_cost: number;
+  pirate_suppressed?: boolean;
 }
 
 // Complete route response

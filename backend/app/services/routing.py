@@ -262,6 +262,7 @@ def compute_route(
                 cumulative_cost=cumulative_cost,
                 risk_score=rr.score,
                 connection_type=connection_type,
+                pirate_suppressed=rr.pirate_suppressed,
             )
         )
 

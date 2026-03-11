@@ -8,7 +8,7 @@ import { RouteMap } from './RouteMap';
 import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteResponse } from '@/lib/types';
-import { Gauge, Route, Zap, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { Gauge, Route, Zap, MapPin, Navigation, Loader2, AlertTriangle } from 'lucide-react';
 import { GatekeeperAPI } from '@/lib/api';
 
 interface RouteResultProps {
@@ -163,6 +163,29 @@ export function RouteResult({ route }: RouteResultProps) {
           </div>
         </div>
       </Card>
+
+      {/* Pirate insurgency warning */}
+      {route.path.some((hop) => hop.pirate_suppressed) && (
+        <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-red-400">Pirate Insurgency — Security Suppressed</div>
+            <div className="text-xs text-text-secondary mt-1">
+              This route passes through systems under pirate occupation where security status is suppressed to nullsec levels.
+              Gate guns are disabled, bubbles may be anchored, and combat rules change.
+            </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {route.path
+                .filter((hop) => hop.pirate_suppressed)
+                .map((hop) => (
+                  <Badge key={hop.system_name} variant="danger" size="sm">
+                    {hop.system_name}
+                  </Badge>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Route Strip — subway-line visualization */}
       <RouteStrip hops={route.path} />

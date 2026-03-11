@@ -2,6 +2,7 @@
 
 from ..models.risk import RiskBreakdown, RiskReport, ShipProfile, ZKillStats, get_ship_profile
 from .data_loader import load_risk_config, load_universe
+from .fw_cache import is_pirate_occupied_sync
 
 
 def _calculate_risk_score(
@@ -28,8 +29,21 @@ def _calculate_risk_score(
 
     system = universe.systems[system_name]
 
+    # Check for pirate insurgency security suppression.
+    # When a pirate faction occupies a system, its effective security
+    # is suppressed (lowsec becomes nullsec-equivalent).
+    pirate_suppressed = is_pirate_occupied_sync(system.id)
+
+    # Use effective category/security for risk calculation
+    if pirate_suppressed and system.category == "lowsec":
+        effective_category = "nullsec"
+        effective_security = -0.1  # Treat as nullsec
+    else:
+        effective_category = system.category
+        effective_security = system.security
+
     # Base weights from config
-    security_weight = cfg.security_category_weights.get(system.category, 1.0)
+    security_weight = cfg.security_category_weights.get(effective_category, 1.0)
     kills_w = cfg.kill_weights.get("recent_kills", 0.0)
     pods_w = cfg.kill_weights.get("recent_pods", 0.0)
 
@@ -41,19 +55,19 @@ def _calculate_risk_score(
 
     if ship_profile:
         profile_name = ship_profile.name
-        # Apply security space multiplier based on category
-        if system.category == "highsec":
+        # Apply security space multiplier based on effective category
+        if effective_category == "highsec":
             security_multiplier = ship_profile.highsec_multiplier
-        elif system.category == "lowsec":
+        elif effective_category == "lowsec":
             security_multiplier = ship_profile.lowsec_multiplier
-        elif system.category == "nullsec":
+        elif effective_category == "nullsec":
             security_multiplier = ship_profile.nullsec_multiplier
 
         kills_multiplier = ship_profile.kills_multiplier
         pods_multiplier = ship_profile.pods_multiplier
 
     # Calculate components with multipliers
-    security_component = security_weight * (1.0 - system.security) * 20.0 * security_multiplier
+    security_component = security_weight * (1.0 - effective_security) * 20.0 * security_multiplier
     kills_component = kills_w * stats.recent_kills * kills_multiplier
     pods_component = pods_w * stats.recent_pods * pods_multiplier
 
@@ -78,6 +92,7 @@ def _calculate_risk_score(
         breakdown=breakdown,
         zkill_stats=stats if (stats.recent_kills > 0 or stats.recent_pods > 0) else None,
         ship_profile=profile_name,
+        pirate_suppressed=pirate_suppressed,
     )
 
 

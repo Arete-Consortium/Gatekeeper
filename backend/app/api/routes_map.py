@@ -139,6 +139,11 @@ async def client_post_ids(ids: list[int]) -> list[dict]:
 @router.get("/fw")
 async def get_fw_systems() -> dict:
     """Fetch faction warfare system status from ESI."""
+    from ..services.fw_cache import ensure_fw_cache
+
+    # Refresh FW cache opportunistically (keeps pirate suppression data fresh)
+    await ensure_fw_cache()
+
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(f"{ESI_BASE}/fw/systems/")

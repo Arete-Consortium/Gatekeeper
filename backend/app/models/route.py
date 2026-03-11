@@ -11,6 +11,10 @@ class RouteHop(BaseModel):
         "gate",
         description="How we reached this system: 'gate', 'bridge', 'thera', 'pochven', or 'wormhole'",
     )
+    pirate_suppressed: bool = Field(
+        False,
+        description="True if pirate insurgency suppresses this system's security to nullsec",
+    )
 
 
 class RouteResponse(BaseModel):

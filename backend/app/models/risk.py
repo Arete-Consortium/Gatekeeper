@@ -43,6 +43,7 @@ class RiskReport(BaseModel):
     zkill_stats: ZKillStats | None = None
     danger_level: DangerLevel | None = None
     ship_profile: str | None = None  # Ship profile used for calculation
+    pirate_suppressed: bool = False  # True if pirate insurgency suppresses security
 
 
 class ShipProfile(BaseModel):

@@ -147,6 +147,11 @@ async def startup_event() -> None:
     refresher = get_universe_refresher()
     await refresher.start()
 
+    # Start FW cache for pirate insurgency security suppression
+    from .services.fw_cache import start_fw_cache_refresh
+
+    await start_fw_cache_refresh()
+
     # Start kill history service
     from .services.kill_history import get_kill_history
 

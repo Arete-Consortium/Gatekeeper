@@ -51,8 +51,13 @@ export const RouteHopRow = memo(function RouteHopRow({
       </div>
 
       {/* System name */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="font-medium text-text truncate">{hop.system_name}</span>
+        {hop.pirate_suppressed && (
+          <span className="text-[10px] font-medium text-red-400 bg-red-500/15 px-1.5 py-0.5 rounded shrink-0">
+            SUPPRESSED
+          </span>
+        )}
       </div>
 
       {/* Security badge */}
