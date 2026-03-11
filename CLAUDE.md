@@ -8,7 +8,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 - **Version**: 1.7.0
 - **Backend**: Python 3.12 / FastAPI — 2,200+ tests passing
-- **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 440 tests passing
+- **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 486 tests passing
 - **Rendering**: Canvas2D (SimpleMapCanvas for universe map), Canvas2D (jump range map, Pochven map)
 - **Deployment**: Fly.io (backend) + Vercel (frontend)
 - **Domains**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
@@ -62,7 +62,7 @@ apps/web/src/
 │   ├── route/        # RouteResult (with "Set In-Game Route"), JumpRangeMap, WaypointList
 │   ├── pochven/      # PochvenMap (Canvas2D subway map)
 │   ├── fitting/      # FittingAnalyzer
-│   ├── alerts/       # AlertForm, AlertCard
+│   ├── alerts/       # AlertForm (region filter, ship type tags), AlertCard, RegionFilter
 │   ├── dashboard/    # LiveKillFeed
 │   ├── system/       # SystemCard, RiskBadge, SecurityBadge
 │   ├── layout/       # Navbar, Footer, StatusIndicator
@@ -90,6 +90,8 @@ apps/web/src/
 - **Character tracking**: TanStack Query polls `/character/location` every 10s when authenticated
 - **SVG overlay pattern**: All map overlays (Thera, wormholes, sov, kills, etc.) are SVG elements positioned absolutely over the canvas, using viewport transform `(system.x - viewport.x) * viewport.zoom + viewport.width / 2`
 - **Canvas label suppression**: When SovStructuresOverlay renders for a system (iHub/Skyhook), SimpleMapCanvas skips its canvas label via `sovStructureSystems` Set prop
+- **Service worker**: `sw.js` — network-first for API/navigation, cache-first for static assets, registered in production only via `ServiceWorkerRegistration.tsx`
+- **Wormhole persistence**: PostgreSQL via `WormholeConnectionDB` model, write-through cache, hourly expired connection cleanup
 
 ### Map Layer Architecture
 
@@ -107,6 +109,7 @@ apps/web/src/
 | Landmarks | LandmarksOverlay | `showLandmarks` | No | /map/config |
 | iHub ADM / Skyhooks | SovStructuresOverlay | `showSovStructures` | Yes | /map/sovereignty/structures |
 | Wormholes | WormholeOverlay | `showWormholes` | Yes | /api/v1/wormholes/ |
+| Trade hubs | MarketHubsOverlay | `showMarketHubs` | No | /map/market-hubs |
 
 ### Sov Structures Overlay Details
 

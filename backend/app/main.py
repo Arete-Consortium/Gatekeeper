@@ -1,5 +1,6 @@
 """EVE Gatekeeper API - Main Application."""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -158,13 +159,48 @@ async def startup_event() -> None:
     except Exception:
         logger.warning("Failed to load wormhole connections from database", exc_info=True)
 
+    # Start periodic wormhole cleanup (every hour)
+    global _wormhole_cleanup_task
+    _wormhole_cleanup_task = asyncio.create_task(_wormhole_cleanup_loop())
+
     logger.info("Application startup complete")
+
+
+_wormhole_cleanup_task: asyncio.Task | None = None
+
+
+async def _wormhole_cleanup_loop() -> None:
+    """Periodically clean expired wormhole connections from the database."""
+    while True:
+        await asyncio.sleep(3600)  # 1 hour
+        try:
+            from .services.wormhole import get_wormhole_service
+
+            wh_service = get_wormhole_service()
+            wh_service._cleanup_expired()  # in-memory
+            count = await wh_service.cleanup_expired_db()
+            if count:
+                logger.info(f"Periodic cleanup: removed {count} expired wormhole connections")
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.warning("Wormhole cleanup error", exc_info=True)
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Cleanup on application shutdown."""
     logger.info("Application shutting down")
+
+    # Stop wormhole cleanup task
+    global _wormhole_cleanup_task
+    if _wormhole_cleanup_task:
+        _wormhole_cleanup_task.cancel()
+        try:
+            await _wormhole_cleanup_task
+        except asyncio.CancelledError:
+            pass
+        _wormhole_cleanup_task = None
 
     # Stop zKillboard listener
     from .services.zkill_listener import get_zkill_listener
