@@ -690,9 +690,9 @@ function MapPageContent() {
               system={system}
               gates={gates}
               systemMap={systemMap}
-              sovData={sovData}
-              fwData={fwData?.fw_systems}
-              theraConnections={theraData?.connections}
+              sovData={isPro ? sovData : undefined}
+              fwData={isPro ? fwData?.fw_systems : undefined}
+              theraConnections={isPro ? theraData?.connections : undefined}
               activityData={activityData}
               kills={kills}
               riskData={risks.find((r) => r.systemId === selectedSystem)}
@@ -883,17 +883,26 @@ function MapPageContent() {
                 routes={mapRoutes}
                 kills={isPro ? kills : []}
                 risks={risks}
-                sovereignty={sovOverlay.sovereignty}
-                alliances={sovOverlay.alliances}
-                theraConnections={theraData?.connections}
-                fwSystems={fwData?.fw_systems}
+                sovereignty={isPro ? sovOverlay.sovereignty : undefined}
+                alliances={isPro ? sovOverlay.alliances : undefined}
+                theraConnections={isPro ? theraData?.connections : undefined}
+                fwSystems={isPro ? fwData?.fw_systems : undefined}
                 landmarks={mapConfig?.landmarks}
-                sovStructures={sovStructData?.structures}
-                wormholeConnections={wormholeData?.connections}
+                sovStructures={isPro ? sovStructData?.structures : undefined}
+                wormholeConnections={isPro ? wormholeData?.connections : undefined}
                 marketHubs={marketHubData?.hubs}
                 characterSystemId={characterLocation?.solar_system_id}
                 characterName={user?.character_name}
-                layers={layers}
+                layers={isPro ? layers : {
+                  ...layers,
+                  showKills: false,
+                  showHeatmap: false,
+                  showSovereignty: false,
+                  showThera: false,
+                  showFW: false,
+                  showSovStructures: false,
+                  showWormholes: false,
+                }}
                 colorMode={colorMode}
                 selectedSystem={selectedSystem}
                 onSystemClick={handleSystemSelect}
