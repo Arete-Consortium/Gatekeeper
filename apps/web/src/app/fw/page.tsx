@@ -2,15 +2,20 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Card, Badge } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { Card, Badge, Button } from '@/components/ui';
+import { GatekeeperAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Swords,
   ShieldAlert,
-  Trophy,
   ChevronDown,
   ChevronUp,
   Coins,
   ExternalLink,
+  MapPin,
+  Navigation,
+  Store,
 } from 'lucide-react';
 
 // SSR-safe dynamic import for canvas component
@@ -73,13 +78,33 @@ const FW_RULES = [
   'Docking rights are lost in enemy-controlled stations (use citadels)',
 ];
 
-const TIER_REWARDS = [
-  { tier: 1, lpMultiplier: '0.5x', description: 'Losing badly — minimal LP from plexes and missions' },
-  { tier: 2, lpMultiplier: '1.0x', description: 'Standard payout — holding some ground' },
-  { tier: 3, lpMultiplier: '1.5x', description: 'Advancing — good LP for effort' },
-  { tier: 4, lpMultiplier: '2.25x', description: 'Dominant — excellent LP multiplier' },
-  { tier: 5, lpMultiplier: '3.0x', description: 'Victory — maximum LP multiplier' },
-];
+// LP Store stations by faction militia corp
+const LP_STORE_LOCATIONS: Record<string, { station: string; system: string; systemId: number; region: string }[]> = {
+  Caldari: [
+    { station: 'Ichoriya - State Protectorate Logistic Support', system: 'Ichoriya', systemId: 30045344, region: 'Black Rise' },
+    { station: 'Enaluri - State Protectorate Logistic Support', system: 'Enaluri', systemId: 30045329, region: 'Black Rise' },
+    { station: 'Aivonen - State Protectorate Logistic Support', system: 'Aivonen', systemId: 30045353, region: 'Black Rise' },
+    { station: 'Hasmijaala - State Protectorate Logistic Support', system: 'Hasmijaala', systemId: 30045316, region: 'Black Rise' },
+  ],
+  Gallente: [
+    { station: 'Villore - Federal Defence Union Logistic Support', system: 'Villore', systemId: 30003838, region: 'Essence' },
+    { station: 'Intaki - Federal Defence Union Logistic Support', system: 'Intaki', systemId: 30003788, region: 'Placid' },
+    { station: 'Heydieles - Federal Defence Union Logistic Support', system: 'Heydieles', systemId: 30003836, region: 'Essence' },
+    { station: 'Old Man Star - Federal Defence Union Logistic Support', system: 'Old Man Star', systemId: 30003837, region: 'Essence' },
+  ],
+  Amarr: [
+    { station: 'Sarum Prime - 24th Imperial Crusade Logistic Support', system: 'Sarum Prime', systemId: 30003504, region: 'Domain' },
+    { station: 'Arzad - 24th Imperial Crusade Logistic Support', system: 'Arzad', systemId: 30003067, region: 'Devoid' },
+    { station: 'Huola - 24th Imperial Crusade Logistic Support', system: 'Huola', systemId: 30003068, region: 'Devoid' },
+    { station: 'Kamela - 24th Imperial Crusade Logistic Support', system: 'Kamela', systemId: 30003069, region: 'Devoid' },
+  ],
+  Minmatar: [
+    { station: 'Amo - Tribal Liberation Force Logistic Support', system: 'Amo', systemId: 30002543, region: 'Heimatar' },
+    { station: 'Auga - Tribal Liberation Force Logistic Support', system: 'Auga', systemId: 30002539, region: 'Heimatar' },
+    { station: 'Kourmonen - Tribal Liberation Force Logistic Support', system: 'Kourmonen', systemId: 30003070, region: 'Devoid' },
+    { station: 'Dal - Tribal Liberation Force Logistic Support', system: 'Dal', systemId: 30002537, region: 'Heimatar' },
+  ],
+};
 
 const PLEX_TYPES = [
   { name: 'Novice', shipClass: 'T1/Navy Frigates', timer: '10 min', lpReward: '~10K LP' },
@@ -106,6 +131,27 @@ const LP_ITEMS = [
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function FWPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [activeFaction, setActiveFaction] = useState<string>('Caldari');
+  const [settingDestination, setSettingDestination] = useState<string | null>(null);
+
+  const handleShowOnMap = (systemId: number) => {
+    router.push(`/map?system=${systemId}`);
+  };
+
+  const handleSetDestination = async (systemName: string) => {
+    if (!user) return;
+    setSettingDestination(systemName);
+    try {
+      await GatekeeperAPI.setWaypoints([systemName], true);
+    } catch {
+      // Non-critical — ESI waypoint may fail if not in-game
+    } finally {
+      setSettingDestination(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -174,28 +220,63 @@ export default function FWPage() {
           </div>
         </Section>
 
-        {/* Warzone Tier Rewards */}
-        <Section title="Warzone Tier Rewards" icon={Trophy}>
-          <p className="text-xs text-text-secondary mb-2">
-            LP multiplier scales with your faction&apos;s warzone control tier.
-          </p>
-          <div className="space-y-1">
-            {TIER_REWARDS.map((t) => (
-              <div key={t.tier} className="flex items-center gap-2 text-xs">
-                <span className="w-6 text-right font-mono font-bold text-text">T{t.tier}</span>
-                <div className="flex-1 mx-2">
-                  <div className="h-1.5 bg-card rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-cyan-500"
-                      style={{ width: `${(t.tier / 5) * 100}%` }}
-                    />
-                  </div>
+        {/* LP Store Locations */}
+        <Section title="LP Store Locations" icon={Store} defaultOpen>
+          {/* Faction tabs */}
+          <div className="flex gap-1 mb-3">
+            {Object.keys(LP_STORE_LOCATIONS).map((faction) => (
+              <button
+                key={faction}
+                onClick={() => setActiveFaction(faction)}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
+                  activeFaction === faction
+                    ? `${FACTION_BADGE[faction]} border border-current/20`
+                    : 'text-text-secondary hover:text-text hover:bg-card-hover'
+                }`}
+              >
+                {faction}
+              </button>
+            ))}
+          </div>
+
+          {/* Stations for active faction */}
+          <div className="space-y-2">
+            {LP_STORE_LOCATIONS[activeFaction]?.map((loc) => (
+              <div
+                key={loc.station}
+                className="flex items-center gap-2 text-xs border border-border/50 rounded-lg p-2"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-text truncate">{loc.system}</div>
+                  <div className="text-[10px] text-text-secondary truncate">{loc.station}</div>
+                  <div className="text-[10px] text-text-secondary">{loc.region}</div>
                 </div>
-                <span className="w-10 text-right font-mono text-cyan-400">{t.lpMultiplier}</span>
-                <span className="text-text-secondary hidden sm:inline">{t.description}</span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleShowOnMap(loc.systemId)}
+                    className="p-1.5 rounded hover:bg-card-hover text-text-secondary hover:text-cyan-400 transition-colors"
+                    title="Show on map"
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                  </button>
+                  {user && (
+                    <button
+                      onClick={() => handleSetDestination(loc.system)}
+                      disabled={settingDestination === loc.system}
+                      className="p-1.5 rounded hover:bg-card-hover text-text-secondary hover:text-cyan-400 transition-colors disabled:opacity-50"
+                      title="Set destination in-game"
+                    >
+                      <Navigation className={`h-3.5 w-3.5 ${settingDestination === loc.system ? 'animate-pulse' : ''}`} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+          <p className="text-[10px] text-text-secondary mt-2">
+            Click <MapPin className="inline h-3 w-3" /> to view on map{user ? ' or ' : ''}
+            {user && <><Navigation className="inline h-3 w-3" /> to set in-game destination</>}
+          </p>
         </Section>
 
         {/* LP Store Highlights */}

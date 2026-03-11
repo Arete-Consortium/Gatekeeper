@@ -216,7 +216,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     if (!ctx) return;
 
     // Clear
-    ctx.fillStyle = '#000000';
+    ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
     // Draw gates with visual hierarchy

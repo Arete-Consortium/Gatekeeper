@@ -34,6 +34,7 @@ import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
+import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
 import { MarketHubsOverlay } from './MarketHubsOverlay';
 import { CharacterMarker } from './CharacterMarker';
@@ -50,6 +51,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showFW: false,
   showLandmarks: true,
   showSovStructures: false,
+  showSkyhooks: false,
   showWormholes: false,
   showMarketHubs: false,
 };
@@ -300,7 +302,8 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
     return (
       <div
         ref={containerRef}
-        className={`relative w-full h-full overflow-hidden bg-black ${className || ''}`}
+        className={`relative w-full h-full overflow-hidden ${className || ''}`}
+        style={{ backgroundColor: '#0a0e17' }}
       >
         <SimpleMapCanvas
           systems={systems}
@@ -373,6 +376,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         {/* Sov Structures (iHub ADM) */}
         {layers.showSovStructures && sovStructures && (
           <SovStructuresOverlay
+            structures={sovStructures}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Skyhook Halos */}
+        {layers.showSkyhooks && sovStructures && (
+          <SkyhookHaloOverlay
             structures={sovStructures}
             systems={systemMap}
             viewport={viewport}

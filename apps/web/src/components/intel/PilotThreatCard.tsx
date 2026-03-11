@@ -15,11 +15,14 @@ import {
   Users,
   Swords,
   AlertTriangle,
+  Pin,
 } from 'lucide-react';
 
 interface PilotThreatCardProps {
   characterId: number;
   onClose?: () => void;
+  onPin?: (characterId: number, name: string) => void;
+  isPinned?: boolean;
 }
 
 const THREAT_COLORS: Record<string, string> = {
@@ -54,7 +57,7 @@ function formatIsk(value: number): string {
   return value.toString();
 }
 
-export function PilotThreatCard({ characterId, onClose }: PilotThreatCardProps) {
+export function PilotThreatCard({ characterId, onClose, onPin, isPinned }: PilotThreatCardProps) {
   const [pilot, setPilot] = useState<PilotThreatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -133,11 +136,22 @@ export function PilotThreatCard({ characterId, onClose }: PilotThreatCardProps) 
               </div>
             </div>
           </div>
-          {onClose && (
-            <button onClick={onClose} className="text-text-secondary hover:text-text p-1">
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {onPin && pilot && (
+              <button
+                onClick={() => onPin(pilot.character_id, pilot.name)}
+                className={`p-1 transition-colors ${isPinned ? 'text-cyan-400 hover:text-cyan-300' : 'text-text-secondary hover:text-text'}`}
+                title={isPinned ? 'Unpin from Kill Feed' : 'Pin to Kill Feed'}
+              >
+                <Pin className={`h-4 w-4 ${isPinned ? 'fill-current' : ''}`} />
+              </button>
+            )}
+            {onClose && (
+              <button onClick={onClose} className="text-text-secondary hover:text-text p-1">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 mt-2">
           <AlertTriangle className={`h-3.5 w-3.5 ${threatColor}`} />

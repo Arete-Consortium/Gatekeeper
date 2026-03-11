@@ -1,11 +1,13 @@
 'use client';
 
-import { memo, useState, useMemo, useCallback } from 'react';
+import { memo, useState, useMemo, useCallback, useEffect } from 'react';
 import { useHotSystems } from '@/hooks';
 import { Card, Input, Select, Badge } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
-import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Pin, X } from 'lucide-react';
 import { ErrorMessage, SkeletonTable, getUserFriendlyError } from '@/components/ui';
+import { PilotThreatCard } from './PilotThreatCard';
+import { loadPinnedPilots, savePinnedPilots, type PinnedPilot } from './PilotLookupTab';
 import type { HotSystem } from '@/lib/types';
 
 const timeOptions = [
@@ -136,6 +138,24 @@ export default function IntelFeed() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('kills');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [pinnedPilots, setPinnedPilots] = useState<PinnedPilot[]>([]);
+
+  // Load pinned pilots
+  useEffect(() => {
+    setPinnedPilots(loadPinnedPilots());
+    // Listen for storage changes from other tabs/components
+    const handler = () => setPinnedPilots(loadPinnedPilots());
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  const handleUnpin = useCallback((characterId: number) => {
+    setPinnedPilots((prev) => {
+      const next = prev.filter((p) => p.characterId !== characterId);
+      savePinnedPilots(next);
+      return next;
+    });
+  }, []);
 
   const { data: hotSystems, isLoading, error, refetch } = useHotSystems(hours, limit);
 
@@ -180,6 +200,26 @@ export default function IntelFeed() {
 
   return (
     <div className="space-y-6">
+      {/* Pinned Pilots */}
+      {pinnedPilots.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Pin className="h-4 w-4 text-cyan-400" />
+            <span className="text-sm font-medium text-text">Watched Pilots</span>
+            <span className="text-[10px] text-text-secondary">({pinnedPilots.length})</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {pinnedPilots.map((p) => (
+              <PilotThreatCard
+                key={p.characterId}
+                characterId={p.characterId}
+                onClose={() => handleUnpin(p.characterId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <Card>
         <div className="flex flex-wrap gap-4">

@@ -89,6 +89,7 @@ export interface MapLayers {
   showFW: boolean;
   showLandmarks: boolean;
   showSovStructures: boolean;
+  showSkyhooks: boolean;
   showWormholes?: boolean;
   showMarketHubs?: boolean;
 }

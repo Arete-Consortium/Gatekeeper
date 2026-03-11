@@ -46,7 +46,7 @@ const UniverseMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="absolute inset-0 flex items-center justify-center bg-black">
+      <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: '#0a0e17' }}>
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
           <p className="text-text-secondary text-sm">Loading New Eden Map...</p>
@@ -201,6 +201,7 @@ function MapPageContent() {
       showFW: false,
       showLandmarks: true,
       showSovStructures: false,
+      showSkyhooks: false,
       showWormholes: false,
       showMarketHubs: false,
     };
@@ -258,7 +259,7 @@ function MapPageContent() {
     queryKey: ['sovStructures'],
     queryFn: () => GatekeeperAPI.getSovStructures(),
     staleTime: 30 * 60 * 1000,
-    enabled: !!mapConfig && isPro && layers.showSovStructures,
+    enabled: !!mapConfig && isPro && (layers.showSovStructures || layers.showSkyhooks),
   });
 
   const { data: activityData, error: activityError } = useQuery({
@@ -568,12 +569,13 @@ function MapPageContent() {
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
-          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
+          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
+          <ProToggle checked={layers.showSkyhooks} onChange={(v) => updateLayer('showSkyhooks', v)} label="Skyhooks" isPro={isPro} />
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
 
-        {/* Intel controls */}
-        <div className="mt-3 pt-3 border-t border-border space-y-2.5">
+        {/* Intel controls — mobile only (desktop version in toolbar above) */}
+        <div className="mt-3 pt-3 border-t border-border space-y-2.5 sm:hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-secondary uppercase tracking-wide">Intel Feed</span>
             <div className="flex items-center gap-1.5">
@@ -734,82 +736,125 @@ function MapPageContent() {
             </div>
             <span className="text-text-secondary">iHub ADM Level</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full border border-sky-300" style={{ boxShadow: '0 0 4px #7dd3fc' }} aria-hidden="true" />
+            <span className="text-text-secondary">Skyhook</span>
+          </div>
         </div>
       </CollapsibleSection>
     </>
   );
 
   return (
-    <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col">
-      {/* Header Controls */}
-      <div className="flex items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-4 flex-wrap">
-        <div className="hidden sm:flex items-center gap-2">
-          <h1 className="text-xl font-bold text-text flex items-center gap-2">
-            <Map className="h-5 w-5" />
-            New Eden Map
-          </h1>
-          <Badge variant="info">Beta</Badge>
-          {systems.length > 0 && (
-            <Badge variant="default">{systems.length} systems</Badge>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <SystemSearch
-            systems={systems}
-            onSelect={handleSearchSelect}
-          />
-          <Button
-            variant={showRoutePanel ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setShowRoutePanel(!showRoutePanel)}
-            aria-label={showRoutePanel ? 'Close route planner' : 'Open route planner'}
-            aria-pressed={showRoutePanel}
-          >
-            <Navigation className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in" className="hidden sm:inline-flex">
-            <ZoomIn className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out" className="hidden sm:inline-flex">
-            <ZoomOut className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode" className="hidden sm:inline-flex">
-            <Maximize2 className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopyLink}
-            aria-label="Copy map link to clipboard"
-            title="Copy link"
-            className="hidden sm:inline-flex"
-          >
-            {linkCopied ? (
-              <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
-            ) : (
-              <Link2 className="h-4 w-4" aria-hidden="true" />
+    <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col lg:flex-row gap-4">
+      {/* Left Column: toolbar + map (aligned edges) */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        {/* Header Controls — right edge aligns with map below */}
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-2 sm:mb-3 flex-wrap">
+          <div className="hidden sm:flex items-center gap-2">
+            <h1 className="text-xl font-bold text-text flex items-center gap-2">
+              <Map className="h-5 w-5" />
+              New Eden Map
+            </h1>
+            <Badge variant="info">Beta</Badge>
+            {systems.length > 0 && (
+              <Badge variant="default">{systems.length} systems</Badge>
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-            aria-label={showMobileSidebar ? 'Close sidebar' : 'Open sidebar'}
-          >
-            <Menu className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
+          </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
-        {/* Map Container */}
+          {/* Intel Strip */}
+          <div className="hidden sm:flex items-center gap-2 text-xs">
+            <span className="font-semibold text-text-secondary uppercase tracking-wide">Intel</span>
+            <div className={`w-2 h-2 rounded-full ${killsConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            {isPro ? (
+              <span className="text-text-secondary">
+                {totalKills} kills · {totalPods} pods
+              </span>
+            ) : (
+              <>
+                <span className="text-text-secondary">--- kills · --- pods</span>
+                <Link href="/pricing" className="flex items-center gap-1 text-[10px] text-primary hover:underline">
+                  <Lock className="h-3 w-3" />
+                  Pro
+                </Link>
+              </>
+            )}
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
+              className="px-1.5 py-0.5 bg-card border border-border rounded text-xs text-text ml-1"
+            >
+              <option value="1h">1h</option>
+              <option value="4h">4h</option>
+              <option value="12h">12h</option>
+              <option value="24h">24h</option>
+              <option value="48h">48h</option>
+            </select>
+            <button
+              onClick={refreshIntel}
+              disabled={intelLoading}
+              className="p-1 rounded hover:bg-card-hover text-text-secondary hover:text-text transition-colors"
+              title="Refresh intel"
+            >
+              <RefreshCw className={`h-3 w-3 ${intelLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <SystemSearch
+              systems={systems}
+              onSelect={handleSearchSelect}
+            />
+            <Button
+              variant={showRoutePanel ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setShowRoutePanel(!showRoutePanel)}
+              aria-label={showRoutePanel ? 'Close route planner' : 'Open route planner'}
+              aria-pressed={showRoutePanel}
+            >
+              <Navigation className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleZoomIn} aria-label="Zoom in" className="hidden sm:inline-flex">
+              <ZoomIn className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleZoomOut} aria-label="Zoom out" className="hidden sm:inline-flex">
+              <ZoomOut className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleFullscreen} aria-label="Toggle fullscreen mode" className="hidden sm:inline-flex">
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyLink}
+              aria-label="Copy map link to clipboard"
+              title="Copy link"
+              className="hidden sm:inline-flex"
+            >
+              {linkCopied ? (
+                <Check className="h-4 w-4 text-green-400" aria-hidden="true" />
+              ) : (
+                <Link2 className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+              aria-label={showMobileSidebar ? 'Close sidebar' : 'Open sidebar'}
+            >
+              <Menu className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Map Container — Pochven aesthetic */}
         <div
           id="map-container"
-          className="flex-1 min-h-[300px] lg:min-h-0 bg-black rounded-lg border border-border relative overflow-hidden"
+          className="flex-1 min-h-[300px] lg:min-h-0 rounded-lg border border-border relative overflow-hidden"
+          style={{ backgroundColor: '#0a0e17' }}
           role="application"
           aria-label="Interactive universe map"
         >
@@ -877,6 +922,7 @@ function MapPageContent() {
                   showThera: false,
                   showFW: false,
                   showSovStructures: false,
+                  showSkyhooks: false,
                   showWormholes: false,
                 }}
                 colorMode={colorMode}
@@ -960,12 +1006,12 @@ function MapPageContent() {
             </div>
           </>
         )}
+      </div>{/* end left column */}
 
-        {/* Side Panel — collapsible sections */}
-        <aside className="hidden lg:flex w-72 flex-col gap-3 overflow-y-auto" aria-label="Map controls">
-          {sidebarContent}
-        </aside>
-      </div>
+      {/* Side Panel — collapsible sections */}
+      <aside className="hidden lg:flex w-72 flex-col gap-3 overflow-y-auto" aria-label="Map controls">
+        {sidebarContent}
+      </aside>
     </div>
   );
 }

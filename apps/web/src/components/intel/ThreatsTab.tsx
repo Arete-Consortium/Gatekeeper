@@ -53,6 +53,7 @@ function TrendLabel({ trend }: { trend: number }) {
 export function ThreatsTab() {
   const [hours, setHours] = useState(1);
   const [secFilter, setSecFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
   const [limit, setLimit] = useState(25);
   const [systems, setSystems] = useState<HotzoneSystemData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,14 +81,32 @@ export function ThreatsTab() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const stats = useMemo(() => {
-    if (systems.length === 0) return null;
-    const totalKills = systems.reduce((s, sys) => s + sys.kills_current, 0);
-    const totalPods = systems.reduce((s, sys) => s + sys.pods_current, 0);
-    const gateCamps = systems.filter((s) => s.gate_camp_likely).length;
-    const surging = systems.filter((s) => s.trend >= 1.5).length;
-    return { totalKills, totalPods, gateCamps, surging };
+  // Extract unique regions for dropdown
+  const regionOptions = useMemo(() => {
+    const regions = new Set<string>();
+    for (const sys of systems) {
+      if (sys.region_name) regions.add(sys.region_name);
+    }
+    return [
+      { value: '', label: 'All Regions' },
+      ...[...regions].sort().map((r) => ({ value: r, label: r })),
+    ];
   }, [systems]);
+
+  // Filter by region (client-side, after API fetch)
+  const filteredSystems = useMemo(() => {
+    if (!regionFilter) return systems;
+    return systems.filter((s) => s.region_name === regionFilter);
+  }, [systems, regionFilter]);
+
+  const stats = useMemo(() => {
+    if (filteredSystems.length === 0) return null;
+    const totalKills = filteredSystems.reduce((s, sys) => s + sys.kills_current, 0);
+    const totalPods = filteredSystems.reduce((s, sys) => s + sys.pods_current, 0);
+    const gateCamps = filteredSystems.filter((s) => s.gate_camp_likely).length;
+    const surging = filteredSystems.filter((s) => s.trend >= 1.5).length;
+    return { totalKills, totalPods, gateCamps, surging };
+  }, [filteredSystems]);
 
   return (
     <div className="space-y-6">
@@ -108,6 +127,14 @@ export function ThreatsTab() {
               value={secFilter}
               onChange={(e) => setSecFilter(e.target.value)}
               options={secOptions}
+            />
+          </div>
+          <div className="w-40">
+            <Select
+              label="Region"
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+              options={regionOptions}
             />
           </div>
           <div className="w-28">
@@ -169,7 +196,7 @@ export function ThreatsTab() {
       )}
 
       {/* Threats Table */}
-      {loading && systems.length === 0 ? (
+      {loading && filteredSystems.length === 0 ? (
         <Card className="flex items-center justify-center py-12 gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />
           <span className="text-text-secondary">Analyzing threat landscape...</span>
@@ -182,7 +209,7 @@ export function ThreatsTab() {
             Retry
           </button>
         </Card>
-      ) : systems.length === 0 ? (
+      ) : filteredSystems.length === 0 ? (
         <Card className="text-center py-12">
           <Shield className="h-8 w-8 text-green-400 mx-auto mb-3" />
           <p className="text-text-secondary">No active threats detected. Space is quiet.</p>
@@ -202,7 +229,7 @@ export function ThreatsTab() {
           </div>
 
           {/* Rows */}
-          {systems.map((sys, idx) => (
+          {filteredSystems.map((sys, idx) => (
             <div key={sys.system_id}>
               {/* Desktop row */}
               <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center">
