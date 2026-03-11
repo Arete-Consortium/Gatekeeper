@@ -1,155 +1,91 @@
 'use client';
 
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import type { RiskHeatmapProps, SystemRisk, MapSystem, MapViewport } from './types';
 import { RISK_COLORS, getRiskColor } from './types';
 
-/**
- * Transform world coordinates to screen coordinates
- */
-function worldToScreen(
-  worldX: number,
-  worldY: number,
-  viewport: MapViewport
-): { x: number; y: number } {
-  const x = (worldX - viewport.x) * viewport.zoom + viewport.width / 2;
-  const y = (worldY - viewport.y) * viewport.zoom + viewport.height / 2;
-  return { x, y };
-}
-
-/**
- * Check if a point is visible in the viewport (with margin for glow effects)
- */
-function isVisible(
-  screenX: number,
-  screenY: number,
-  viewport: MapViewport,
-  margin: number = 100
-): boolean {
-  return (
-    screenX >= -margin &&
-    screenX <= viewport.width + margin &&
-    screenY >= -margin &&
-    screenY <= viewport.height + margin
-  );
-}
-
-/**
- * Calculate glow intensity based on risk score and zoom
- */
-function getGlowIntensity(riskScore: number, zoom: number): number {
-  // Higher risk = larger glow
-  // Lower zoom = larger glow to maintain visibility
-  const baseIntensity = 20 + riskScore * 8;
-  const zoomFactor = Math.max(0.5, 1 / Math.sqrt(zoom));
-  return baseIntensity * zoomFactor;
-}
-
-/**
- * Get gradient stops for risk color
- */
-function getGradientStops(color: string, opacity: number): string {
-  return `radial-gradient(circle, ${color}${Math.round(opacity * 255).toString(16).padStart(2, '0')} 0%, ${color}40 30%, transparent 70%)`;
-}
-
-interface RiskGlowProps {
-  risk: SystemRisk;
-  system: MapSystem;
-  viewport: MapViewport;
-  opacity: number;
-}
-
-/**
- * Individual risk glow indicator for a system
- */
-function RiskGlow({ risk, system, viewport, opacity }: RiskGlowProps) {
-  const screenPos = worldToScreen(system.x, system.y, viewport);
-
-  // Skip if not visible
-  if (!isVisible(screenPos.x, screenPos.y, viewport)) {
-    return null;
-  }
-
-  const color = getRiskColor(risk.riskColor);
-  const intensity = getGlowIntensity(risk.riskScore, viewport.zoom);
-  const size = intensity * 2;
-
-  // Scale intensity by risk score (0-10 -> 0.3-1.0)
-  const riskOpacity = 0.3 + (risk.riskScore / 10) * 0.7;
-  const finalOpacity = opacity * riskOpacity;
-
-  return (
-    <div
-      className="absolute pointer-events-none animate-fade-in"
-      style={{
-        left: screenPos.x - size / 2,
-        top: screenPos.y - size / 2,
-        width: size,
-        height: size,
-        background: getGradientStops(color, finalOpacity),
-        filter: `blur(${intensity * 0.3}px)`,
-      }}
-      key={risk.systemId}
-    />
-  );
-}
-
-/**
- * Risk heatmap overlay for the map
- *
- * Renders colored glows around systems based on their risk level.
- * Green = safe, Yellow = caution, Orange = danger, Red = critical
- *
- * Usage:
- * ```tsx
- * <RiskHeatmap
- *   risks={risks}
- *   systems={systemsMap}
- *   viewport={viewport}
- *   opacity={0.7}
- * />
- * ```
- */
 export function RiskHeatmap({
   risks,
   systems,
   viewport,
-  opacity = 0.7,
+  opacity = 0.8,
 }: RiskHeatmapProps) {
-  // Filter risks that have valid systems
-  const visibleRisks = useMemo(() => {
-    return risks.filter((risk) => systems.has(risk.systemId));
-  }, [risks, systems]);
+  const markers = useMemo(() => {
+    const result: Array<{
+      x: number;
+      y: number;
+      color: string;
+      radius: number;
+      intensity: number;
+      systemId: number;
+    }> = [];
 
-  // Sort by risk score so higher risks render on top
-  const sortedRisks = useMemo(() => {
-    return [...visibleRisks].sort((a, b) => a.riskScore - b.riskScore);
-  }, [visibleRisks]);
+    for (const risk of risks) {
+      const system = systems.get(risk.systemId);
+      if (!system) continue;
+
+      const sx = (system.x - viewport.x) * viewport.zoom + viewport.width / 2;
+      const sy = (system.y - viewport.y) * viewport.zoom + viewport.height / 2;
+
+      if (sx < -80 || sx > viewport.width + 80 || sy < -80 || sy > viewport.height + 80) continue;
+
+      const color = getRiskColor(risk.riskColor);
+      // Radius scales with risk score and zoom
+      const baseRadius = 8 + risk.riskScore * 3;
+      const radius = baseRadius * Math.max(0.6, Math.min(2, viewport.zoom * 0.5));
+      // Intensity: higher risk = more opaque
+      const intensity = 0.15 + (risk.riskScore / 10) * 0.55;
+
+      result.push({ x: sx, y: sy, color, radius, intensity, systemId: risk.systemId });
+    }
+
+    // Sort so higher risk renders on top
+    result.sort((a, b) => a.intensity - b.intensity);
+    return result;
+  }, [risks, systems, viewport]);
+
+  if (markers.length === 0) return null;
 
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Render glows */}
-      {sortedRisks.map((risk) => {
-        const system = systems.get(risk.systemId);
-        if (!system) return null;
-
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width={viewport.width}
+      height={viewport.height}
+      style={{ zIndex: 0 }}
+    >
+      <defs>
+        {/* Unique gradient per risk color for sharp, visible glows */}
+        {['green', 'yellow', 'orange', 'red'].map((riskColor) => {
+          const color = RISK_COLORS[riskColor as keyof typeof RISK_COLORS];
+          return (
+            <radialGradient key={riskColor} id={`risk-${riskColor}`}>
+              <stop offset="0%" stopColor={color} stopOpacity={0.8} />
+              <stop offset="40%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </radialGradient>
+          );
+        })}
+      </defs>
+      {markers.map((m) => {
+        const riskKey = m.color === RISK_COLORS.green ? 'green'
+          : m.color === RISK_COLORS.yellow ? 'yellow'
+          : m.color === RISK_COLORS.orange ? 'orange'
+          : 'red';
         return (
-          <RiskGlow
-            key={risk.systemId}
-            risk={risk}
-            system={system}
-            viewport={viewport}
-            opacity={opacity}
+          <circle
+            key={m.systemId}
+            cx={m.x}
+            cy={m.y}
+            r={m.radius}
+            fill={`url(#risk-${riskKey})`}
+            opacity={opacity * m.intensity}
           />
         );
       })}
-    </div>
+    </svg>
   );
 }
 
-/**
- * Legend component for the risk heatmap
- */
 export function RiskHeatmapLegend() {
   const levels = [
     { color: 'green', label: 'Safe', range: '0-2' },

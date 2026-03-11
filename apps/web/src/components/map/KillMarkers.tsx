@@ -1,67 +1,24 @@
 'use client';
 
 import { memo, useMemo, useState, useEffect } from 'react';
+import React from 'react';
 import type { KillFeedProps, MapKill, MapSystem, MapViewport } from './types';
 import { formatIsk } from '@/lib/utils';
 
-/**
- * Colors for kill markers
- */
 const KILL_COLORS = {
-  ship: '#ff453a', // Red for ships
-  pod: '#ff9f0a',  // Orange for pods
-  glow: 'rgba(255, 69, 58, 0.6)',
-  podGlow: 'rgba(255, 159, 10, 0.6)',
+  ship: '#ff453a',
+  pod: '#ff9f0a',
 } as const;
 
-/**
- * Calculate marker size based on kill value
- */
-function getMarkerSize(value: number): number {
-  // Log scale for value, clamped between 6 and 24 pixels
+function getMarkerRadius(value: number, zoom: number): number {
   const logValue = Math.log10(value + 1);
-  const size = Math.max(6, Math.min(24, logValue * 2.5));
-  return size;
+  const base = Math.max(3, Math.min(10, logValue * 1.5));
+  return base * Math.max(0.8, Math.min(1.5, zoom * 0.5));
 }
 
-/**
- * Calculate opacity based on age
- */
 function getOpacity(timestamp: number, maxAge: number, now: number): number {
   const age = now - timestamp;
-  const ageRatio = age / maxAge;
-  // Fade from 1 to 0.3 over lifetime
-  return Math.max(0.3, 1 - ageRatio * 0.7);
-}
-
-/**
- * Transform world coordinates to screen coordinates
- */
-function worldToScreen(
-  worldX: number,
-  worldY: number,
-  viewport: MapViewport
-): { x: number; y: number } {
-  const x = (worldX - viewport.x) * viewport.zoom + viewport.width / 2;
-  const y = (worldY - viewport.y) * viewport.zoom + viewport.height / 2;
-  return { x, y };
-}
-
-/**
- * Check if a point is visible in the viewport
- */
-function isVisible(
-  screenX: number,
-  screenY: number,
-  viewport: MapViewport,
-  margin: number = 50
-): boolean {
-  return (
-    screenX >= -margin &&
-    screenX <= viewport.width + margin &&
-    screenY >= -margin &&
-    screenY <= viewport.height + margin
-  );
+  return Math.max(0.3, 1 - (age / maxAge) * 0.7);
 }
 
 interface KillMarkerProps {
@@ -72,111 +29,52 @@ interface KillMarkerProps {
   now: number;
 }
 
-/**
- * Individual kill marker with pulse animation
- * Memoized to prevent unnecessary re-renders when viewport changes don't affect visibility
- */
 const KillMarker = memo(function KillMarker({ kill, system, viewport, maxAge, now }: KillMarkerProps) {
-  const screenPos = worldToScreen(system.x, system.y, viewport);
+  const sx = (system.x - viewport.x) * viewport.zoom + viewport.width / 2;
+  const sy = (system.y - viewport.y) * viewport.zoom + viewport.height / 2;
 
-  // Skip if not visible
-  if (!isVisible(screenPos.x, screenPos.y, viewport)) {
-    return null;
-  }
+  if (sx < -30 || sx > viewport.width + 30 || sy < -30 || sy > viewport.height + 30) return null;
 
-  const size = getMarkerSize(kill.value);
+  const r = getMarkerRadius(kill.value, viewport.zoom);
   const opacity = getOpacity(kill.timestamp, maxAge, now);
   const color = kill.isPod ? KILL_COLORS.pod : KILL_COLORS.ship;
-  const glowColor = kill.isPod ? KILL_COLORS.podGlow : KILL_COLORS.glow;
 
-  // Age in minutes for tooltip
   const ageMinutes = Math.floor((now - kill.timestamp) / 60000);
   const ageText = ageMinutes < 1 ? 'Just now' : `${ageMinutes}m ago`;
 
   return (
-    <div
-      className="absolute pointer-events-auto cursor-pointer group animate-scale-in"
-      style={{
-        left: screenPos.x,
-        top: screenPos.y,
-        transform: 'translate(-50%, -50%)',
-        opacity,
-      }}
-    >
-      {/* Outer pulse ring */}
-      <div
-        className="absolute rounded-full animate-ping-slow"
-        style={{
-          width: size * 3,
-          height: size * 3,
-          left: -(size * 3) / 2 + size / 2,
-          top: -(size * 3) / 2 + size / 2,
-          background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
-        }}
-      />
-
-      {/* Core marker */}
-      <div
-        className="relative rounded-full animate-pulse-slow"
-        style={{
-          width: size,
-          height: size,
-          backgroundColor: color,
-          boxShadow: `0 0 ${size}px ${color}, 0 0 ${size * 2}px ${glowColor}`,
-        }}
-      />
-
-      {/* Tooltip on hover */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-        <div className="bg-surface-elevated border border-border rounded-lg px-3 py-2 shadow-lg whitespace-nowrap text-sm">
-          <div className="font-medium text-text">
-            {kill.isPod ? 'Pod Kill' : kill.shipType}
-          </div>
-          <div className="text-text-secondary">
-            {formatIsk(kill.value)} | {ageText}
-          </div>
-          <div className="text-text-secondary text-xs">
-            {system.name}
-          </div>
-        </div>
-      </div>
-    </div>
+    <g opacity={opacity}>
+      {/* Pulsing outer ring */}
+      <circle cx={sx} cy={sy} r={r * 2.5} fill="none" stroke={color} strokeWidth={1} opacity={0.4}>
+        <animate attributeName="r" from={String(r * 1.5)} to={String(r * 3)} dur="1.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite" />
+      </circle>
+      {/* Core blinking dot */}
+      <circle cx={sx} cy={sy} r={r} fill={color} opacity={0.9}>
+        <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1s" repeatCount="indefinite" />
+      </circle>
+      {/* Glow */}
+      <circle cx={sx} cy={sy} r={r * 1.5} fill={color} opacity={0.2}>
+        <animate attributeName="opacity" values="0.3;0.1;0.3" dur="1s" repeatCount="indefinite" />
+      </circle>
+      <title>{kill.isPod ? 'Pod Kill' : kill.shipType} — {formatIsk(kill.value)} — {ageText} — {system.name}</title>
+    </g>
   );
 });
 
-/**
- * Kill markers overlay for the map
- *
- * Renders animated markers at system locations where kills occurred.
- * Markers pulse red for ships, orange for pods.
- * Size based on kill value, opacity fades over time.
- *
- * Usage:
- * ```tsx
- * <KillMarkers
- *   kills={kills}
- *   systems={systemsMap}
- *   viewport={viewport}
- *   maxAge={3600000} // 1 hour
- * />
- * ```
- */
 export function KillMarkers({
   kills,
   systems,
   viewport,
-  maxAge = 60 * 60 * 1000, // 1 hour default
+  maxAge = 60 * 60 * 1000,
 }: KillFeedProps) {
-  // Tick every 30s so marker opacity fades smoothly over time
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
-  // Also update immediately when new kills arrive
   useEffect(() => { setNow(Date.now()); }, [kills.length]);
 
-  // Filter kills that have valid systems and are within maxAge
   const visibleKills = useMemo(() => {
     return kills.filter((kill) => {
       const system = systems.get(kill.systemId);
@@ -186,12 +84,18 @@ export function KillMarkers({
     });
   }, [kills, systems, maxAge, now]);
 
+  if (visibleKills.length === 0) return null;
+
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width={viewport.width}
+      height={viewport.height}
+      style={{ zIndex: 3 }}
+    >
       {visibleKills.map((kill) => {
         const system = systems.get(kill.systemId);
         if (!system) return null;
-
         return (
           <KillMarker
             key={kill.killId}
@@ -203,7 +107,7 @@ export function KillMarkers({
           />
         );
       })}
-    </div>
+    </svg>
   );
 }
 
