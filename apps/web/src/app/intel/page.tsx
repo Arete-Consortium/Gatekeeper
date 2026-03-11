@@ -1,17 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Radar, MessageSquareText, Users } from 'lucide-react';
+import { Radar, MessageSquareText, Users, Bell } from 'lucide-react';
 import IntelFeed from '@/components/intel/IntelFeed';
 import IntelParsePage from '@/app/intel-parse/page';
 import FleetPage from '@/app/fleet/page';
+import AlertsPage from '@/app/alerts/page';
 
-type Tab = 'kill-feed' | 'intel-parser' | 'fleet';
+type Tab = 'kill-feed' | 'intel-parser' | 'fleet' | 'alerts';
 
 const tabs: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'kill-feed', label: 'Kill Feed', icon: Radar },
   { key: 'intel-parser', label: 'Intel Parser', icon: MessageSquareText },
   { key: 'fleet', label: 'Fleet', icon: Users },
+  { key: 'alerts', label: 'Alerts', icon: Bell },
 ];
 
 export default function IntelPage() {
@@ -23,7 +25,7 @@ export default function IntelPage() {
       <div>
         <h1 className="text-2xl font-bold text-text">Intel</h1>
         <p className="text-text-secondary mt-1">
-          Kill feed, intel parsing, and fleet analysis
+          Kill feed, intel parsing, fleet analysis, and alert subscriptions
         </p>
       </div>
 
@@ -52,6 +54,7 @@ export default function IntelPage() {
       {activeTab === 'kill-feed' && <IntelFeed />}
       {activeTab === 'intel-parser' && <IntelParsePage />}
       {activeTab === 'fleet' && <FleetPage />}
+      {activeTab === 'alerts' && <AlertsPage />}
     </div>
   );
 }

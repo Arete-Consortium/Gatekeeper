@@ -1,9 +1,10 @@
 'use client';
 
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, Badge, Button } from '@/components/ui';
+import { Card, Button } from '@/components/ui';
 import { GatekeeperAPI } from '@/lib/api';
 import type { MapConfig, FWSystem, HotSystem } from '@/lib/types';
+import { RefreshCw } from 'lucide-react';
 import { FWSystemDetail } from './FWSystemDetail';
 import { FWSidebar } from './FWSidebar';
 
@@ -22,8 +23,11 @@ const WARZONES = [
   { name: 'Amarr / Minmatar Warzone', factions: [500003, 500002] },
 ];
 
-// Faction IDs in display order
-const FACTION_IDS = [500001, 500002, 500003, 500004] as const;
+// Warzone button configs
+const WARZONE_BUTTONS = [
+  { key: 'calgal', label: 'Caldari / Gallente', warzoneIdx: 0, colors: ['#c8aa00', '#1e8c1e'] },
+  { key: 'amarrmin', label: 'Amarr / Minmatar', warzoneIdx: 1, colors: ['#c83232', '#2a7fff'] },
+] as const;
 
 interface FWSystemNode {
   systemId: number;
@@ -42,7 +46,7 @@ interface FWGateConnection {
   toId: number;
 }
 
-type FactionFilter = number | null; // null = all FW systems
+type WarzoneFilter = number | null; // null = all, 0 = Cal/Gal, 1 = Amarr/Min
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -57,8 +61,9 @@ export function FWMap() {
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const dragRef = useRef<{ startX: number; startY: number; vpX: number; vpY: number } | null>(null);
 
-  // Faction filter — null = show all
-  const [factionFilter, setFactionFilter] = useState<FactionFilter>(null);
+  // Warzone filter — null = show all, 0 = Cal/Gal, 1 = Amarr/Min
+  const [warzoneFilter, setWarzoneFilter] = useState<WarzoneFilter>(null);
+  const [intelHours, setIntelHours] = useState(24);
 
   // Data
   const [fwSystems, setFwSystems] = useState<FWSystemNode[]>([]);
@@ -73,6 +78,24 @@ export function FWMap() {
   const pulseRef = useRef(0);
   const [, setFrame] = useState(0);
 
+  // ── Fetch hot systems when hours change ─────────────────────────────────────
+
+  const fetchHotSystems = useCallback(async (hours: number) => {
+    try {
+      const hot = await GatekeeperAPI.getHotSystems(hours, 100);
+      setHotSystems(hot);
+    } catch {
+      // Non-critical — keep existing data
+    }
+  }, []);
+
+  // Re-fetch when intelHours changes (skip initial — handled by main fetch)
+  const initialLoadDone = useRef(false);
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    fetchHotSystems(intelHours);
+  }, [intelHours, fetchHotSystems]);
+
   // ── Fetch data ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -83,7 +106,7 @@ export function FWMap() {
         const [config, fw, hot] = await Promise.all([
           GatekeeperAPI.getMapConfig(),
           GatekeeperAPI.getFWStatus(),
-          GatekeeperAPI.getHotSystems(24, 100),
+          GatekeeperAPI.getHotSystems(intelHours, 100),
         ]);
 
         if (cancelled) return;
@@ -91,6 +114,7 @@ export function FWMap() {
         setMapConfig(config);
         setFwData(fw.fw_systems);
         setHotSystems(hot);
+        initialLoadDone.current = true;
 
         // Build FW system nodes
         const fwSystemIds = new Set(Object.keys(fw.fw_systems));
@@ -143,32 +167,16 @@ export function FWMap() {
 
   // ── Filtered systems for display ──────────────────────────────────────────
 
-  // Which systems belong to each faction's warzone
-  const factionWarzoneSystems = useMemo(() => {
-    const result = new Map<number, Set<number>>();
-    for (const fid of FACTION_IDS) {
-      const warzone = WARZONES.find((wz) => wz.factions.includes(fid));
-      if (!warzone) continue;
-      const ids = new Set<number>();
-      for (const sys of fwSystems) {
-        // System belongs to warzone if its owner or occupier is one of the warzone factions
-        if (warzone.factions.includes(sys.fw.owner_faction_id) ||
-            warzone.factions.includes(sys.fw.occupier_faction_id)) {
-          ids.add(sys.systemId);
-        }
-      }
-      result.set(fid, ids);
-    }
-    return result;
-  }, [fwSystems]);
-
-  // Visible systems based on faction filter
+  // Visible systems based on warzone filter
   const visibleSystems = useMemo(() => {
-    if (!factionFilter) return fwSystems;
-    const warzoneIds = factionWarzoneSystems.get(factionFilter);
-    if (!warzoneIds) return fwSystems;
-    return fwSystems.filter((s) => warzoneIds.has(s.systemId));
-  }, [fwSystems, factionFilter, factionWarzoneSystems]);
+    if (warzoneFilter === null) return fwSystems;
+    const warzone = WARZONES[warzoneFilter];
+    if (!warzone) return fwSystems;
+    return fwSystems.filter((sys) =>
+      warzone.factions.includes(sys.fw.owner_faction_id) ||
+      warzone.factions.includes(sys.fw.occupier_faction_id)
+    );
+  }, [fwSystems, warzoneFilter]);
 
   // Hot system lookup (system_id -> kills)
   const hotSystemMap = useMemo(() => {
@@ -237,26 +245,24 @@ export function FWMap() {
     [size]
   );
 
-  // ── Faction filter zoom ───────────────────────────────────────────────────
+  // ── Warzone filter zoom ──────────────────────────────────────────────────
 
-  const handleFactionClick = useCallback(
-    (factionId: number) => {
-      if (factionFilter === factionId) {
-        // Already filtered — reset
-        setFactionFilter(null);
+  const handleWarzoneClick = useCallback(
+    (warzoneIdx: number) => {
+      if (warzoneFilter === warzoneIdx) {
+        setWarzoneFilter(null);
         setViewport({ x: 0, y: 0, zoom: 1 });
       } else {
-        setFactionFilter(factionId);
-        // Reset viewport so bounds recalculate and fit the warzone
+        setWarzoneFilter(warzoneIdx);
         setViewport({ x: 0, y: 0, zoom: 1 });
       }
       setSelected(null);
     },
-    [factionFilter]
+    [warzoneFilter]
   );
 
   const handleResetFilter = useCallback(() => {
-    setFactionFilter(null);
+    setWarzoneFilter(null);
     setViewport({ x: 0, y: 0, zoom: 1 });
     setSelected(null);
   }, []);
@@ -600,21 +606,21 @@ export function FWMap() {
     ctx.fillText('Kill activity', legendX + 16, killLegY + 4);
 
     // Active filter indicator at top of canvas
-    if (factionFilter) {
-      const activeWarzone = WARZONES.find((wz) => wz.factions.includes(factionFilter));
+    if (warzoneFilter !== null) {
+      const activeWarzone = WARZONES[warzoneFilter];
       if (activeWarzone) {
-        const fInfo = FACTION_COLORS[factionFilter];
         const label = activeWarzone.name;
         ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
         const labelW = ctx.measureText(label).width;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(size.w / 2 - labelW / 2 - 12, 8, labelW + 24, 24);
-        ctx.fillStyle = fInfo?.fill || '#ffffff';
+        const btn = WARZONE_BUTTONS[warzoneFilter];
+        ctx.fillStyle = btn?.colors[0] || '#ffffff';
         ctx.textAlign = 'center';
         ctx.fillText(label, size.w / 2, 25);
       }
     }
-  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap, factionFilter]);
+  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap, warzoneFilter]);
 
   // ── Animation loop for contested pulse + kill blink ────────────────────────
 
@@ -710,48 +716,82 @@ export function FWMap() {
     <div className="flex gap-3 relative">
       {/* Main map area */}
       <div className="flex-1 min-w-0 space-y-3">
-        {/* Faction filter buttons */}
+        {/* Warzone filter buttons */}
         <div className="flex flex-wrap items-center gap-2 min-h-[36px]">
           <Button
-            variant={factionFilter === null ? 'primary' : 'ghost'}
+            variant={warzoneFilter === null ? 'primary' : 'ghost'}
             size="sm"
             onClick={handleResetFilter}
             className="text-xs h-7 px-3"
           >
             All FW ({fwSystems.length})
           </Button>
-          {FACTION_IDS.map((fid) => {
-            const info = FACTION_COLORS[fid];
-            const count = factionCounts[fid] || 0;
-            const isActive = factionFilter === fid;
+          {WARZONE_BUTTONS.map((btn) => {
+            const isActive = warzoneFilter === btn.warzoneIdx;
+            const warzone = WARZONES[btn.warzoneIdx];
+            const count = warzone.factions.reduce((sum, fid) => sum + (factionCounts[fid] || 0), 0);
             return (
               <button
-                key={fid}
-                onClick={() => handleFactionClick(fid)}
+                key={btn.key}
+                onClick={() => handleWarzoneClick(btn.warzoneIdx)}
                 className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 h-7 rounded-md transition-all cursor-pointer ${
                   isActive
                     ? 'shadow-md scale-105'
                     : 'hover:brightness-125 hover:scale-105 opacity-80 hover:opacity-100'
                 }`}
                 style={{
-                  backgroundColor: info.fill + (isActive ? '50' : '20'),
-                  color: info.fill,
-                  border: isActive ? `2px solid ${info.fill}` : '2px solid transparent',
+                  backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                  color: isActive ? '#ffffff' : '#94a3b8',
+                  border: isActive ? '2px solid rgba(255,255,255,0.3)' : '2px solid transparent',
                 }}
               >
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: info.fill }}
-                />
-                {info.shortName}: {count}
+                <span className="flex gap-0.5">
+                  {btn.colors.map((c, i) => (
+                    <span
+                      key={i}
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </span>
+                {btn.label}: {count}
               </button>
             );
           })}
-          {factionFilter && (
-            <span className="text-[10px] text-text-secondary ml-1">
-              {WARZONES.find((wz) => wz.factions.includes(factionFilter))?.name}
+        </div>
+
+        {/* Intel feed bar */}
+        <div className="flex items-center justify-between bg-card border border-border rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-text uppercase tracking-wider">Intel Feed</span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] text-green-400 font-medium">Live</span>
             </span>
-          )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-text-secondary">
+              {fwKillCount} kills · {hotSystems.reduce((s, h) => s + h.recent_pods, 0)} pods
+            </span>
+            <select
+              value={intelHours}
+              onChange={(e) => setIntelHours(Number(e.target.value))}
+              className="text-xs bg-background border border-border rounded px-2 py-1 text-text cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value={1}>Last 1 Hour</option>
+              <option value={4}>Last 4 Hours</option>
+              <option value={12}>Last 12 Hours</option>
+              <option value={24}>Last 24 Hours</option>
+              <option value={48}>Last 48 Hours</option>
+            </select>
+            <button
+              onClick={() => fetchHotSystems(intelHours)}
+              className="text-text-secondary hover:text-text transition-colors"
+              aria-label="Refresh intel"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Canvas */}
@@ -787,7 +827,7 @@ export function FWMap() {
         {/* Zoom controls hint */}
         <div className="text-[10px] text-text-secondary text-center">
           Scroll to zoom &middot; Drag to pan &middot; Click a system for details
-          {factionFilter && ' &middot; Click faction button again to reset'}
+          {warzoneFilter !== null && ' · Click warzone button again to reset'}
         </div>
       </div>
 
@@ -802,6 +842,7 @@ export function FWMap() {
         topHotSystems={topHotFW}
         systemMap={systemMap}
         onSystemClick={(systemId) => setSelected(systemId)}
+        intelHours={intelHours}
       />
     </div>
   );

@@ -34,6 +34,7 @@ interface FWSidebarProps {
   topHotSystems: HotSystem[];
   systemMap: Map<number, FWSystemNode>;
   onSystemClick: (systemId: number) => void;
+  intelHours?: number;
 }
 
 export function FWSidebar({
@@ -46,6 +47,7 @@ export function FWSidebar({
   topHotSystems,
   systemMap,
   onSystemClick,
+  intelHours = 24,
 }: FWSidebarProps) {
   // Most contested systems (highest VP progress)
   const mostContested = fwSystems
@@ -68,7 +70,7 @@ export function FWSidebar({
           <StatBlock label="Total Systems" value={fwSystems.length} />
           <StatBlock label="Contested" value={contestedCount} color="#ffd60a" />
           <StatBlock label="Vulnerable" value={vulnerableCount} color="#ff453a" />
-          <StatBlock label="Kills (24h)" value={fwKillCount} color="#ef4444" />
+          <StatBlock label={`Kills (${intelHours}h)`} value={fwKillCount} color="#ef4444" />
         </div>
       </Card>
 
@@ -151,7 +153,7 @@ export function FWSidebar({
       {/* Hot systems (kill activity) */}
       {topHotSystems.length > 0 && (
         <Card className="p-3 space-y-2">
-          <h3 className="text-xs font-bold text-text uppercase tracking-wider">Kill Activity (24h)</h3>
+          <h3 className="text-xs font-bold text-text uppercase tracking-wider">Kill Activity ({intelHours}h)</h3>
           <div className="space-y-1.5">
             {topHotSystems.map((hs) => {
               const sys = systemMap.get(hs.system_id);

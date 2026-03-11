@@ -9,7 +9,6 @@ import {
   Globe,
   Route,
   Scale,
-  Bell,
   Radar,
   Settings,
   Menu,
@@ -37,7 +36,6 @@ const navItems: NavItem[] = [
   { href: '/appraisal', label: 'Appraisal', icon: Scale },
   { href: '/pochven', label: 'Pochven', icon: Triangle },
   { href: '/fw', label: 'FW Map', icon: Swords },
-  { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
 ];
 
