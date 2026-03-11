@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { PochvenMap } from '@/components/pochven/PochvenMap';
+import dynamic from 'next/dynamic';
+
+const PochvenMap = dynamic(
+  () => import('@/components/pochven/PochvenMap').then((m) => m.PochvenMap),
+  { ssr: false }
+);
 import { Card, Badge } from '@/components/ui';
 import {
   Map,
