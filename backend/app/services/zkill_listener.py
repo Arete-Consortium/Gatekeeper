@@ -278,6 +278,26 @@ class ZKillListener:
             # Broadcast to connected WebSocket clients
             await connection_manager.broadcast_kill(kill_data)
 
+            # Dispatch webhook alerts for matching subscriptions
+            try:
+                from .webhooks import KillAlert, dispatch_alert
+
+                alert = KillAlert(
+                    kill_id=kill_id,
+                    system_name=system_name or str(solar_system_id),
+                    system_id=solar_system_id,
+                    region_id=region_id,
+                    ship_type_id=ship_type_id,
+                    attacker_count=len(killmail.get("attackers", [])),
+                    total_value=zkb.get("totalValue"),
+                    is_pod=is_pod,
+                    is_npc=zkb.get("npc", False),
+                    zkill_url=f"https://zkillboard.com/kill/{kill_id}/",
+                )
+                await dispatch_alert(alert)
+            except Exception as e:
+                logger.warning(f"Alert dispatch failed for kill {kill_id}: {e}")
+
             # Broadcast system risk update for map clients
             if system_name and solar_system_id:
                 from .zkill_stats import fetch_system_kills

@@ -143,6 +143,11 @@ async def startup_event() -> None:
     pubsub = get_redis_pubsub()
     await pubsub.start()
 
+    # Initialize default webhook subscriptions from env vars
+    from .services.webhooks import init_default_subscriptions
+
+    init_default_subscriptions()
+
     logger.info("Application startup complete")
 
 
