@@ -1,5 +1,5 @@
 // EVE Gatekeeper Service Worker — offline caching for static assets and API data
-const CACHE_VERSION = 'gk-v1';
+const CACHE_VERSION = 'gk-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -14,11 +14,9 @@ const PRECACHE_URLS = [
 ];
 
 // API endpoints to cache with network-first strategy
+// Only cache non-Pro, non-session-dependent endpoints
 const CACHEABLE_API_PATTERNS = [
   /\/api\/v1\/map\/config/,
-  /\/api\/v1\/map\/thera/,
-  /\/api\/v1\/map\/sovereignty/,
-  /\/api\/v1\/map\/fw/,
   /\/api\/v1\/map\/market-hubs/,
 ];
 

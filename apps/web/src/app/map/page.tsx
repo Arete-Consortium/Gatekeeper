@@ -273,7 +273,7 @@ function MapPageContent() {
     queryKey: ['wormholes'],
     queryFn: () => GatekeeperAPI.getWormholes(),
     staleTime: 2 * 60 * 1000,
-    enabled: !!mapConfig && layers.showWormholes === true,
+    enabled: !!mapConfig && isPro && layers.showWormholes === true,
   });
 
   const { data: marketHubData } = useQuery({
