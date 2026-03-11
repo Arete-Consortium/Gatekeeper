@@ -63,11 +63,13 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       if (sx < -pad || sx > viewport.width + pad || sy < -pad || sy > viewport.height + pad) continue;
 
       let ihubAdm: number | null = null;
+      let hasIhub = false;
       let hasTcu = false;
       let hasSkyhook = false;
 
       for (const s of structs) {
         if (s.structure_type_id === TYPE_IHUB) {
+          hasIhub = true;
           ihubAdm = s.vulnerability_occupancy_level;
         } else if (s.structure_type_id === TYPE_TCU) {
           hasTcu = true;
@@ -75,6 +77,9 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
           hasSkyhook = true;
         }
       }
+
+      // Render block for any system with iHub or Skyhook (even if ADM is null)
+      if (!hasIhub && !hasSkyhook) continue;
 
       result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
     }
@@ -116,18 +121,19 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       {markers.map((m) => {
         const hasAdm = m.ihubAdm !== null;
         const hasSky = m.hasSkyhook;
-        if (!hasAdm && !hasSky) return null;
 
-        // Build row 2 text parts
+        // Build row 2 text parts (may be empty for iHub with null ADM)
         const admText = hasAdm ? `ADM ${m.ihubAdm!.toFixed(1)}` : '';
         const skyText = hasSky ? 'S' : '';
         const row2Text = [admText, skyText].filter(Boolean).join('  ');
+        const hasRow2 = row2Text.length > 0;
 
         // Calculate widths
         const nameW = m.name.length * charW;
-        const row2W = row2Text.length * charWAdm;
+        const row2W = hasRow2 ? row2Text.length * charWAdm : 0;
         const contentW = Math.max(nameW, row2W);
         const blockW = contentW + padX * 2;
+        const thisBlockH = hasRow2 ? blockH : padY + lineH1 + padY;
 
         const bx = m.x - blockW / 2;
         const by = m.y + blockOffsetY;
@@ -138,12 +144,12 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
         return (
           <g key={m.systemId}>
-            {/* Dark opaque background block covering Pixi label */}
+            {/* Dark opaque background block */}
             <rect
               x={bx}
               y={by}
               width={blockW}
-              height={blockH}
+              height={thisBlockH}
               rx={3}
               fill={BLOCK_BG}
             />
@@ -158,26 +164,28 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
             >
               {m.name}
             </text>
-            {/* Row 2: ADM level + Skyhook */}
-            <text
-              x={m.x}
-              y={admY}
-              textAnchor="middle"
-              fontSize={fontAdm}
-              fontFamily="monospace"
-            >
-              {hasAdm && (
-                <tspan fill={admColor(m.ihubAdm)} fontWeight="bold">
-                  ADM {m.ihubAdm!.toFixed(1)}
-                </tspan>
-              )}
-              {hasAdm && hasSky && (
-                <tspan fill={NAME_COLOR}>{' '}</tspan>
-              )}
-              {hasSky && (
-                <tspan fill={SKYHOOK_FG} fontWeight="bold">S</tspan>
-              )}
-            </text>
+            {/* Row 2: ADM level + Skyhook (only if data exists) */}
+            {hasRow2 && (
+              <text
+                x={m.x}
+                y={admY}
+                textAnchor="middle"
+                fontSize={fontAdm}
+                fontFamily="monospace"
+              >
+                {hasAdm && (
+                  <tspan fill={admColor(m.ihubAdm)} fontWeight="bold">
+                    ADM {m.ihubAdm!.toFixed(1)}
+                  </tspan>
+                )}
+                {hasAdm && hasSky && (
+                  <tspan fill={NAME_COLOR}>{' '}</tspan>
+                )}
+                {hasSky && (
+                  <tspan fill={SKYHOOK_FG} fontWeight="bold">S</tspan>
+                )}
+              </text>
+            )}
           </g>
         );
       })}
