@@ -6,7 +6,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 1.9.0
+- **Version**: 2.0.0
 - **Backend**: Python 3.12 / FastAPI — 2,432 tests passing
 - **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 557 tests passing
 - **Rendering**: Canvas2D (SimpleMapCanvas for universe map), Canvas2D (jump range map, Pochven map)
@@ -58,6 +58,7 @@ apps/web/src/
 │   │   ├── RiskHeatmap.tsx        # Risk score heatmap (SVG)
 │   │   ├── RouteOverlay.tsx       # Route path highlight (SVG)
 │   │   ├── LandmarksOverlay.tsx   # SDE landmarks (SVG)
+│   │   ├── SkyhookHaloOverlay.tsx # Skyhook glow halos (SVG, sky-300)
 │   │   ├── Minimap.tsx            # Overview minimap
 │   │   ├── RouteControls.tsx      # Route planner panel
 │   │   ├── SystemDetailPanel.tsx  # Selected system info
@@ -68,7 +69,7 @@ apps/web/src/
 │   ├── fitting/      # FittingAnalyzer
 │   ├── alerts/       # AlertForm (region filter, ship type tags), AlertCard, RegionFilter
 │   ├── dashboard/    # LiveKillFeed (with PilotThreatCard + SystemSummaryCard popovers)
-│   ├── intel/        # PilotThreatCard, SystemSummaryCard, ThreatsTab
+│   ├── intel/        # PilotThreatCard (pinnable), PilotLookupTab, IntelFeed (pinned pilots), ThreatsTab (region filter)
 │   ├── system/       # SystemCard, RiskBadge, SecurityBadge
 │   ├── layout/       # Navbar, Footer, StatusIndicator
 │   └── ui/           # Button, Card, Input, Select, Toggle, Badge, etc.
@@ -97,6 +98,8 @@ apps/web/src/
 - **Canvas label suppression**: When SovStructuresOverlay renders for a system (iHub/Skyhook), SimpleMapCanvas skips its canvas label via `sovStructureSystems` Set prop
 - **Service worker**: `sw.js` — network-first for API/navigation, cache-first for static assets, registered in production only via `ServiceWorkerRegistration.tsx`
 - **Wormhole persistence**: PostgreSQL via `WormholeConnectionDB` model, write-through cache, hourly expired connection cleanup
+- **Pinned pilots**: `gk_pinned_pilots` localStorage key, cross-tab sync via `storage` event, shared `loadPinnedPilots()`/`savePinnedPilots()` in PilotLookupTab.tsx
+- **Map aesthetic**: Dark navy `#0a0e17` background (Pochven style) on main map and FW map canvas
 
 ### Map Layer Architecture
 
@@ -112,7 +115,8 @@ apps/web/src/
 | Thera | TheraOverlay | `showThera` | Yes | /map/thera |
 | Faction warfare | FWOverlay | `showFW` | Yes | /map/fw |
 | Landmarks | LandmarksOverlay | `showLandmarks` | No | /map/config |
-| iHub ADM / Skyhooks | SovStructuresOverlay | `showSovStructures` | Yes | /map/sovereignty/structures |
+| iHub ADM | SovStructuresOverlay | `showSovStructures` | Yes | /map/sovereignty/structures |
+| Skyhook halos | SkyhookHaloOverlay | `showSkyhooks` | Yes | /map/sovereignty/structures |
 | Wormholes | WormholeOverlay | `showWormholes` | Yes | /api/v1/wormholes/ |
 | Trade hubs | MarketHubsOverlay | `showMarketHubs` | No | /map/market-hubs |
 
