@@ -87,6 +87,7 @@ class ZKillListener:
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout=35.0),  # RedisQ timeout is 30s
             headers={"User-Agent": settings.ZKILL_USER_AGENT},
+            follow_redirects=True,
         )
         self._task = asyncio.create_task(self._listen_loop())
         logger.info("ZKill listener started")
@@ -199,8 +200,48 @@ class ZKillListener:
             # No new kills available
             return
 
+        # New RedisQ format: package has killID + zkb but no killmail
+        # Fetch full killmail from ESI if not present
+        if "killmail" not in package and "zkb" in package:
+            killmail = await self._fetch_esi_killmail(package)
+            if killmail:
+                package["killmail"] = killmail
+            else:
+                logger.warning(f"Could not fetch ESI killmail for kill {package.get('killID')}")
+                return
+
         # Process the kill
         await self._process_kill(package)
+
+    async def _fetch_esi_killmail(self, package: dict[str, Any]) -> dict[str, Any] | None:
+        """Fetch full killmail from ESI using the zkb href."""
+        if not self._client:
+            return None
+
+        zkb = package.get("zkb", {})
+        href = zkb.get("href")
+
+        if href:
+            try:
+                resp = await self._client.get(href)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.debug(f"ESI killmail fetch via href failed: {e}")
+
+        # Fallback: construct ESI URL from killID and hash
+        kill_id = package.get("killID")
+        kill_hash = zkb.get("hash")
+        if kill_id and kill_hash:
+            try:
+                esi_url = f"https://esi.evetech.net/latest/killmails/{kill_id}/{kill_hash}/"
+                resp = await self._client.get(esi_url)
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as e:
+                logger.warning(f"ESI killmail fetch failed for {kill_id}: {e}")
+
+        return None
 
     async def _process_kill(self, package: dict[str, Any]) -> None:
         """Process a kill package from zKillboard."""
@@ -208,8 +249,8 @@ class ZKillListener:
             killmail = package.get("killmail", {})
             zkb = package.get("zkb", {})
 
-            # Extract key information
-            kill_id = killmail.get("killmail_id")
+            # Extract key information — support both old and new format
+            kill_id = killmail.get("killmail_id") or package.get("killID")
             solar_system_id = killmail.get("solar_system_id")
             kill_time = killmail.get("killmail_time")
             victim = killmail.get("victim", {})

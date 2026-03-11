@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # zKillboard
     ZKILL_BASE_URL: str = "https://zkillboard.com/api"
     ZKILL_USER_AGENT: str = "EVE_Gatekeeper/1.0"
-    ZKILL_REDISQ_URL: str = "https://redisq.zkillboard.com/listen.php"
+    ZKILL_REDISQ_URL: str = "https://zkillredisq.stream/listen.php"
 
     # WebSocket Reconnection
     WS_INITIAL_RETRY_DELAY: float = 1.0  # Initial delay in seconds
