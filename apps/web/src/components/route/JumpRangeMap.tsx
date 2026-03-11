@@ -197,14 +197,13 @@ export function JumpRangeMap({
   }, [waypoints, nameToSystem]);
 
   // Fit viewport to visible systems on data load or origin change
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- viewport sync on data change
   useEffect(() => {
     if (visibleSystems.length === 0) return;
     const container = containerRef.current;
     const w = container?.clientWidth ?? 600;
     const h = container?.clientHeight ?? 400;
     const fit = calculateFitZoom(visibleSystems, w, h, 40);
-    setViewport({ x: fit.x, y: fit.y, zoom: fit.zoom, width: w, height: h });
+    setViewport({ x: fit.x, y: fit.y, zoom: fit.zoom, width: w, height: h }); // eslint-disable-line react-hooks/set-state-in-effect -- viewport sync on data change
   }, [visibleSystems, originSystem, destSystem]);
 
   // Resize observer
