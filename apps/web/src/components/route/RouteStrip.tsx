@@ -179,7 +179,7 @@ export const RouteStrip = memo(function RouteStrip({
         ctx.restore();
       }
     }
-  }, [hops, activeHover, totalWidth, nodeX]);
+  }, [hops, activeHover, totalWidth, nodeX, nodeY]);
 
   // Hit test
   const getHopAtPosition = useCallback(
@@ -200,7 +200,7 @@ export const RouteStrip = memo(function RouteStrip({
       }
       return null;
     },
-    [hops.length, nodeX]
+    [hops.length, nodeX, nodeY]
   );
 
   const handleMouseMove = useCallback(

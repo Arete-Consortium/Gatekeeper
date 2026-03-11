@@ -197,6 +197,7 @@ export function JumpRangeMap({
   }, [waypoints, nameToSystem]);
 
   // Fit viewport to visible systems on data load or origin change
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- viewport sync on data change
   useEffect(() => {
     if (visibleSystems.length === 0) return;
     const container = containerRef.current;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback, useState, memo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, memo } from 'react';
 import type { JumpLegResponse } from '@/lib/types';
 
 interface JumpStripProps {
@@ -47,13 +47,16 @@ export const JumpStrip = memo(function JumpStrip({
   const nodeX = useCallback((i: number) => 40 + i * NODE_SPACING, []);
 
   // Collect unique system names in order
-  const systems: string[] = [];
-  if (legs.length > 0) {
-    systems.push(legs[0].from_system);
-    for (const leg of legs) {
-      systems.push(leg.to_system);
+  const systems = useMemo(() => {
+    const result: string[] = [];
+    if (legs.length > 0) {
+      result.push(legs[0].from_system);
+      for (const leg of legs) {
+        result.push(leg.to_system);
+      }
     }
-  }
+    return result;
+  }, [legs]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

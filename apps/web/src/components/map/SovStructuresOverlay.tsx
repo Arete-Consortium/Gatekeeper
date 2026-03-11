@@ -129,7 +129,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
     }
 
     return result;
-  }, [structures, systems, viewport]);
+  }, [structures, systems, viewport, isMobile, isZoomed]);
 
   if (markers.length === 0) return null;
 

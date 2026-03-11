@@ -45,6 +45,7 @@ export function SystemSearch({ systems, onSelect, className }: SystemSearchProps
   }, [systems, query]);
 
   // Open dropdown when we have results
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- derived state synced to external focus/blur
   useEffect(() => {
     setIsOpen(results.length > 0 && query.length > 0);
     setActiveIndex(0);

@@ -67,7 +67,7 @@ export const SovereigntyOverlay = React.memo(function SovereigntyOverlay({
     }
 
     return result;
-  }, [sovereignty, alliances, systems, viewport, factions]);
+  }, [sovereignty, alliances, systems, viewport]);
 
   if (markers.length === 0) return null;
 

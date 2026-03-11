@@ -694,7 +694,7 @@ export function useKillStream(options: UseKillStreamOptions = {}): UseKillStream
   useEffect(() => {
     connectRef.current();
     return () => disconnectRef.current();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     kills,
