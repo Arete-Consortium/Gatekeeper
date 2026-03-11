@@ -6,9 +6,9 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 1.7.0
-- **Backend**: Python 3.12 / FastAPI — 2,200+ tests passing
-- **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 486 tests passing
+- **Version**: 1.8.0
+- **Backend**: Python 3.12 / FastAPI — 1,910 tests passing
+- **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 557 tests passing
 - **Rendering**: Canvas2D (SimpleMapCanvas for universe map), Canvas2D (jump range map, Pochven map)
 - **Deployment**: Fly.io (backend) + Vercel (frontend)
 - **Domains**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
@@ -17,7 +17,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 - **Auth**: httpOnly cookie (`gk_session`) + Bearer token fallback, EVE SSO OAuth2
 - **PWA**: manifest.json, standalone mode, theme-color #0e7490
 
-## Frontend Pages (14 routes)
+## Frontend Pages (18 routes)
 
 | Route | Purpose |
 |-------|---------|
@@ -27,6 +27,10 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 | `/appraisal` | Bulk item appraisal — paste items, get buy/sell prices |
 | `/pochven` | Pochven subway map — 27 systems, 3 Krais, BFS pathfinding |
 | `/intel` | Live kill feed — hot systems table, sortable columns |
+| `/intel-parse` | Intel chat parser — paste local/intel → hostile highlights on map |
+| `/fleet` | Fleet composition analyzer — paste fleet comp → threat assessment |
+| `/market` | Market price ticker — ESI history, sortable table, green/red price changes |
+| `/characters` | Multi-character dashboard — alt switching, location tracking, SSO linking |
 | `/fitting` | Fitting analyzer — EFT paste → travel advice |
 | `/alerts` | Alert subscriptions — Discord/Slack webhooks |
 | `/pricing` | Subscription tiers + Stripe checkout |
