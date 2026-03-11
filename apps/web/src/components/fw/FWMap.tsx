@@ -523,10 +523,8 @@ export function FWMap() {
         ctx.font = 'bold 8px system-ui, -apple-system, sans-serif';
         const tw = ctx.measureText(text).width;
         const bw = Math.max(tw + 4, 14);
-        ctx.beginPath();
-        ctx.roundRect(badgeX - bw / 2, badgeY - 6, bw, 12, 3);
         ctx.fillStyle = '#dc2626';
-        ctx.fill();
+        ctx.fillRect(badgeX - bw / 2, badgeY - 6, bw, 12);
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.fillText(text, badgeX, badgeY + 3);
@@ -600,7 +598,23 @@ export function FWMap() {
     ctx.fillStyle = '#94a3b8';
     ctx.textAlign = 'left';
     ctx.fillText('Kill activity', legendX + 16, killLegY + 4);
-  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap]);
+
+    // Active filter indicator at top of canvas
+    if (factionFilter) {
+      const activeWarzone = WARZONES.find((wz) => wz.factions.includes(factionFilter));
+      if (activeWarzone) {
+        const fInfo = FACTION_COLORS[factionFilter];
+        const label = activeWarzone.name;
+        ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+        const labelW = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(size.w / 2 - labelW / 2 - 12, 8, labelW + 24, 24);
+        ctx.fillStyle = fInfo?.fill || '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, size.w / 2, 25);
+      }
+    }
+  }, [size, fwSystems, visibleSystems, fwGates, systemMap, hovered, selected, toCanvas, getNodeRadius, viewport, hotSystemMap, factionFilter]);
 
   // ── Animation loop for contested pulse + kill blink ────────────────────────
 
@@ -714,16 +728,15 @@ export function FWMap() {
               <button
                 key={fid}
                 onClick={() => handleFactionClick(fid)}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 h-7 rounded-md transition-all ${
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 h-7 rounded-md transition-all cursor-pointer ${
                   isActive
-                    ? 'shadow-md'
-                    : 'hover:brightness-125 opacity-80 hover:opacity-100'
+                    ? 'shadow-md scale-105'
+                    : 'hover:brightness-125 hover:scale-105 opacity-80 hover:opacity-100'
                 }`}
                 style={{
-                  backgroundColor: info.fill + (isActive ? '40' : '20'),
+                  backgroundColor: info.fill + (isActive ? '50' : '20'),
                   color: info.fill,
-                  outline: isActive ? `2px solid ${info.fill}` : 'none',
-                  outlineOffset: '1px',
+                  border: isActive ? `2px solid ${info.fill}` : '2px solid transparent',
                 }}
               >
                 <span
