@@ -16,6 +16,7 @@ interface FWSystemDetailProps {
   systemData: MapConfigSystem;
   fwData: FWSystem;
   adjacentSystems: string[];
+  killCount?: number;
   onClose: () => void;
 }
 
@@ -24,6 +25,7 @@ export function FWSystemDetail({
   systemData,
   fwData,
   adjacentSystems,
+  killCount = 0,
   onClose,
 }: FWSystemDetailProps) {
   const occupier = FACTION_META[fwData.occupier_faction_id];
@@ -119,6 +121,14 @@ export function FWSystemDetail({
         </div>
         <div className="text-right text-[10px] text-text-secondary">{progressPct}%</div>
       </div>
+
+      {/* Kill activity */}
+      {killCount > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-secondary">Kills (24h):</span>
+          <span className="text-xs font-mono text-red-400 font-medium">{killCount}</span>
+        </div>
+      )}
 
       {/* Region / Constellation */}
       <div className="flex items-center gap-2 text-xs text-text-secondary">
