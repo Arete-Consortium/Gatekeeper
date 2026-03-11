@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useKillStream } from '@/components/map/useKillStream';
 import type { MapKill } from '@/components/map/types';
+import { PilotThreatCard } from '@/components/intel/PilotThreatCard';
+import { SystemSummaryCard } from '@/components/intel/SystemSummaryCard';
 import { Skull, Radio } from 'lucide-react';
 
 function formatIsk(value: number): string {
@@ -20,6 +22,10 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(seconds / 3600)}h ago`;
 }
 
+type PopoverTarget =
+  | { type: 'pilot'; characterId: number }
+  | { type: 'system'; systemName: string; systemId: number };
+
 export function LiveKillFeed() {
   const { kills, isConnected } = useKillStream({
     maxKills: 10,
@@ -28,9 +34,58 @@ export function LiveKillFeed() {
   });
 
   const recentKills = useMemo(() => kills.slice(0, 8), [kills]);
+  const [popover, setPopover] = useState<PopoverTarget | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on click outside
+  useEffect(() => {
+    if (!popover) return;
+    const handleClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopover(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [popover]);
+
+  const positionPopover = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (containerRect) {
+      setPopoverPos({
+        top: rect.top - containerRect.top + rect.height + 4,
+        left: Math.min(rect.left - containerRect.left, containerRect.width - 320),
+      });
+    }
+  };
+
+  const handlePilotClick = (kill: MapKill, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!kill.victimCharacterId) return;
+    if (popover?.type === 'pilot' && popover.characterId === kill.victimCharacterId) {
+      setPopover(null);
+      return;
+    }
+    positionPopover(e);
+    setPopover({ type: 'pilot', characterId: kill.victimCharacterId });
+  };
+
+  const handleSystemClick = (kill: MapKill, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!kill.systemName) return;
+    if (popover?.type === 'system' && popover.systemName === kill.systemName) {
+      setPopover(null);
+      return;
+    }
+    positionPopover(e);
+    setPopover({ type: 'system', systemName: kill.systemName, systemId: kill.systemId });
+  };
 
   return (
-    <div>
+    <div ref={containerRef} className="relative">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
           <Radio className="h-3 w-3" />
@@ -52,9 +107,17 @@ export function LiveKillFeed() {
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Skull className="h-3 w-3 text-risk-red flex-shrink-0" />
-                <span className="text-text truncate">{kill.shipType}</span>
+                <span
+                  className={`text-text truncate ${kill.victimCharacterId ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
+                  onClick={(e) => handlePilotClick(kill, e)}
+                >
+                  {kill.shipType}
+                </span>
                 {kill.systemName && (
-                  <span className="text-text-secondary text-xs truncate hidden sm:inline">
+                  <span
+                    className="text-text-secondary text-xs truncate hidden sm:inline cursor-pointer hover:text-primary transition-colors"
+                    onClick={(e) => handleSystemClick(kill, e)}
+                  >
                     in {kill.systemName}
                   </span>
                 )}
@@ -73,6 +136,28 @@ export function LiveKillFeed() {
       ) : (
         <div className="text-center py-6 text-text-secondary text-sm">
           {isConnected ? 'Waiting for kills...' : 'Connecting to kill feed...'}
+        </div>
+      )}
+
+      {/* Popover — Pilot Threat or System Summary */}
+      {popover && popoverPos && (
+        <div
+          ref={popoverRef}
+          className="absolute z-50 shadow-xl"
+          style={{ top: popoverPos.top, left: Math.max(0, popoverPos.left) }}
+        >
+          {popover.type === 'pilot' ? (
+            <PilotThreatCard
+              characterId={popover.characterId}
+              onClose={() => setPopover(null)}
+            />
+          ) : (
+            <SystemSummaryCard
+              systemName={popover.systemName}
+              systemId={popover.systemId}
+              onClose={() => setPopover(null)}
+            />
+          )}
         </div>
       )}
     </div>

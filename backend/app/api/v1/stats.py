@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from ...models.risk import ZKillStats
 from ...services.data_loader import load_universe
+from ...services.hotzone import HotzoneSystem, get_hotzone_systems
 from ...services.zkill_stats import (
     fetch_bulk_system_stats,
     fetch_system_kills,
@@ -185,3 +186,27 @@ async def get_hot_systems(
     systems = systems[:max_results]
 
     return HotSystemsResponse(hours=hours, systems=systems)
+
+
+class HotzoneResponse(BaseModel):
+    """Response for hotzone systems with trend data."""
+
+    hours: int
+    total: int
+    systems: list[HotzoneSystem]
+
+
+@router.get(
+    "/hotzones",
+    response_model=HotzoneResponse,
+    summary="Get hotzone systems with trends",
+    description="Returns the most active systems from real-time kill history with trend prediction.",
+)
+async def get_hotzones(
+    hours: int = Query(1, ge=1, le=24, description="Time window in hours"),
+    limit: int = Query(25, ge=1, le=50, description="Max systems to return"),
+    sec: str | None = Query(None, description="Security filter: high, low, null"),
+) -> HotzoneResponse:
+    """Get hotzone systems with kill trends and predictions."""
+    systems = get_hotzone_systems(hours=hours, limit=limit, sec_filter=sec)
+    return HotzoneResponse(hours=hours, total=len(systems), systems=systems)

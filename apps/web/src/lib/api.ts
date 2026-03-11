@@ -42,6 +42,9 @@ import {
   MarketTickerResponse,
   MarketTickerHistoryResponse,
   IntelParseResponse,
+  PilotThreatStats,
+  FleetPilotLookupResponse,
+  HotzoneResponse,
   FleetAnalysisResponse,
   CharacterListResponse,
   LinkCharacterResponse,
@@ -606,6 +609,36 @@ class GatekeeperAPIService {
     return this.request<LinkedCharacter>(`/api/v1/characters/${characterId}/active`, {
       method: 'POST',
       headers: { 'X-Session-Id': sessionId },
+    });
+  }
+
+  // ==================== Hotzones ====================
+
+  /**
+   * Get hotzone systems with trends and predictions
+   */
+  async getHotzones(hours: number = 1, limit: number = 25, sec?: string): Promise<HotzoneResponse> {
+    const params = new URLSearchParams({ hours: hours.toString(), limit: limit.toString() });
+    if (sec) params.set('sec', sec);
+    return this.request<HotzoneResponse>(`/api/v1/stats/hotzones?${params.toString()}`);
+  }
+
+  // ==================== Pilot Intel ====================
+
+  /**
+   * Get pilot threat assessment by character ID
+   */
+  async getPilotStats(characterId: number): Promise<PilotThreatStats> {
+    return this.request<PilotThreatStats>(`/api/v1/intel/pilot/${characterId}`);
+  }
+
+  /**
+   * Bulk pilot threat lookup by names
+   */
+  async fleetPilotLookup(names: string[]): Promise<FleetPilotLookupResponse> {
+    return this.request<FleetPilotLookupResponse>('/api/v1/intel/pilot/fleet-lookup', {
+      method: 'POST',
+      body: JSON.stringify({ names }),
     });
   }
 

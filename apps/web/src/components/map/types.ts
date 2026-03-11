@@ -65,6 +65,7 @@ export interface MapKill {
   shipType: string;
   value: number;
   isPod: boolean;
+  victimCharacterId?: number;
 }
 
 // Risk level for heatmap

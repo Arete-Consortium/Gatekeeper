@@ -30,6 +30,7 @@ vi.mock('lucide-react', () => ({
   MapPin: (props: Record<string, unknown>) => <span data-testid="map-pin-icon" {...props} />,
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader2-icon" {...props} />,
   Navigation: (props: Record<string, unknown>) => <span data-testid="navigation-icon" {...props} />,
+  Flame: (props: Record<string, unknown>) => <span data-testid="flame-icon" {...props} />,
 }));
 
 function createRoute(overrides: Partial<RouteResponse> = {}): RouteResponse {

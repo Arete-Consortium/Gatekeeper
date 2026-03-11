@@ -13,7 +13,7 @@ export function Toggle({ checked, onChange, label, disabled = false }: TogglePro
   return (
     <label
       className={cn(
-        'inline-flex items-center gap-3 cursor-pointer',
+        'flex items-center gap-3 cursor-pointer',
         disabled && 'opacity-50 cursor-not-allowed'
       )}
     >

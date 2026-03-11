@@ -6,8 +6,8 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 1.8.0
-- **Backend**: Python 3.12 / FastAPI — 1,910 tests passing
+- **Version**: 1.9.0
+- **Backend**: Python 3.12 / FastAPI — 2,432 tests passing
 - **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 557 tests passing
 - **Rendering**: Canvas2D (SimpleMapCanvas for universe map), Canvas2D (jump range map, Pochven map)
 - **Deployment**: Fly.io (backend) + Vercel (frontend)
@@ -67,7 +67,8 @@ apps/web/src/
 │   ├── pochven/      # PochvenMap (Canvas2D subway map)
 │   ├── fitting/      # FittingAnalyzer
 │   ├── alerts/       # AlertForm (region filter, ship type tags), AlertCard, RegionFilter
-│   ├── dashboard/    # LiveKillFeed
+│   ├── dashboard/    # LiveKillFeed (with PilotThreatCard + SystemSummaryCard popovers)
+│   ├── intel/        # PilotThreatCard, SystemSummaryCard, ThreatsTab
 │   ├── system/       # SystemCard, RiskBadge, SecurityBadge
 │   ├── layout/       # Navbar, Footer, StatusIndicator
 │   └── ui/           # Button, Card, Input, Select, Toggle, Badge, etc.
@@ -154,6 +155,8 @@ backend/
 │       ├── webhooks.py       # Discord/Slack webhook formatting + dispatch
 │       ├── zkill_listener.py # zKillboard RedisQ listener → kills + alerts
 │       ├── thera.py          # EVE-Scout API integration (5-min cache)
+│       ├── pilot_intel.py    # Pilot threat assessment (ESI + zKill stats)
+│       ├── hotzone.py        # Hotzone detection with trend prediction
 │       ├── appraisal.py      # Fuzzwork API for Jita prices
 │       └── token_store.py    # Encrypted ESI token storage
 ├── starmap/
@@ -174,6 +177,8 @@ backend/
 - **webhooks.py**: Discord/Slack kill alert dispatch, subscription filtering (system/region/value/pod/ship)
 - **zkill_listener.py**: zKillboard RedisQ → kill history + WebSocket broadcast + webhook dispatch
 - **wormhole.py**: User-submitted wormhole connections with mass/life tracking, automatic expiry
+- **pilot_intel.py**: Pilot threat assessment — ESI character info + zKill aggregate stats, threat level scoring, timezone inference, behavior flags (solo_hunter, capital_pilot, possible_cyno, gang_focus, recently_active)
+- **hotzone.py**: Hotzone detection — aggregates kill history with trend prediction (decay factor 0.7), gate camp detection (pod:kill ratio > 0.5)
 
 ### Auth Flow
 
@@ -245,8 +250,8 @@ alembic upgrade head
 | Map rendering | Canvas2D + SVG overlays |
 | Server state | TanStack Query 5 |
 | Icons | Lucide React |
-| Testing (backend) | pytest (2200+) |
-| Testing (frontend) | Vitest (440) |
+| Testing (backend) | pytest (2432) |
+| Testing (frontend) | Vitest (557) |
 | Linting | ruff (Python), ESLint (TS) |
 | CI/CD | GitHub Actions |
 | Containerization | Docker (uvicorn) |

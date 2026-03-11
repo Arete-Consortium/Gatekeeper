@@ -18,6 +18,7 @@ from ...services.intel_parser import (
     parse_intel_text,
     submit_intel,
 )
+from ...services.pilot_intel import get_pilot_stats, resolve_character_names
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -347,4 +348,140 @@ async def get_nearby_systems_intel(
         max_jumps=max_jumps,
         systems_with_intel=len(systems),
         systems=systems,
+    )
+
+
+# =============================================================================
+# Pilot Intel
+# =============================================================================
+
+
+class PilotThreatResponse(BaseModel):
+    """Pilot threat assessment combining ESI + zKill data."""
+
+    character_id: int
+    name: str
+    corporation_id: int | None = None
+    corporation_name: str = "Unknown"
+    alliance_id: int | None = None
+    alliance_name: str | None = None
+    security_status: float = 0.0
+    birthday: str | None = None
+    kills: int = 0
+    losses: int = 0
+    kd_ratio: float = 0.0
+    solo_kills: int = 0
+    danger_ratio: int = 0
+    gang_ratio: int = 0
+    isk_destroyed: float = 0
+    isk_lost: float = 0
+    active_pvp_kills: int = 0
+    threat_level: str = Field(
+        "minimal",
+        description="Computed threat: minimal, low, moderate, high, extreme",
+    )
+    active_timezone: str | None = Field(
+        None, description="Inferred primary timezone: USTZ, EUTZ, AUTZ"
+    )
+    flags: list[str] = Field(
+        default_factory=list,
+        description="Behavior flags: solo_hunter, capital_pilot, possible_cyno, gang_focus, recently_active",
+    )
+    top_ships: list[dict] = Field(default_factory=list)
+    top_systems: list[dict] = Field(default_factory=list)
+
+
+@router.get(
+    "/pilot/{character_id}",
+    response_model=PilotThreatResponse,
+    summary="Get pilot threat assessment",
+    description="Returns ESI character info + zKill aggregate stats with computed threat level.",
+)
+async def get_pilot_threat(character_id: int) -> PilotThreatResponse:
+    """Get threat assessment for a pilot by character ID."""
+    result = await get_pilot_stats(character_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Character {character_id} not found")
+    return PilotThreatResponse(**result)
+
+
+class FleetPilotLookupRequest(BaseModel):
+    """Request to look up multiple pilots by name."""
+
+    names: list[str] = Field(
+        ..., description="Pilot names to look up", min_length=1, max_length=50
+    )
+
+
+class FleetPilotLookupResponse(BaseModel):
+    """Aggregate fleet pilot assessment."""
+
+    total_pilots: int
+    resolved: int
+    failed_names: list[str] = Field(default_factory=list)
+    pilots: list[PilotThreatResponse] = Field(default_factory=list)
+    aggregate: dict = Field(
+        default_factory=dict,
+        description="Aggregate stats: avg_kd, timezone_breakdown, threat_breakdown, total_flags",
+    )
+
+
+@router.post(
+    "/pilot/fleet-lookup",
+    response_model=FleetPilotLookupResponse,
+    summary="Bulk pilot threat lookup",
+    description="Resolve pilot names and return aggregate threat assessment for a fleet.",
+)
+async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLookupResponse:
+    """Look up multiple pilots by name and return aggregate threat data."""
+    import asyncio
+
+    # Resolve names to IDs
+    name_to_id = await resolve_character_names(request.names)
+
+    resolved_names = set(name_to_id.keys())
+    failed_names = [n for n in request.names if n not in resolved_names]
+
+    # Fetch stats for all resolved pilots (rate-limited, sequential)
+    pilots: list[PilotThreatResponse] = []
+    for name, char_id in name_to_id.items():
+        result = await get_pilot_stats(char_id)
+        if result:
+            pilots.append(PilotThreatResponse(**result))
+
+    # Compute aggregates
+    threat_breakdown: dict[str, int] = {}
+    tz_breakdown: dict[str, int] = {}
+    total_kills = 0
+    total_losses = 0
+    flag_counts: dict[str, int] = {}
+
+    for p in pilots:
+        threat_breakdown[p.threat_level] = threat_breakdown.get(p.threat_level, 0) + 1
+        if p.active_timezone:
+            tz_breakdown[p.active_timezone] = tz_breakdown.get(p.active_timezone, 0) + 1
+        total_kills += p.kills
+        total_losses += p.losses
+        for flag in p.flags:
+            flag_counts[flag] = flag_counts.get(flag, 0) + 1
+
+    avg_kd = round(total_kills / max(total_losses, 1), 2) if pilots else 0
+
+    # Sort pilots: highest threat first
+    threat_order = {"extreme": 0, "high": 1, "moderate": 2, "low": 3, "minimal": 4}
+    pilots.sort(key=lambda p: threat_order.get(p.threat_level, 5))
+
+    return FleetPilotLookupResponse(
+        total_pilots=len(request.names),
+        resolved=len(pilots),
+        failed_names=failed_names,
+        pilots=pilots,
+        aggregate={
+            "avg_kd": avg_kd,
+            "timezone_breakdown": tz_breakdown,
+            "threat_breakdown": threat_breakdown,
+            "flag_counts": flag_counts,
+            "total_kills": total_kills,
+            "total_losses": total_losses,
+        },
     )

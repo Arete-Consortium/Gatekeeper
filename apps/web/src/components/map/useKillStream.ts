@@ -59,6 +59,7 @@ interface BackendKillData {
   is_pod: boolean;
   total_value: number;
   risk_score?: number;
+  victim_character_id?: number;
 }
 
 interface UseKillStreamOptions {
@@ -151,6 +152,7 @@ function parseBackendKill(data: BackendKillData): MapKill {
     shipType: data.ship_type_name || getShipTypeName(data.ship_type_id),
     value: data.total_value,
     isPod: data.is_pod,
+    victimCharacterId: data.victim_character_id,
   };
 }
 
@@ -167,6 +169,7 @@ function parseZKillboardKillmail(killmail: ZKillboardKillmail): MapKill {
     shipType: getShipTypeName(killmail.victim.ship_type_id),
     value: killmail.zkb.totalValue,
     isPod,
+    victimCharacterId: killmail.victim.character_id,
   };
 }
 

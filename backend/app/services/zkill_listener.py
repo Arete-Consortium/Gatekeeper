@@ -249,6 +249,7 @@ class ZKillListener:
                 "kill_time": kill_time,
                 "ship_type_id": ship_type_id,
                 "is_pod": is_pod,
+                "victim_character_id": victim.get("character_id"),
                 "victim_corporation_id": victim.get("corporation_id"),
                 "victim_alliance_id": victim.get("alliance_id"),
                 "attacker_count": len(killmail.get("attackers", [])),

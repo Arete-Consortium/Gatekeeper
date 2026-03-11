@@ -52,6 +52,7 @@ export interface RiskReport {
   };
   danger_level: string | null;
   ship_profile: string | null;
+  pirate_suppressed?: boolean;
 }
 
 // Helper to get risk color from score
@@ -631,6 +632,70 @@ export interface MarketTickerHistoryResponse {
   type_id: number;
   type_name: string;
   history: MarketTickerItem[];
+}
+
+// Hotzone system with trend prediction
+export interface HotzoneSystemData {
+  system_id: number;
+  system_name: string;
+  security: number;
+  category: string;
+  region_name: string;
+  kills_current: number;
+  pods_current: number;
+  kills_previous: number;
+  trend: number;
+  predicted_1hr: number;
+  predicted_2hr: number;
+  gate_camp_likely: boolean;
+}
+
+export interface HotzoneResponse {
+  hours: number;
+  total: number;
+  systems: HotzoneSystemData[];
+}
+
+// Pilot threat assessment
+export interface PilotThreatStats {
+  character_id: number;
+  name: string;
+  corporation_id: number | null;
+  corporation_name: string;
+  alliance_id: number | null;
+  alliance_name: string | null;
+  security_status: number;
+  birthday: string | null;
+  kills: number;
+  losses: number;
+  kd_ratio: number;
+  solo_kills: number;
+  danger_ratio: number;
+  gang_ratio: number;
+  isk_destroyed: number;
+  isk_lost: number;
+  active_pvp_kills: number;
+  threat_level: 'minimal' | 'low' | 'moderate' | 'high' | 'extreme';
+  active_timezone: string | null;
+  flags: string[];
+  top_ships: { id: number; name: string; kills: number }[];
+  top_systems: { id: number; name: string; kills: number }[];
+}
+
+// Fleet pilot lookup
+export interface FleetPilotLookupResponse {
+  total_pilots: number;
+  resolved: number;
+  failed_names: string[];
+  pilots: PilotThreatStats[];
+  aggregate: {
+    avg_kd: number;
+    timezone_breakdown: Record<string, number>;
+    threat_breakdown: Record<string, number>;
+    flag_counts: Record<string, number>;
+    total_kills: number;
+    total_losses: number;
+  };
 }
 
 // Waypoint sync

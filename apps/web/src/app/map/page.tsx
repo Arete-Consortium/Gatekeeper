@@ -568,7 +568,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
-          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
+          <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM / Skyhooks" isPro={isPro} />
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
         </div>
 

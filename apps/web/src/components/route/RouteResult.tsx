@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardTitle, Badge } from '@/components/ui';
 import { RiskBadge } from '@/components/system';
 import { RouteHopRow } from './RouteHopRow';
 import { RouteMap } from './RouteMap';
 import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
-import type { RouteResponse } from '@/lib/types';
-import { Gauge, Route, Zap, MapPin, Navigation, Loader2, AlertTriangle } from 'lucide-react';
+import type { RouteResponse, HotzoneResponse } from '@/lib/types';
+import { Gauge, Route, Zap, MapPin, Navigation, Loader2, AlertTriangle, Flame } from 'lucide-react';
 import { GatekeeperAPI } from '@/lib/api';
 
 interface RouteResultProps {
@@ -26,6 +27,20 @@ export function RouteResult({ route }: RouteResultProps) {
   const profile = ROUTE_PROFILES[route.profile];
   const [waypointStatus, setWaypointStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waypointMessage, setWaypointMessage] = useState('');
+
+  // Fetch hotzones to warn about dangerous systems on route
+  const { data: hotzoneData } = useQuery<HotzoneResponse>({
+    queryKey: ['hotzones-route-check'],
+    queryFn: () => GatekeeperAPI.getHotzones(1, 50),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  // Match route systems against current hotzones
+  const routeSystemNames = new Set(route.path.map((h) => h.system_name));
+  const hotzoneWarnings = (hotzoneData?.systems ?? []).filter(
+    (hz) => routeSystemNames.has(hz.system_name) && (hz.kills_current + hz.pods_current) >= 3
+  );
 
   const handleSetInGameRoute = async () => {
     if (route.path.length === 0) return;
@@ -182,6 +197,31 @@ export function RouteResult({ route }: RouteResultProps) {
                     {hop.system_name}
                   </Badge>
                 ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hotzone warning */}
+      {hotzoneWarnings.length > 0 && (
+        <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3">
+          <Flame className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-orange-400">
+              Active Hotzones on Route
+            </div>
+            <div className="text-xs text-text-secondary mt-1">
+              {hotzoneWarnings.length === 1
+                ? 'A system on your route has significant recent kill activity.'
+                : `${hotzoneWarnings.length} systems on your route have significant recent kill activity.`}
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {hotzoneWarnings.map((hz) => (
+                <Badge key={hz.system_name} variant="warning" size="sm">
+                  {hz.system_name} — {hz.kills_current + hz.pods_current} kills
+                  {hz.gate_camp_likely ? ' (gate camp)' : ''}
+                </Badge>
+              ))}
             </div>
           </div>
         </div>
