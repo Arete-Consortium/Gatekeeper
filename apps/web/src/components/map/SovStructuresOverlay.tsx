@@ -15,18 +15,8 @@ interface SovStructuresOverlayProps {
   viewport: MapViewport;
 }
 
-// ADM badge background — dark, saturated
-function admBgColor(level: number | null): string {
-  if (level === null || level === 0) return '#374151';
-  if (level <= 1) return '#991b1b';
-  if (level <= 2) return '#9a3412';
-  if (level <= 3) return '#92400e';
-  if (level <= 4) return '#3f6212';
-  return '#166534';
-}
-
-// ADM badge foreground — bright, readable
-function admFgColor(level: number | null): string {
+// ADM text color — bright, readable
+function admColor(level: number | null): string {
   if (level === null || level === 0) return '#9ca3af';
   if (level <= 1) return '#fca5a5';
   if (level <= 2) return '#fdba74';
@@ -35,12 +25,13 @@ function admFgColor(level: number | null): string {
   return '#86efac';
 }
 
-const SKYHOOK_BG = '#0c4a6e';
 const SKYHOOK_FG = '#7dd3fc';
-const BLOCK_BG = 'rgba(0,0,0,0.75)';
+const BLOCK_BG = 'rgba(0,0,0,0.85)';
+const NAME_COLOR = '#e2e8f0'; // slate-200
 
 interface StructMarker {
   systemId: number;
+  name: string;
   x: number;
   y: number;
   ihubAdm: number | null;
@@ -54,12 +45,13 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   viewport,
 }: SovStructuresOverlayProps) {
   const isMobile = viewport.width < 768;
+  const isZoomed = viewport.zoom >= 3;
 
   const markers = useMemo(() => {
     if (viewport.zoom < 1.5) return [];
 
     const result: StructMarker[] = [];
-    const pad = 40;
+    const pad = 60;
 
     for (const [sidStr, structs] of Object.entries(structures)) {
       const system = systems.get(Number(sidStr));
@@ -84,7 +76,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         }
       }
 
-      result.push({ systemId: system.systemId, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
+      result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
     }
 
     return result;
@@ -92,15 +84,27 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
   if (markers.length === 0) return null;
 
-  // Solid block below system name
-  // Pixi name label: center-anchored 10px font at y+12, bottom edge ~y+18
-  // Block starts well below at y+22 with its own opaque background
-  const blockTop = 22;
-  const blockH = isMobile ? 18 : 16;
-  const blockPadX = 4;
-  const fontSize = isMobile ? 10 : 9;
-  const pillH = blockH - 4;
-  const pillR = pillH / 2;
+  // Font sizes: base + 30% boost when zoomed in
+  const baseFontName = isMobile ? 10 : 9;
+  const baseFontAdm = isMobile ? 10 : 9;
+  const fontScale = isZoomed ? 1.3 : 1.0;
+  const fontName = Math.round(baseFontName * fontScale);
+  const fontAdm = Math.round(baseFontAdm * fontScale);
+
+  // Layout constants
+  const lineH1 = fontName + 4; // row 1 height (name)
+  const lineH2 = fontAdm + 4;  // row 2 height (ADM)
+  const padX = 6;
+  const padY = 3;
+  const rowGap = 1;
+  const blockH = padY + lineH1 + rowGap + lineH2 + padY;
+  // Char width estimate for monospace (~0.6em)
+  const charW = fontName * 0.62;
+  const charWAdm = fontAdm * 0.62;
+
+  // Position: cover the Pixi label area (label is at ~y+12, 10px font)
+  // Block starts at y+5 to cover the Pixi label with opaque bg
+  const blockOffsetY = 5;
 
   return (
     <svg
@@ -114,19 +118,27 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         const hasSky = m.hasSkyhook;
         if (!hasAdm && !hasSky) return null;
 
-        const admLabel = hasAdm ? String(Math.round(m.ihubAdm!)) : '';
-        const admPillW = hasAdm ? fontSize + 6 : 0;
-        const skyPillW = hasSky ? fontSize + 8 : 0;
-        const gap = hasAdm && hasSky ? 3 : 0;
-        const contentW = admPillW + skyPillW + gap;
-        const blockW = contentW + blockPadX * 2;
+        // Build row 2 text parts
+        const admText = hasAdm ? `ADM ${m.ihubAdm!.toFixed(1)}` : '';
+        const skyText = hasSky ? 'S' : '';
+        const row2Text = [admText, skyText].filter(Boolean).join('  ');
+
+        // Calculate widths
+        const nameW = m.name.length * charW;
+        const row2W = row2Text.length * charWAdm;
+        const contentW = Math.max(nameW, row2W);
+        const blockW = contentW + padX * 2;
 
         const bx = m.x - blockW / 2;
-        const by = m.y + blockTop;
+        const by = m.y + blockOffsetY;
+
+        // Text positions (vertically centered in each row)
+        const nameY = by + padY + lineH1 / 2 + fontName * 0.35;
+        const admY = by + padY + lineH1 + rowGap + lineH2 / 2 + fontAdm * 0.35;
 
         return (
           <g key={m.systemId}>
-            {/* Solid dark background block */}
+            {/* Dark opaque background block covering Pixi label */}
             <rect
               x={bx}
               y={by}
@@ -135,68 +147,38 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
               rx={3}
               fill={BLOCK_BG}
             />
-            {/* ADM pill inside block */}
-            {hasAdm && (() => {
-              const px = bx + blockPadX;
-              const py = by + (blockH - pillH) / 2;
-              const cx = px + admPillW / 2;
-              return (
-                <>
-                  <rect
-                    x={px}
-                    y={py}
-                    width={admPillW}
-                    height={pillH}
-                    rx={pillR}
-                    fill={admBgColor(m.ihubAdm)}
-                    stroke={admFgColor(m.ihubAdm)}
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={cx}
-                    y={by + blockH / 2 + fontSize * 0.35}
-                    textAnchor="middle"
-                    fill={admFgColor(m.ihubAdm)}
-                    fontSize={fontSize}
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {admLabel}
-                  </text>
-                </>
-              );
-            })()}
-            {/* Skyhook pill inside block */}
-            {hasSky && (() => {
-              const px = bx + blockPadX + (hasAdm ? admPillW + gap : 0);
-              const py = by + (blockH - pillH) / 2;
-              const cx = px + skyPillW / 2;
-              return (
-                <>
-                  <rect
-                    x={px}
-                    y={py}
-                    width={skyPillW}
-                    height={pillH}
-                    rx={pillR}
-                    fill={SKYHOOK_BG}
-                    stroke={SKYHOOK_FG}
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={cx}
-                    y={by + blockH / 2 + fontSize * 0.35}
-                    textAnchor="middle"
-                    fill={SKYHOOK_FG}
-                    fontSize={fontSize}
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    S
-                  </text>
-                </>
-              );
-            })()}
+            {/* Row 1: System name */}
+            <text
+              x={m.x}
+              y={nameY}
+              textAnchor="middle"
+              fill={NAME_COLOR}
+              fontSize={fontName}
+              fontWeight="bold"
+              fontFamily="monospace"
+            >
+              {m.name}
+            </text>
+            {/* Row 2: ADM level + Skyhook */}
+            <text
+              x={m.x}
+              y={admY}
+              textAnchor="middle"
+              fontSize={fontAdm}
+              fontFamily="monospace"
+            >
+              {hasAdm && (
+                <tspan fill={admColor(m.ihubAdm)} fontWeight="bold">
+                  ADM {m.ihubAdm!.toFixed(1)}
+                </tspan>
+              )}
+              {hasAdm && hasSky && (
+                <tspan fill={NAME_COLOR}>{' '}</tspan>
+              )}
+              {hasSky && (
+                <tspan fill={SKYHOOK_FG} fontWeight="bold">S</tspan>
+              )}
+            </text>
           </g>
         );
       })}
