@@ -11,18 +11,15 @@ import {
   Scale,
   Bell,
   Radar,
-  MessageSquareText,
   Settings,
   Menu,
   X,
   LogIn,
   LogOut,
   User,
-  Users,
   Zap,
   CreditCard,
   Triangle,
-  TrendingUp,
   Swords,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -42,9 +39,6 @@ const navItems: NavItem[] = [
   { href: '/fw', label: 'FW Map', icon: Swords },
   { href: '/alerts', label: 'Alerts', icon: Bell },
   { href: '/intel', label: 'Intel', icon: Radar },
-  { href: '/fleet', label: 'Fleet', icon: Users },
-  { href: '/intel-parse', label: 'Intel Parser', icon: MessageSquareText },
-  { href: '/market', label: 'Market', icon: TrendingUp },
 ];
 
 export function Navbar() {
