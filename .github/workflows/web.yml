@@ -120,7 +120,7 @@ jobs:
         run: npm run test:e2e
         env:
           CI: true
-          # E2E tests start their own dev server via playwright config
+          BASE_URL: http://localhost:3099
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v7
