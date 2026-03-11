@@ -378,9 +378,12 @@ describe('SovStructuresOverlay', () => {
     );
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // Badge pill (rect) + number text
+    // Dark bg rect + ADM pill rect = 2 rects
     const rects = svg!.querySelectorAll('rect');
-    expect(rects.length).toBeGreaterThanOrEqual(1);
+    expect(rects.length).toBe(2);
+    // First rect is the dark background block
+    expect(rects[0]).toHaveAttribute('fill', 'rgba(0,0,0,0.75)');
+    // Text shows ADM number
     const texts = svg!.querySelectorAll('text');
     expect(texts.length).toBeGreaterThanOrEqual(1);
     expect(texts[0]!.textContent).toBe('4');
@@ -407,8 +410,9 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rect = container.querySelector('rect');
-    expect(rect).toHaveAttribute('stroke', '#86efac');
+    const rects = container.querySelectorAll('rect');
+    // [0] = bg block, [1] = ADM pill
+    expect(rects[1]).toHaveAttribute('stroke', '#86efac');
   });
 
   it('uses red stroke for low ADM badge', () => {
@@ -419,8 +423,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rect = container.querySelector('rect');
-    expect(rect).toHaveAttribute('stroke', '#fca5a5');
+    const rects = container.querySelectorAll('rect');
+    expect(rects[1]).toHaveAttribute('stroke', '#fca5a5');
   });
 
   it('uses amber stroke for medium ADM badge', () => {
@@ -431,8 +435,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const rect = container.querySelector('rect');
-    expect(rect).toHaveAttribute('stroke', '#fcd34d');
+    const rects = container.querySelectorAll('rect');
+    expect(rects[1]).toHaveAttribute('stroke', '#fcd34d');
   });
 
   it('renders nothing for empty structures', () => {
@@ -454,10 +458,11 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    // Skyhook badge rect with sky-blue stroke
-    const rect = container.querySelector('rect');
-    expect(rect).toBeTruthy();
-    expect(rect).toHaveAttribute('stroke', '#7dd3fc');
+    const rects = container.querySelectorAll('rect');
+    // [0] = bg block, [1] = skyhook pill
+    expect(rects.length).toBe(2);
+    expect(rects[0]).toHaveAttribute('fill', 'rgba(0,0,0,0.75)');
+    expect(rects[1]).toHaveAttribute('stroke', '#7dd3fc');
     // "S" label
     const text = container.querySelector('text');
     expect(text).toBeTruthy();
@@ -475,9 +480,10 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    // ADM badge rect + skyhook badge rect = at least 2
+    // bg block + ADM pill + skyhook pill = 3 rects
     const rects = container.querySelectorAll('rect');
-    expect(rects.length).toBeGreaterThanOrEqual(2);
+    expect(rects.length).toBe(3);
+    expect(rects[0]).toHaveAttribute('fill', 'rgba(0,0,0,0.75)');
     const texts = Array.from(container.querySelectorAll('text'));
     // ADM number "5" + skyhook "S"
     expect(texts.find((t) => t.textContent === '5')).toBeTruthy();

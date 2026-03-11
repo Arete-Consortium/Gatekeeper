@@ -15,28 +15,29 @@ interface SovStructuresOverlayProps {
   viewport: MapViewport;
 }
 
-// Bold, saturated fills for the badge background
+// ADM badge background — dark, saturated
 function admBgColor(level: number | null): string {
-  if (level === null || level === 0) return '#374151'; // gray-700
-  if (level <= 1) return '#991b1b'; // red-800
-  if (level <= 2) return '#9a3412'; // orange-800
-  if (level <= 3) return '#92400e'; // amber-800
-  if (level <= 4) return '#3f6212'; // lime-800
-  return '#166534'; // green-800
+  if (level === null || level === 0) return '#374151';
+  if (level <= 1) return '#991b1b';
+  if (level <= 2) return '#9a3412';
+  if (level <= 3) return '#92400e';
+  if (level <= 4) return '#3f6212';
+  return '#166534';
 }
 
-// Bright text/border color
+// ADM badge foreground — bright, readable
 function admFgColor(level: number | null): string {
   if (level === null || level === 0) return '#9ca3af';
-  if (level <= 1) return '#fca5a5'; // red-300
-  if (level <= 2) return '#fdba74'; // orange-300
-  if (level <= 3) return '#fcd34d'; // amber-300
-  if (level <= 4) return '#bef264'; // lime-300
-  return '#86efac'; // green-300
+  if (level <= 1) return '#fca5a5';
+  if (level <= 2) return '#fdba74';
+  if (level <= 3) return '#fcd34d';
+  if (level <= 4) return '#bef264';
+  return '#86efac';
 }
 
-const SKYHOOK_BG = '#0c4a6e'; // sky-900
-const SKYHOOK_FG = '#7dd3fc'; // sky-300
+const SKYHOOK_BG = '#0c4a6e';
+const SKYHOOK_FG = '#7dd3fc';
+const BLOCK_BG = 'rgba(0,0,0,0.75)';
 
 interface StructMarker {
   systemId: number;
@@ -91,13 +92,15 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
 
   if (markers.length === 0) return null;
 
-  // Badge dimensions — pill shape centered below system name
-  // Pixi labels: center-anchored at y+12, 10px font → bottom edge ~y+17
-  // Add generous gap so badge never overlaps name text
-  const badgeH = isMobile ? 16 : 14;
-  const badgeR = badgeH / 2;
-  const fontSize = isMobile ? 11 : 10;
-  const offsetY = 32; // well below system node + name label
+  // Solid block below system name
+  // Pixi name label: center-anchored 10px font at y+12, bottom edge ~y+18
+  // Block starts well below at y+22 with its own opaque background
+  const blockTop = 22;
+  const blockH = isMobile ? 18 : 16;
+  const blockPadX = 4;
+  const fontSize = isMobile ? 10 : 9;
+  const pillH = blockH - 4;
+  const pillR = pillH / 2;
 
   return (
     <svg
@@ -106,85 +109,94 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
       height={viewport.height}
       style={{ zIndex: 2 }}
     >
-      <defs>
-        <filter id="adm-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.5" />
-        </filter>
-      </defs>
       {markers.map((m) => {
-        const by = m.y + offsetY;
-
-        // ADM badge width based on content
-        const admText = m.ihubAdm !== null ? String(m.ihubAdm) : null;
-        const admBadgeW = admText ? (admText.length === 1 ? badgeH : badgeH + 4) : 0;
-
-        // Skyhook badge
-        const skBadgeW = badgeH + 6;
-        const hasAdm = admBadgeW > 0;
+        const hasAdm = m.ihubAdm !== null;
         const hasSky = m.hasSkyhook;
+        if (!hasAdm && !hasSky) return null;
 
-        // Center all badges as a group under the system
-        const totalW = (hasAdm ? admBadgeW : 0) + (hasSky ? skBadgeW : 0) + (hasAdm && hasSky ? 2 : 0);
-        const groupX = m.x - totalW / 2;
-        const admCx = groupX + admBadgeW / 2;
-        const skCx = groupX + (hasAdm ? admBadgeW + 2 : 0) + skBadgeW / 2;
+        const admLabel = hasAdm ? String(Math.round(m.ihubAdm!)) : '';
+        const admPillW = hasAdm ? fontSize + 6 : 0;
+        const skyPillW = hasSky ? fontSize + 8 : 0;
+        const gap = hasAdm && hasSky ? 3 : 0;
+        const contentW = admPillW + skyPillW + gap;
+        const blockW = contentW + blockPadX * 2;
+
+        const bx = m.x - blockW / 2;
+        const by = m.y + blockTop;
 
         return (
-          <g key={m.systemId} filter="url(#adm-shadow)">
-            {/* ADM badge — rounded pill with number */}
-            {admText !== null && (
-              <>
-                <rect
-                  x={admCx - admBadgeW / 2}
-                  y={by - badgeR}
-                  width={admBadgeW}
-                  height={badgeH}
-                  rx={badgeR}
-                  fill={admBgColor(m.ihubAdm)}
-                  stroke={admFgColor(m.ihubAdm)}
-                  strokeWidth={1.5}
-                  opacity={0.92}
-                />
-                <text
-                  x={admCx}
-                  y={by + fontSize * 0.35}
-                  textAnchor="middle"
-                  fill={admFgColor(m.ihubAdm)}
-                  fontSize={fontSize}
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  {admText}
-                </text>
-              </>
-            )}
-            {/* Skyhook badge — "S" in sky-blue pill */}
-            {m.hasSkyhook && (
-              <>
-                <rect
-                  x={skCx - skBadgeW / 2}
-                  y={by - badgeR}
-                  width={skBadgeW}
-                  height={badgeH}
-                  rx={badgeR}
-                  fill={SKYHOOK_BG}
-                  stroke={SKYHOOK_FG}
-                  strokeWidth={1.5}
-                  opacity={0.92}
-                />
-                <text
-                  x={skCx}
-                  y={by + fontSize * 0.35}
-                  textAnchor="middle"
-                  fill={SKYHOOK_FG}
-                  fontSize={fontSize - 1}
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  S
-                </text>
-              </>
-            )}
+          <g key={m.systemId}>
+            {/* Solid dark background block */}
+            <rect
+              x={bx}
+              y={by}
+              width={blockW}
+              height={blockH}
+              rx={3}
+              fill={BLOCK_BG}
+            />
+            {/* ADM pill inside block */}
+            {hasAdm && (() => {
+              const px = bx + blockPadX;
+              const py = by + (blockH - pillH) / 2;
+              const cx = px + admPillW / 2;
+              return (
+                <>
+                  <rect
+                    x={px}
+                    y={py}
+                    width={admPillW}
+                    height={pillH}
+                    rx={pillR}
+                    fill={admBgColor(m.ihubAdm)}
+                    stroke={admFgColor(m.ihubAdm)}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={cx}
+                    y={by + blockH / 2 + fontSize * 0.35}
+                    textAnchor="middle"
+                    fill={admFgColor(m.ihubAdm)}
+                    fontSize={fontSize}
+                    fontWeight="bold"
+                    fontFamily="monospace"
+                  >
+                    {admLabel}
+                  </text>
+                </>
+              );
+            })()}
+            {/* Skyhook pill inside block */}
+            {hasSky && (() => {
+              const px = bx + blockPadX + (hasAdm ? admPillW + gap : 0);
+              const py = by + (blockH - pillH) / 2;
+              const cx = px + skyPillW / 2;
+              return (
+                <>
+                  <rect
+                    x={px}
+                    y={py}
+                    width={skyPillW}
+                    height={pillH}
+                    rx={pillR}
+                    fill={SKYHOOK_BG}
+                    stroke={SKYHOOK_FG}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={cx}
+                    y={by + blockH / 2 + fontSize * 0.35}
+                    textAnchor="middle"
+                    fill={SKYHOOK_FG}
+                    fontSize={fontSize}
+                    fontWeight="bold"
+                    fontFamily="monospace"
+                  >
+                    S
+                  </text>
+                </>
+              );
+            })()}
           </g>
         );
       })}
