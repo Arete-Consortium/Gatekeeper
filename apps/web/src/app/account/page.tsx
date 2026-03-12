@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardTitle, CardDescription, Button } from '@/components/ui';
 import type { BillingStatus } from '@/lib/auth';
 import { User, Zap, CreditCard, LogOut } from 'lucide-react';
-import Link from 'next/link';
 import { GatekeeperAPI } from '@/lib/api';
 
 export default function AccountPage() {
@@ -23,6 +22,7 @@ function AccountContent() {
   const searchParams = useSearchParams();
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
   const checkoutStatus = searchParams.get('checkout');
 
   useEffect(() => {
@@ -59,6 +59,22 @@ function AccountContent() {
     }
   };
 
+  const handleSubscribe = async () => {
+    setUpgrading(true);
+    try {
+      const currentUrl = window.location.origin;
+      const { checkout_url } = await GatekeeperAPI.createCheckoutSession(
+        `${currentUrl}/account?checkout=success`,
+        `${currentUrl}/account?checkout=cancelled`
+      );
+      window.location.href = checkout_url;
+    } catch {
+      // Checkout failed — user stays on page
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     router.replace('/');
@@ -78,11 +94,18 @@ function AccountContent() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Checkout success banner */}
+      {/* Checkout banners */}
       {checkoutStatus === 'success' && (
         <Card className="border-risk-green/40 bg-risk-green/10 text-center py-4">
           <p className="text-risk-green font-medium">
             Welcome to Pro! Your subscription is now active.
+          </p>
+        </Card>
+      )}
+      {checkoutStatus === 'cancelled' && (
+        <Card className="border-risk-orange/40 bg-risk-orange/10 text-center py-4">
+          <p className="text-risk-orange font-medium">
+            Checkout cancelled. No charges were made.
           </p>
         </Card>
       )}
@@ -157,12 +180,10 @@ function AccountContent() {
                   Manage Billing
                 </Button>
               ) : (
-                <Link href="/pricing">
-                  <Button className="glow-primary">
-                    <Zap className="mr-2 h-4 w-4" />
-                    Upgrade to Pro
-                  </Button>
-                </Link>
+                <Button className="glow-primary" onClick={handleSubscribe} loading={upgrading}>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Subscribe to Pro — $3/mo
+                </Button>
               )}
             </div>
           </div>
@@ -171,12 +192,10 @@ function AccountContent() {
             <p className="text-text-secondary text-sm">
               You&apos;re on the free plan.
             </p>
-            <Link href="/pricing">
-              <Button className="glow-primary">
-                <Zap className="mr-2 h-4 w-4" />
-                Upgrade to Pro
-              </Button>
-            </Link>
+            <Button className="glow-primary" onClick={handleSubscribe} loading={upgrading}>
+              <Zap className="mr-2 h-4 w-4" />
+              Subscribe to Pro — $3/mo
+            </Button>
           </div>
         )}
       </Card>
