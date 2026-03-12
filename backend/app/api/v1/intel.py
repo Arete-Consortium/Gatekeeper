@@ -392,6 +392,58 @@ class PilotThreatResponse(BaseModel):
     top_systems: list[dict] = Field(default_factory=list)
 
 
+class CharacterSearchResult(BaseModel):
+    id: int
+    name: str
+    category: str = "character"
+
+
+class CharacterSearchResponse(BaseModel):
+    results: list[CharacterSearchResult]
+
+
+@router.get(
+    "/pilot/search",
+    response_model=CharacterSearchResponse,
+    summary="Search for characters by name prefix",
+    description="Returns matching character names from ESI for autocomplete.",
+)
+async def search_characters_endpoint(
+    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
+) -> CharacterSearchResponse:
+    """Search ESI for character names matching query."""
+    results = await search_characters(q)
+    return CharacterSearchResponse(
+        results=[CharacterSearchResult(id=r["id"], name=r["name"]) for r in results]
+    )
+
+
+class SystemSearchResult(BaseModel):
+    id: int
+    name: str
+    category: str = "solar_system"
+
+
+class SystemSearchResponse(BaseModel):
+    results: list[SystemSearchResult]
+
+
+@router.get(
+    "/system/search",
+    response_model=SystemSearchResponse,
+    summary="Search for systems by name prefix",
+    description="Returns matching system names from ESI for autocomplete.",
+)
+async def search_systems_endpoint(
+    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
+) -> SystemSearchResponse:
+    """Search ESI for system names matching query."""
+    results = await search_systems(q)
+    return SystemSearchResponse(
+        results=[SystemSearchResult(id=r["id"], name=r["name"]) for r in results]
+    )
+
+
 @router.get(
     "/pilot/{character_id}",
     response_model=PilotThreatResponse,
@@ -545,53 +597,5 @@ async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLook
     )
 
 
-class CharacterSearchResult(BaseModel):
-    id: int
-    name: str
-    category: str = "character"
 
 
-class CharacterSearchResponse(BaseModel):
-    results: list[CharacterSearchResult]
-
-
-@router.get(
-    "/pilot/search",
-    response_model=CharacterSearchResponse,
-    summary="Search for characters by name prefix",
-    description="Returns matching character names from ESI for autocomplete.",
-)
-async def search_characters_endpoint(
-    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
-) -> CharacterSearchResponse:
-    """Search ESI for character names matching query."""
-    results = await search_characters(q)
-    return CharacterSearchResponse(
-        results=[CharacterSearchResult(id=r["id"], name=r["name"]) for r in results]
-    )
-
-
-class SystemSearchResult(BaseModel):
-    id: int
-    name: str
-    category: str = "solar_system"
-
-
-class SystemSearchResponse(BaseModel):
-    results: list[SystemSearchResult]
-
-
-@router.get(
-    "/system/search",
-    response_model=SystemSearchResponse,
-    summary="Search for systems by name prefix",
-    description="Returns matching system names from ESI for autocomplete.",
-)
-async def search_systems_endpoint(
-    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
-) -> SystemSearchResponse:
-    """Search ESI for system names matching query."""
-    results = await search_systems(q)
-    return SystemSearchResponse(
-        results=[SystemSearchResult(id=r["id"], name=r["name"]) for r in results]
-    )
