@@ -73,6 +73,7 @@ node_modules/
 .expo/
 *.tsbuildinfo
 .next/
+/package-lock.json
 
 # Build artifacts
 release/
