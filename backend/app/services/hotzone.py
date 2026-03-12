@@ -99,15 +99,9 @@ def get_hotzone_systems(
 
     # Region name lookup from universe data
     region_names: dict[int, str] = {}
-    try:
-        from .data_loader import load_universe
-
-        universe = load_universe()
-        for sys_data in universe.systems.values():
-            if sys_data.region_id and sys_data.region_name:
-                region_names[sys_data.region_id] = sys_data.region_name
-    except Exception:
-        pass
+    for sys_data in universe.systems.values():
+        if sys_data.region_id and sys_data.region_name:
+            region_names[sys_data.region_id] = sys_data.region_name
 
     # Aggregate kills per system
     results: list[HotzoneSystem] = []
