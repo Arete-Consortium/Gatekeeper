@@ -61,7 +61,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-text">Settings</h1>
         <p className="text-text-secondary mt-1">
-          Configure EVE Gatekeeper application settings
+          Configure Gatekeeper application settings
         </p>
       </div>
 
@@ -127,10 +127,10 @@ export default function SettingsPage() {
 
       {/* About */}
       <Card>
-        <CardTitle>About EVE Gatekeeper</CardTitle>
+        <CardTitle>About Gatekeeper</CardTitle>
         <div className="mt-4 space-y-2 text-sm text-text-secondary">
           <p>
-            EVE Gatekeeper is an intel and route planning tool for EVE Online
+            Gatekeeper is an intel and route planning tool for EVE Online
             pilots. It provides safe routing recommendations based on recent
             kill activity from zKillboard.
           </p>

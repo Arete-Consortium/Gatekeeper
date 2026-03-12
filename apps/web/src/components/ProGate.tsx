@@ -32,7 +32,7 @@ export function ProGate({ children, feature }: ProGateProps) {
         {feature ? `${feature} requires Pro` : 'Pro Feature'}
       </CardTitle>
       <CardDescription className="mb-6 max-w-md mx-auto">
-        Upgrade to EVE Gatekeeper Pro for AI route analysis, webhook alerts,
+        Upgrade to Gatekeeper Pro for AI route analysis, webhook alerts,
         advanced stats, and higher rate limits.
       </CardDescription>
       <Link href={isAuthenticated ? '/pricing' : '/pricing'}>

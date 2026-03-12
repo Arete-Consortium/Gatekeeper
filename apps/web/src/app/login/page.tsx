@@ -33,7 +33,7 @@ export default function LoginPage() {
           </div>
         </div>
         <h1 className="text-2xl font-bold text-text mb-2">
-          Sign in to EVE Gatekeeper
+          Sign in to Gatekeeper
         </h1>
         <p className="text-text-secondary mb-8">
           Log in with your EVE Online account via SSO to unlock saved routes,

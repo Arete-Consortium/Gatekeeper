@@ -16,20 +16,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'EVE Gatekeeper - Intel & Route Planning',
+  title: 'Gatekeeper - Intel & Route Planning for EVE Online',
   description:
-    'EVE Online route planning and intelligence tool. Find safe routes, analyze fittings, and track kill activity.',
-  keywords: ['EVE Online', 'route planner', 'intel', 'zkillboard', 'navigation'],
+    'Route planning and intelligence tool for EVE Online. Find safe routes, analyze fittings, and track kill activity.',
+  keywords: ['EVE Online', 'route planner', 'intel', 'zkillboard', 'navigation', 'gatekeeper'],
   openGraph: {
-    title: 'EVE Gatekeeper - Intel & Route Planning',
+    title: 'Gatekeeper - Intel & Route Planning for EVE Online',
     description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
     url: 'https://gatekeeper.aretedriver.dev',
-    siteName: 'EVE Gatekeeper',
+    siteName: 'Gatekeeper',
     type: 'website',
   },
   twitter: {
     card: 'summary',
-    title: 'EVE Gatekeeper',
+    title: 'Gatekeeper',
     description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
   },
   icons: {

@@ -576,7 +576,7 @@ export default function AdminDashboard() {
 
       {/* Footer */}
       <div className="text-center text-[10px] text-text-secondary py-4 border-t border-border">
-        EVE Gatekeeper Admin &middot; v{status?.version || '?'} &middot; {status?.environment?.debug ? 'Debug Mode' : 'Production'}
+        Gatekeeper Admin &middot; v{status?.version || '?'} &middot; {status?.environment?.debug ? 'Debug Mode' : 'Production'}
       </div>
     </div>
   );
