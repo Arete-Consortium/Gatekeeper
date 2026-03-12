@@ -97,16 +97,15 @@ def get_hotzone_systems(
             "region_id": sys.region_id,
         }
 
-    # Region name lookup from map config (optional)
+    # Region name lookup from universe data
     region_names: dict[int, str] = {}
     try:
-        from .data_loader import load_map_config
+        from .data_loader import load_universe
 
-        config = load_map_config()
-        if config and hasattr(config, "systems"):
-            for sys_data in config.systems.values():
-                if hasattr(sys_data, "region_name") and hasattr(sys_data, "region_id"):
-                    region_names[sys_data.region_id] = sys_data.region_name
+        universe = load_universe()
+        for sys_data in universe.systems.values():
+            if sys_data.region_id and sys_data.region_name:
+                region_names[sys_data.region_id] = sys_data.region_name
     except Exception:
         pass
 

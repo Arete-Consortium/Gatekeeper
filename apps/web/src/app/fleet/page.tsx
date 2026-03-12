@@ -6,6 +6,7 @@ import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button, Textarea } from '@/components/ui';
 import { FleetResult } from '@/components/fleet';
 import { PilotThreatCard } from '@/components/intel/PilotThreatCard';
+import { PilotDeepDive } from '@/components/intel/PilotDeepDive';
 import type { FleetAnalysisResponse, FleetPilotLookupResponse } from '@/lib/types';
 import { Users, Clipboard, UserSearch, Ship } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError, Badge } from '@/components/ui';
@@ -28,6 +29,7 @@ export default function FleetPage() {
   const [inputMode, setInputMode] = useState<InputMode>('ships');
   const [fleetText, setFleetText] = useState('');
   const [clipboardError, setClipboardError] = useState(false);
+  const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
 
   const {
     mutate: analyzeFleet,
@@ -98,6 +100,11 @@ export default function FleetPage() {
 
   return (
     <div className="space-y-6">
+      {/* Deep Dive Panel */}
+      {deepDiveId && (
+        <PilotDeepDive characterId={deepDiveId} onClose={() => setDeepDiveId(null)} />
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-text">Fleet Analyzer</h1>
@@ -329,6 +336,7 @@ Copy from EVE local or fleet member list:
                 <PilotThreatCard
                   key={pilot.character_id}
                   characterId={pilot.character_id}
+                  onDeepDive={setDeepDiveId}
                 />
               ))}
             </div>

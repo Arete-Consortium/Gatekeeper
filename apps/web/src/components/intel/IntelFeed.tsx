@@ -7,6 +7,7 @@ import { SecurityBadge } from '@/components/system';
 import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Pin, X, MapPin, Building2, Shield } from 'lucide-react';
 import { ErrorMessage, SkeletonTable, getUserFriendlyError } from '@/components/ui';
 import { PilotThreatCard } from './PilotThreatCard';
+import { PilotDeepDive } from './PilotDeepDive';
 import { SystemSummaryCard } from './SystemSummaryCard';
 import { loadPinnedPilots, savePinnedPilots, type PinnedPilot } from './PilotLookupTab';
 import {
@@ -147,6 +148,7 @@ export default function IntelFeed() {
   const [pinnedSystems, setPinnedSystems] = useState<PinnedSystem[]>([]);
   const [pinnedCorps, setPinnedCorps] = useState<PinnedCorp[]>([]);
   const [pinnedAlliances, setPinnedAlliances] = useState<PinnedAlliance[]>([]);
+  const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
 
   // Load all pinned items
   useEffect(() => {
@@ -239,6 +241,11 @@ export default function IntelFeed() {
 
   return (
     <div className="space-y-6">
+      {/* Deep Dive Panel */}
+      {deepDiveId && (
+        <PilotDeepDive characterId={deepDiveId} onClose={() => setDeepDiveId(null)} />
+      )}
+
       {/* Pinned Items */}
       {hasPinnedItems && (
         <div className="space-y-5">
@@ -256,6 +263,7 @@ export default function IntelFeed() {
                     key={p.characterId}
                     characterId={p.characterId}
                     onClose={() => handleUnpinPilot(p.characterId)}
+                    onDeepDive={setDeepDiveId}
                   />
                 ))}
               </div>

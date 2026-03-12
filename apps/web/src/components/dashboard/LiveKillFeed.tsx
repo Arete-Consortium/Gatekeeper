@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useKillStream } from '@/components/map/useKillStream';
 import type { MapKill } from '@/components/map/types';
 import { PilotThreatCard } from '@/components/intel/PilotThreatCard';
+import { PilotDeepDive } from '@/components/intel/PilotDeepDive';
 import { SystemSummaryCard } from '@/components/intel/SystemSummaryCard';
 import { loadPinnedCorps, savePinnedCorps, loadPinnedAlliances, savePinnedAlliances } from '@/lib/pinnedItems';
 import type { PinnedCorp, PinnedAlliance } from '@/lib/pinnedItems';
@@ -44,6 +45,7 @@ export function LiveKillFeed() {
   // Pinned corps/alliances for popover PilotThreatCards
   const [pinnedCorps, setPinnedCorps] = useState<PinnedCorp[]>([]);
   const [pinnedAlliances, setPinnedAlliances] = useState<PinnedAlliance[]>([]);
+  const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
 
   useEffect(() => {
     setPinnedCorps(loadPinnedCorps());
@@ -118,6 +120,11 @@ export function LiveKillFeed() {
 
   return (
     <div ref={containerRef} className="relative">
+      {/* Deep Dive Panel */}
+      {deepDiveId && (
+        <PilotDeepDive characterId={deepDiveId} onClose={() => setDeepDiveId(null)} />
+      )}
+
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wide flex items-center gap-2">
           <Radio className="h-3 w-3" />
@@ -186,6 +193,7 @@ export function LiveKillFeed() {
               onPinAlliance={handleTogglePinAlliance}
               pinnedCorpIds={pinnedCorpIds}
               pinnedAllianceIds={pinnedAllianceIds}
+              onDeepDive={(id) => { setDeepDiveId(id); setPopover(null); }}
             />
           ) : (
             <SystemSummaryCard

@@ -14,7 +14,7 @@ type Tab = 'kill-feed' | 'threats' | 'pilot' | 'intel-parser' | 'fleet' | 'alert
 const tabs: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'kill-feed', label: 'Kill Feed', icon: Radar },
   { key: 'threats', label: 'Threats', icon: AlertTriangle },
-  { key: 'pilot', label: 'Search / Pin', icon: Search },
+  { key: 'pilot', label: 'Lookup / Pin', icon: Search },
   { key: 'intel-parser', label: 'Intel Parser', icon: MessageSquareText },
   { key: 'fleet', label: 'Fleet', icon: Users },
   { key: 'alerts', label: 'Alerts', icon: Bell },
