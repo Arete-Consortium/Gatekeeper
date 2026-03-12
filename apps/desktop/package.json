@@ -46,7 +46,10 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.js", "**/?(*.)+(spec|test).js"]
+    "testMatch": [
+      "**/__tests__/**/*.js",
+      "**/?(*.)+(spec|test).js"
+    ]
   },
   "devDependencies": {
     "electron": "^35.7.5",
