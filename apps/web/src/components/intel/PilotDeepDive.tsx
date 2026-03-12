@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
 import type { PilotDeepDiveStats } from '@/lib/types';
-import { X, Loader2, Shield, Users, Clock, Building, Crosshair, TrendingUp, Skull } from 'lucide-react';
+import { X, Loader2, Shield, Users, Clock, Building, Crosshair, TrendingUp, Skull, ArrowLeft } from 'lucide-react';
 
 interface PilotDeepDiveProps {
   characterId: number;
@@ -52,16 +52,38 @@ const THREAT_COLORS: Record<string, string> = {
 };
 
 export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeId, setActiveId] = useState(characterId);
+  const [history, setHistory] = useState<number[]>([]);
   const [data, setData] = useState<PilotDeepDiveStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const navigateTo = useCallback((targetId: number) => {
+    setHistory((prev) => [...prev, activeId]);
+    setActiveId(targetId);
+  }, [activeId]);
+
+  const navigateBack = useCallback(() => {
+    setHistory((prev) => {
+      const next = [...prev];
+      const prevId = next.pop();
+      if (prevId !== undefined) setActiveId(prevId);
+      return next;
+    });
+  }, []);
+
+  // Scroll deep dive into view on open and companion navigation
+  useEffect(() => {
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [activeId]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    GatekeeperAPI.getPilotDeepDive(characterId)
+    GatekeeperAPI.getPilotDeepDive(activeId)
       .then((result) => {
         if (!cancelled) setData(result);
       })
@@ -73,7 +95,7 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
       });
 
     return () => { cancelled = true; };
-  }, [characterId]);
+  }, [activeId]);
 
   if (loading) {
     return (
@@ -100,11 +122,20 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
   const maxActivity = Math.max(...hourlyValues, 1);
 
   return (
-    <div className="bg-gray-900/95 border border-gray-700 rounded-lg shadow-2xl backdrop-blur-sm overflow-hidden">
+    <div ref={containerRef} className="bg-gray-900/95 border border-gray-700 rounded-lg shadow-2xl backdrop-blur-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-700">
+        {history.length > 0 && (
+          <button
+            onClick={navigateBack}
+            className="text-gray-400 hover:text-white p-1 -ml-1 rounded hover:bg-gray-800 transition-colors"
+            title="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
         <img
-          src={`https://images.evetech.net/characters/${characterId}/portrait?size=64`}
+          src={`https://images.evetech.net/characters/${activeId}/portrait?size=64`}
           alt=""
           className="w-12 h-12 rounded"
         />
@@ -159,18 +190,20 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
             </h3>
             <div className="space-y-1">
               {data.fleet_companions.slice(0, 10).map((comp) => (
-                <div
+                <button
                   key={comp.character_id}
-                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                  onClick={() => navigateTo(comp.character_id)}
+                  className="w-full flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors cursor-pointer text-left"
+                  title={`View ${comp.name}'s deep dive`}
                 >
                   <img
                     src={`https://images.evetech.net/characters/${comp.character_id}/portrait?size=32`}
                     alt=""
                     className="w-5 h-5 rounded"
                   />
-                  <span className="text-xs text-gray-200 flex-1 truncate">{comp.name}</span>
+                  <span className="text-xs text-cyan-300 hover:text-cyan-200 flex-1 truncate">{comp.name}</span>
                   <span className="text-[10px] text-gray-500 font-mono">{comp.kills} kills</span>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -314,7 +347,7 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
         {/* zKill link */}
         <div className="pt-2 border-t border-gray-700">
           <a
-            href={`https://zkillboard.com/character/${characterId}/`}
+            href={`https://zkillboard.com/character/${activeId}/`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[10px] text-cyan-500 hover:text-cyan-400"

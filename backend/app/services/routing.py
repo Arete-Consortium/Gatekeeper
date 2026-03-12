@@ -258,6 +258,7 @@ def compute_route(
             RouteHop(
                 system_name=name,
                 system_id=universe.systems[name].id,
+                security_status=universe.systems[name].security,
                 cumulative_jumps=idx,
                 cumulative_cost=cumulative_cost,
                 risk_score=rr.score,

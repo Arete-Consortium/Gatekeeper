@@ -66,24 +66,29 @@ export function getRiskColorFromScore(score: number): 'green' | 'yellow' | 'oran
 // Single hop in a route
 export interface RouteHop {
   system_name: string;
+  system_id: number;
   security_status: number;
-  risk_score: number;
-  distance: number;
+  cumulative_jumps: number;
   cumulative_cost: number;
+  risk_score: number;
+  connection_type: string;
   pirate_suppressed?: boolean;
 }
 
 // Complete route response
 export interface RouteResponse {
+  from_system: string;
+  to_system: string;
   path: RouteHop[];
   total_jumps: number;
-  total_distance: number;
   total_cost: number;
   max_risk: number;
   avg_risk: number;
   profile: 'shortest' | 'safer' | 'paranoid';
   bridges_used: number;
   thera_used: number;
+  pochven_used: number;
+  wormholes_used: number;
 }
 
 // Routing profile configuration

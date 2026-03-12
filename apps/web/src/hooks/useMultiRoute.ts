@@ -79,11 +79,12 @@ export function useMultiRoute({
     if (validSegments.length > 0 && validSegments.length === pairs.length) {
       const combinedPath: RouteHop[] = [];
       let totalJumps = 0;
-      let totalDistance = 0;
       let totalCost = 0;
       let maxRisk = 0;
       let bridgesUsed = 0;
       let theraUsed = 0;
+      let pochvenUsed = 0;
+      let wormholesUsed = 0;
       const allRisks: number[] = [];
 
       for (let i = 0; i < validSegments.length; i++) {
@@ -92,11 +93,12 @@ export function useMultiRoute({
         const hops = i === 0 ? seg.path : seg.path.slice(1);
         combinedPath.push(...hops);
         totalJumps += seg.total_jumps;
-        totalDistance += seg.total_distance;
         totalCost += seg.total_cost;
         maxRisk = Math.max(maxRisk, seg.max_risk);
         bridgesUsed += seg.bridges_used;
         theraUsed += seg.thera_used;
+        pochvenUsed += seg.pochven_used;
+        wormholesUsed += seg.wormholes_used;
         seg.path.forEach((h) => allRisks.push(h.risk_score));
       }
 
@@ -105,15 +107,18 @@ export function useMultiRoute({
         : 0;
 
       route = {
+        from_system: validSegments[0].from_system,
+        to_system: validSegments[validSegments.length - 1].to_system,
         path: combinedPath,
         total_jumps: totalJumps,
-        total_distance: totalDistance,
         total_cost: totalCost,
         max_risk: maxRisk,
         avg_risk: avgRisk,
         profile: validSegments[0].profile,
         bridges_used: bridgesUsed,
         thera_used: theraUsed,
+        pochven_used: pochvenUsed,
+        wormholes_used: wormholesUsed,
       };
     }
 

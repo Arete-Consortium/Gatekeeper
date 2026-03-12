@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class RouteHop(BaseModel):
     system_name: str
     system_id: int
+    security_status: float = Field(0.0, description="System security status (-1.0 to 1.0)")
     cumulative_jumps: int
     cumulative_cost: float
     risk_score: float

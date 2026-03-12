@@ -24,7 +24,7 @@ function getRiskColor(risk: number): 'green' | 'yellow' | 'orange' | 'red' {
 }
 
 export function RouteResult({ route }: RouteResultProps) {
-  const profile = ROUTE_PROFILES[route.profile];
+  const profile = ROUTE_PROFILES[route.profile] ?? { label: route.profile, description: '', color: 'text-text-secondary', borderColor: 'border-border' };
   const [waypointStatus, setWaypointStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waypointMessage, setWaypointMessage] = useState('');
 
