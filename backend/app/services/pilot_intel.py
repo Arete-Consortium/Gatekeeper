@@ -103,49 +103,90 @@ async def _fetch_zkill_stats(character_id: int) -> dict | None:
             data = resp.json()
 
             # Extract key fields from zKill stats response
-            info = data.get("info", {})
-            active_pvp = data.get("activepvp", {})
-            top_lists = data.get("topLists", [])
+            # NOTE: zKill API puts stats at top level, NOT nested under "info"
+            top_all_time = data.get("topAllTime", [])
 
             # Parse activity by time of day for timezone inference
-            activity = data.get("activity", {})
+            activity = data.get("activity") or {}
 
-            # Ships used (from topLists)
+            # Ships and systems from topAllTime
             top_ships = []
             top_systems = []
-            for tl in top_lists:
-                if tl.get("type") == "shipType":
+            fleet_characters = []
+            for entry in top_all_time:
+                entry_type = entry.get("type")
+                items = entry.get("data", [])
+                if entry_type == "ship":
                     top_ships = [
                         {
-                            "id": item.get("typeID"),
-                            "name": item.get("typeName", ""),
+                            "id": item.get("shipTypeID"),
+                            "name": "",  # resolved later via ESI
                             "kills": item.get("kills", 0),
                         }
-                        for item in tl.get("values", [])[:10]
+                        for item in items[:10]
+                        if item.get("shipTypeID")
                     ]
-                elif tl.get("type") == "solarSystem":
+                elif entry_type == "system":
                     top_systems = [
                         {
                             "id": item.get("solarSystemID"),
-                            "name": item.get("solarSystemName", ""),
+                            "name": "",  # resolved later via ESI
                             "kills": item.get("kills", 0),
                         }
-                        for item in tl.get("values", [])[:5]
+                        for item in items[:5]
+                        if item.get("solarSystemID")
+                    ]
+                elif entry_type == "character":
+                    fleet_characters = [
+                        {
+                            "character_id": item.get("characterID"),
+                            "kills": item.get("kills", 0),
+                        }
+                        for item in items[:15]
+                        if item.get("characterID") and item.get("characterID") != character_id
                     ]
 
+            # Resolve ship type and system names via ESI
+            type_ids = [s["id"] for s in top_ships if s["id"]]
+            system_ids = [s["id"] for s in top_systems if s["id"]]
+            all_resolve_ids = type_ids + system_ids
+            if all_resolve_ids:
+                try:
+                    names_resp = await client.post(
+                        "https://esi.evetech.net/latest/universe/names/",
+                        json=all_resolve_ids,
+                    )
+                    if names_resp.status_code == 200:
+                        name_map = {item["id"]: item["name"] for item in names_resp.json()}
+                        for s in top_ships:
+                            s["name"] = name_map.get(s["id"], "Unknown")
+                        for s in top_systems:
+                            s["name"] = name_map.get(s["id"], "Unknown")
+                except Exception:
+                    pass
+
+            # Resolve fleet companion names
+            companion_ids = [c["character_id"] for c in fleet_characters if c["character_id"]]
+            if companion_ids:
+                comp_names = await _fetch_esi_names(companion_ids, "character")
+                for c in fleet_characters:
+                    c["name"] = comp_names.get(c["character_id"], "Unknown")
+
             result = {
-                "kills": info.get("shipsDestroyed", 0),
-                "losses": info.get("shipsLost", 0),
+                "kills": data.get("shipsDestroyed", 0),
+                "losses": data.get("shipsLost", 0),
                 "solo_kills": data.get("soloKills", 0),
                 "danger_ratio": data.get("dangerRatio", 0),
                 "gang_ratio": data.get("gangRatio", 0),
-                "active_pvp_kills": active_pvp.get("kills", {}).get("count", 0),
-                "active_pvp_systems": active_pvp.get("systems", {}).get("count", 0),
+                "active_pvp_kills": 0,
+                "active_pvp_systems": 0,
                 "activity": activity,
                 "top_ships": top_ships,
                 "top_systems": top_systems,
-                "isk_destroyed": info.get("iskDestroyed", 0),
-                "isk_lost": info.get("iskLost", 0),
+                "fleet_characters": fleet_characters,
+                "isk_destroyed": data.get("iskDestroyed", 0),
+                "isk_lost": data.get("iskLost", 0),
+                "raw_top_all_time": top_all_time,
             }
 
             await cache.set_json(cache_key, result, PILOT_STATS_TTL)
@@ -558,21 +599,12 @@ async def _fetch_recent_killmails(character_id: int, limit: int = 15) -> list[di
         return []
 
 
-def _extract_fleet_companions(zkill_stats: dict) -> list[dict]:
-    """Extract fleet companions from zKill topLists (type: character)."""
-    top_lists = zkill_stats.get("topLists", []) if zkill_stats else []
-    for tl in top_lists:
-        if tl.get("type") == "character":
-            return [
-                {
-                    "character_id": item.get("characterID") or item.get("id"),
-                    "name": item.get("characterName") or item.get("name", ""),
-                    "kills": item.get("kills", 0),
-                }
-                for item in tl.get("values", [])[:15]
-                if item.get("characterID") or item.get("id")
-            ]
-    return []
+def _extract_fleet_companions(zkill_cached: dict) -> list[dict]:
+    """Extract fleet companions from cached zKill stats.
+
+    Uses fleet_characters field populated during _fetch_zkill_stats.
+    """
+    return zkill_cached.get("fleet_characters", [])
 
 
 def _build_activity_pattern(activity: dict) -> dict:
