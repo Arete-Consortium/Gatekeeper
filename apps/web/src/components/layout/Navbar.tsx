@@ -96,7 +96,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2" aria-label="EVE Gatekeeper home">
+          <Link href="/" className="flex items-center gap-2" aria-label="Gatekeeper home">
             <img src="/icon-192.png" alt="Gatekeeper" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-lg text-text hidden sm:block">
               Gatekeeper
