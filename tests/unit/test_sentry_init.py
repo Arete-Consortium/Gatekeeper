@@ -1,8 +1,10 @@
 """Tests for Sentry initialization in create_app()."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+
+sentry_sdk = pytest.importorskip("sentry_sdk", reason="sentry_sdk not installed")
 
 
 class TestSentryInit:
@@ -20,8 +22,6 @@ class TestSentryInit:
             with patch("sentry_sdk.init") as mock_init:
                 from backend.app.main import create_app
 
-                # Re-import won't re-run module-level code, so call create_app directly
-                # with patched settings
                 with patch("backend.app.main.settings", mock_settings):
                     create_app()
 
