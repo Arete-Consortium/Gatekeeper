@@ -90,6 +90,8 @@ export interface MapLayers {
   showLandmarks: boolean;
   showSovStructures: boolean;
   showSkyhooks: boolean;
+  showSovereignty?: boolean;
+  showActivity?: boolean;
   showWormholes?: boolean;
   showMarketHubs?: boolean;
 }
@@ -120,6 +122,9 @@ export interface UniverseMapProps {
   fwSystems?: Record<string, import('@/lib/types').FWSystem>;
   landmarks?: import('@/lib/types').Landmark[];
   sovStructures?: Record<string, import('@/lib/types').SovStructure[]>;
+  sovereigntyData?: Record<string, { alliance_id: number | null; faction_id: number | null }>;
+  allianceData?: Record<string, { name: string }>;
+  activityData?: import('@/lib/types').SystemActivityResponse;
   wormholeConnections?: import('@/lib/types').WormholeConnection[];
   marketHubs?: import('@/lib/types').MarketHub[];
   characterSystemId?: number | null;
@@ -216,4 +221,11 @@ export function getSpectralColor(spectralClass: string): string {
 
 export function getRiskColor(riskColor: 'green' | 'yellow' | 'orange' | 'red'): string {
   return RISK_COLORS[riskColor];
+}
+
+// Region color palette — deterministic HSL from regionId for subway-style map coloring
+// Golden ratio conjugate distributes hues evenly across ~68 regions
+export function getRegionColor(regionId: number): string {
+  const hue = ((regionId * 137.508) % 360);
+  return `hsl(${hue}, 50%, 55%)`;
 }

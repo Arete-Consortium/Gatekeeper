@@ -21,6 +21,7 @@ import {
   Activity,
   MapPin,
   ExternalLink,
+  Pin,
 } from 'lucide-react';
 
 interface SystemSummaryCardProps {
@@ -28,6 +29,8 @@ interface SystemSummaryCardProps {
   systemId?: number;
   onClose?: () => void;
   onAvoidSystem?: (systemName: string) => void;
+  onPin?: (systemId: number, systemName: string) => void;
+  isPinned?: boolean;
 }
 
 const FACTION_NAMES: Record<number, string> = {
@@ -65,6 +68,8 @@ export function SystemSummaryCard({
   systemId,
   onClose,
   onAvoidSystem,
+  onPin,
+  isPinned,
 }: SystemSummaryCardProps) {
   const [data, setData] = useState<SystemData>({
     risk: null,
@@ -185,11 +190,22 @@ export function SystemSummaryCard({
             <span className="font-semibold text-text">{systemName}</span>
             <SecurityBadge security={security} size="sm" />
           </div>
-          {onClose && (
-            <button onClick={onClose} className="text-text-secondary hover:text-text p-1">
-              <X className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {onPin && realSystemId && (
+              <button
+                onClick={() => onPin(realSystemId, systemName)}
+                className={`p-1 transition-colors ${isPinned ? 'text-cyan-400' : 'text-text-secondary hover:text-cyan-400'}`}
+                title={isPinned ? 'Unpin system' : 'Pin system'}
+              >
+                <Pin className="h-4 w-4" />
+              </button>
+            )}
+            {onClose && (
+              <button onClick={onClose} className="text-text-secondary hover:text-text p-1">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 mt-1.5">
           {regionName && (

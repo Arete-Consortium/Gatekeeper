@@ -48,8 +48,7 @@ async def map_config() -> dict:
         }
 
     gates_payload = [
-        {"from_system": g.from_system, "to_system": g.to_system}
-        for g in universe.gates
+        {"from_system": g.from_system, "to_system": g.to_system} for g in universe.gates
     ]
 
     # Load landmarks
@@ -189,13 +188,15 @@ async def get_sov_structures() -> dict:
             continue
         if sid not in system_structures:
             system_structures[sid] = []
-        system_structures[sid].append({
-            "alliance_id": s.get("alliance_id"),
-            "structure_type_id": s.get("structure_type_id"),
-            "vulnerability_occupancy_level": s.get("vulnerability_occupancy_level"),
-            "vulnerable_start_time": s.get("vulnerable_start_time"),
-            "vulnerable_end_time": s.get("vulnerable_end_time"),
-        })
+        system_structures[sid].append(
+            {
+                "alliance_id": s.get("alliance_id"),
+                "structure_type_id": s.get("structure_type_id"),
+                "vulnerability_occupancy_level": s.get("vulnerability_occupancy_level"),
+                "vulnerable_start_time": s.get("vulnerable_start_time"),
+                "vulnerable_end_time": s.get("vulnerable_end_time"),
+            }
+        )
 
     return {"structures": system_structures}
 
@@ -214,19 +215,21 @@ async def get_thera_connections() -> dict:
 
     result = []
     for conn in connections:
-        result.append({
-            "id": conn.get("id"),
-            "source_system_id": conn.get("out_system_id"),
-            "source_system_name": conn.get("out_system_name"),
-            "dest_system_id": conn.get("in_system_id"),
-            "dest_system_name": conn.get("in_system_name"),
-            "dest_region_name": conn.get("in_region_name"),
-            "wh_type": conn.get("wh_type"),
-            "max_ship_size": conn.get("max_ship_size"),
-            "remaining_hours": conn.get("remaining_hours"),
-            "signature_id": conn.get("out_signature"),
-            "completed": conn.get("completed", False),
-        })
+        result.append(
+            {
+                "id": conn.get("id"),
+                "source_system_id": conn.get("out_system_id"),
+                "source_system_name": conn.get("out_system_name"),
+                "dest_system_id": conn.get("in_system_id"),
+                "dest_system_name": conn.get("in_system_name"),
+                "dest_region_name": conn.get("in_region_name"),
+                "wh_type": conn.get("wh_type"),
+                "max_ship_size": conn.get("max_ship_size"),
+                "remaining_hours": conn.get("remaining_hours"),
+                "signature_id": conn.get("out_signature"),
+                "completed": conn.get("completed", False),
+            }
+        )
 
     return {"connections": result}
 
@@ -270,15 +273,17 @@ async def get_system_activity() -> dict:
             resp = await client.get(f"{ESI_BASE}/incursions/")
             resp.raise_for_status()
             for inc in resp.json():
-                incursions_data.append({
-                    "type": inc.get("type"),
-                    "state": inc.get("state"),
-                    "staging_system_id": inc.get("staging_solar_system_id"),
-                    "constellation_id": inc.get("constellation_id"),
-                    "infested_systems": inc.get("infested_solar_systems", []),
-                    "has_boss": inc.get("has_boss", False),
-                    "influence": inc.get("influence", 0),
-                })
+                incursions_data.append(
+                    {
+                        "type": inc.get("type"),
+                        "state": inc.get("state"),
+                        "staging_system_id": inc.get("staging_solar_system_id"),
+                        "constellation_id": inc.get("constellation_id"),
+                        "infested_systems": inc.get("infested_solar_systems", []),
+                        "has_boss": inc.get("has_boss", False),
+                        "influence": inc.get("influence", 0),
+                    }
+                )
         except httpx.HTTPError:
             logger.warning("Failed to fetch incursions from ESI")
 

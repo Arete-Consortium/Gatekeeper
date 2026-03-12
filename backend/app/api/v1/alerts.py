@@ -157,7 +157,7 @@ async def create_subscription(
         ship_types=request.ship_types,
     )
 
-    add_subscription(subscription)
+    await add_subscription(subscription)
     return SubscriptionResponse.from_subscription(subscription)
 
 
@@ -231,7 +231,7 @@ async def update_subscription_by_id(
 )
 async def delete_subscription_by_id(subscription_id: str) -> dict[str, str]:
     """Delete a subscription."""
-    if not remove_subscription(subscription_id):
+    if not await remove_subscription(subscription_id):
         raise HTTPException(status_code=404, detail=f"Subscription not found: {subscription_id}")
     return {"status": "deleted", "id": subscription_id}
 

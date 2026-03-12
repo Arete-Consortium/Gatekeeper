@@ -23,6 +23,10 @@ interface PilotThreatCardProps {
   onClose?: () => void;
   onPin?: (characterId: number, name: string) => void;
   isPinned?: boolean;
+  onPinCorp?: (corporationId: number, name: string) => void;
+  onPinAlliance?: (allianceId: number, name: string) => void;
+  pinnedCorpIds?: Set<number>;
+  pinnedAllianceIds?: Set<number>;
 }
 
 const THREAT_COLORS: Record<string, string> = {
@@ -57,7 +61,7 @@ function formatIsk(value: number): string {
   return value.toString();
 }
 
-export function PilotThreatCard({ characterId, onClose, onPin, isPinned }: PilotThreatCardProps) {
+export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCorp, onPinAlliance, pinnedCorpIds, pinnedAllianceIds }: PilotThreatCardProps) {
   const [pilot, setPilot] = useState<PilotThreatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,9 +132,34 @@ export function PilotThreatCard({ characterId, onClose, onPin, isPinned }: Pilot
             />
             <div>
               <div className="font-semibold text-text text-sm">{pilot.name}</div>
-              <div className="text-[11px] text-text-secondary">
-                {pilot.corporation_name}
-                {pilot.alliance_name && (
+              <div className="text-[11px] text-text-secondary flex items-center gap-1 flex-wrap">
+                <span className="inline-flex items-center gap-0.5">
+                  {pilot.corporation_name}
+                  {onPinCorp && pilot.corporation_id && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onPinCorp(pilot.corporation_id!, pilot.corporation_name); }}
+                      className={`inline-flex ${pinnedCorpIds?.has(pilot.corporation_id) ? 'text-cyan-400' : 'text-text-secondary/40 hover:text-cyan-400'} transition-colors`}
+                      title={pinnedCorpIds?.has(pilot.corporation_id) ? 'Unpin corp' : 'Pin corp'}
+                    >
+                      <Pin className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </span>
+                {pilot.alliance_name && pilot.alliance_id && (
+                  <span className="inline-flex items-center gap-0.5 text-text-secondary/60">
+                    [{pilot.alliance_name}
+                    {onPinAlliance && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onPinAlliance(pilot.alliance_id!, pilot.alliance_name!); }}
+                        className={`inline-flex ${pinnedAllianceIds?.has(pilot.alliance_id) ? 'text-cyan-400' : 'text-text-secondary/40 hover:text-cyan-400'} transition-colors`}
+                        title={pinnedAllianceIds?.has(pilot.alliance_id) ? 'Unpin alliance' : 'Pin alliance'}
+                      >
+                        <Pin className="h-2.5 w-2.5" />
+                      </button>
+                    )}]
+                  </span>
+                )}
+                {pilot.alliance_name && !pilot.alliance_id && (
                   <span className="text-text-secondary/60"> [{pilot.alliance_name}]</span>
                 )}
               </div>

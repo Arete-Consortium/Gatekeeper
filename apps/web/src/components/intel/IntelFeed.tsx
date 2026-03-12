@@ -2,12 +2,18 @@
 
 import { memo, useState, useMemo, useCallback, useEffect } from 'react';
 import { useHotSystems } from '@/hooks';
-import { Card, Input, Select, Badge } from '@/components/ui';
+import { Card, Select, Badge } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
-import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Pin, X } from 'lucide-react';
+import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Pin, X, MapPin, Building2, Shield } from 'lucide-react';
 import { ErrorMessage, SkeletonTable, getUserFriendlyError } from '@/components/ui';
 import { PilotThreatCard } from './PilotThreatCard';
+import { SystemSummaryCard } from './SystemSummaryCard';
 import { loadPinnedPilots, savePinnedPilots, type PinnedPilot } from './PilotLookupTab';
+import {
+  loadPinnedSystems, savePinnedSystems, type PinnedSystem,
+  loadPinnedCorps, savePinnedCorps, type PinnedCorp,
+  loadPinnedAlliances, savePinnedAlliances, type PinnedAlliance,
+} from '@/lib/pinnedItems';
 import type { HotSystem } from '@/lib/types';
 
 const timeOptions = [
@@ -135,24 +141,60 @@ function SortHeader({ label, sortKey, col, currentKey, currentDir, onSort, align
 export default function IntelFeed() {
   const [hours, setHours] = useState(24);
   const [limit, setLimit] = useState(25);
-  const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('kills');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [pinnedPilots, setPinnedPilots] = useState<PinnedPilot[]>([]);
+  const [pinnedSystems, setPinnedSystems] = useState<PinnedSystem[]>([]);
+  const [pinnedCorps, setPinnedCorps] = useState<PinnedCorp[]>([]);
+  const [pinnedAlliances, setPinnedAlliances] = useState<PinnedAlliance[]>([]);
 
-  // Load pinned pilots
+  // Load all pinned items
   useEffect(() => {
     setPinnedPilots(loadPinnedPilots());
-    // Listen for storage changes from other tabs/components
-    const handler = () => setPinnedPilots(loadPinnedPilots());
+    setPinnedSystems(loadPinnedSystems());
+    setPinnedCorps(loadPinnedCorps());
+    setPinnedAlliances(loadPinnedAlliances());
+    const handler = () => {
+      setPinnedPilots(loadPinnedPilots());
+      setPinnedSystems(loadPinnedSystems());
+      setPinnedCorps(loadPinnedCorps());
+      setPinnedAlliances(loadPinnedAlliances());
+    };
     window.addEventListener('storage', handler);
     return () => window.removeEventListener('storage', handler);
   }, []);
 
-  const handleUnpin = useCallback((characterId: number) => {
+  const handleUnpinPilot = useCallback((characterId: number) => {
     setPinnedPilots((prev) => {
       const next = prev.filter((p) => p.characterId !== characterId);
       savePinnedPilots(next);
+      return next;
+    });
+  }, []);
+
+  const handleTogglePinSystem = useCallback((systemId: number, name: string) => {
+    setPinnedSystems((prev) => {
+      const exists = prev.some((s) => s.systemId === systemId);
+      const next = exists
+        ? prev.filter((s) => s.systemId !== systemId)
+        : [...prev, { systemId, name }];
+      savePinnedSystems(next);
+      return next;
+    });
+  }, []);
+
+  const handleUnpinCorp = useCallback((corporationId: number) => {
+    setPinnedCorps((prev) => {
+      const next = prev.filter((c) => c.corporationId !== corporationId);
+      savePinnedCorps(next);
+      return next;
+    });
+  }, []);
+
+  const handleUnpinAlliance = useCallback((allianceId: number) => {
+    setPinnedAlliances((prev) => {
+      const next = prev.filter((a) => a.allianceId !== allianceId);
+      savePinnedAlliances(next);
       return next;
     });
   }, []);
@@ -168,16 +210,11 @@ export default function IntelFeed() {
     }
   }, [sortKey]);
 
-  // Memoize filtered + sorted systems
+  // Memoize sorted systems
   const filteredSystems = useMemo(() => {
     if (!hotSystems) return [];
-    let list = hotSystems;
-    if (search) {
-      const lowerSearch = search.toLowerCase();
-      list = list.filter((s) => s.system_name.toLowerCase().includes(lowerSearch));
-    }
     const dir = sortDir === 'asc' ? 1 : -1;
-    return [...list].sort((a, b) => {
+    return [...hotSystems].sort((a, b) => {
       switch (sortKey) {
         case 'kills': return (a.recent_kills - b.recent_kills) * dir;
         case 'pods': return (a.recent_pods - b.recent_pods) * dir;
@@ -186,7 +223,7 @@ export default function IntelFeed() {
         default: return 0;
       }
     });
-  }, [hotSystems, search, sortKey, sortDir]);
+  }, [hotSystems, sortKey, sortDir]);
 
   // Memoize summary stats to avoid recalculating on every render
   const stats = useMemo(() => {
@@ -198,39 +235,141 @@ export default function IntelFeed() {
     };
   }, [hotSystems]);
 
+  const hasPinnedItems = pinnedPilots.length > 0 || pinnedSystems.length > 0 || pinnedCorps.length > 0 || pinnedAlliances.length > 0;
+
   return (
     <div className="space-y-6">
-      {/* Pinned Pilots */}
-      {pinnedPilots.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Pin className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-medium text-text">Watched Pilots</span>
-            <span className="text-[10px] text-text-secondary">({pinnedPilots.length})</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {pinnedPilots.map((p) => (
-              <PilotThreatCard
-                key={p.characterId}
-                characterId={p.characterId}
-                onClose={() => handleUnpin(p.characterId)}
-              />
-            ))}
-          </div>
+      {/* Pinned Items */}
+      {hasPinnedItems && (
+        <div className="space-y-5">
+          {/* Pinned Pilots */}
+          {pinnedPilots.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Pin className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-text">Watched Pilots</span>
+                <span className="text-[10px] text-text-secondary">({pinnedPilots.length})</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {pinnedPilots.map((p) => (
+                  <PilotThreatCard
+                    key={p.characterId}
+                    characterId={p.characterId}
+                    onClose={() => handleUnpinPilot(p.characterId)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pinned Systems */}
+          {pinnedSystems.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-text">Watched Systems</span>
+                <span className="text-[10px] text-text-secondary">({pinnedSystems.length})</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {pinnedSystems.map((s) => (
+                  <SystemSummaryCard
+                    key={s.systemId}
+                    systemName={s.name}
+                    systemId={s.systemId}
+                    onClose={() => handleTogglePinSystem(s.systemId, s.name)}
+                    onPin={handleTogglePinSystem}
+                    isPinned
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pinned Corporations */}
+          {pinnedCorps.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-text">Watched Corporations</span>
+                <span className="text-[10px] text-text-secondary">({pinnedCorps.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pinnedCorps.map((c) => (
+                  <div
+                    key={c.corporationId}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg text-sm"
+                  >
+                    <img
+                      src={`https://images.evetech.net/corporations/${c.corporationId}/logo?size=32`}
+                      alt=""
+                      className="h-5 w-5 rounded"
+                    />
+                    <span className="text-text">{c.name}</span>
+                    <a
+                      href={`https://zkillboard.com/corporation/${c.corporationId}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-primary hover:text-primary/80"
+                    >
+                      zKill
+                    </a>
+                    <button
+                      onClick={() => handleUnpinCorp(c.corporationId)}
+                      className="text-text-secondary hover:text-red-400 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Pinned Alliances */}
+          {pinnedAlliances.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-cyan-400" />
+                <span className="text-sm font-medium text-text">Watched Alliances</span>
+                <span className="text-[10px] text-text-secondary">({pinnedAlliances.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pinnedAlliances.map((a) => (
+                  <div
+                    key={a.allianceId}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-lg text-sm"
+                  >
+                    <img
+                      src={`https://images.evetech.net/alliances/${a.allianceId}/logo?size=32`}
+                      alt=""
+                      className="h-5 w-5 rounded"
+                    />
+                    <span className="text-text">{a.name}</span>
+                    <a
+                      href={`https://zkillboard.com/alliance/${a.allianceId}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-primary hover:text-primary/80"
+                    >
+                      zKill
+                    </a>
+                    <button
+                      onClick={() => handleUnpinAlliance(a.allianceId)}
+                      className="text-text-secondary hover:text-red-400 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Filters */}
       <Card>
         <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <Input
-              label="Search Systems"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="System name..."
-            />
-          </div>
           <div className="w-40">
             <Select
               label="Time Range"
@@ -335,9 +474,7 @@ export default function IntelFeed() {
           <Card className="text-center py-12">
             <Radar className="h-12 w-12 text-text-secondary mx-auto mb-4" aria-hidden="true" />
             <p className="text-text-secondary">
-              {search
-                ? `No systems match "${search}". Try a different search term.`
-                : 'No systems with recent kill activity. Space is quiet for now.'}
+              No systems with recent kill activity. Space is quiet for now.
             </p>
           </Card>
         )}

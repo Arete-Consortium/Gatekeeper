@@ -2,6 +2,7 @@
 
 Provides a rolling window of recent kills with configurable retention.
 Kills are automatically aged out based on time and maximum entry count.
+Persists to PostgreSQL — loads on startup, write-through on add.
 """
 
 import asyncio
@@ -10,7 +11,11 @@ from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import delete, select
+
 from ..core.config import settings
+from ..db.database import get_session_factory
+from ..db.models import KillHistoryRecord
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +28,7 @@ class KillHistory:
     - Size-based limits (configurable max entries)
     - Background cleanup task
     - Per-system and per-region indexing for efficient queries
+    - PostgreSQL persistence (write-through, loaded on startup)
     """
 
     def __init__(
@@ -69,13 +75,14 @@ class KillHistory:
         return self._max_entries
 
     async def start(self) -> None:
-        """Start the background cleanup task."""
+        """Start the background cleanup task and load persisted kills."""
         if self._running:
             logger.warning("Kill history already running")
             return
 
         self._running = True
         if settings.KILL_HISTORY_ENABLED:
+            await self._load_from_db()
             self._cleanup_task = asyncio.create_task(self._cleanup_loop())
             logger.info(
                 "Kill history started",
@@ -83,6 +90,7 @@ class KillHistory:
                     "max_age_hours": self._max_age_hours,
                     "max_entries": self._max_entries,
                     "cleanup_interval_minutes": self._cleanup_interval,
+                    "loaded_kills": self.count,
                 },
             )
         else:
@@ -99,6 +107,70 @@ class KillHistory:
                 pass
             self._cleanup_task = None
         logger.info("Kill history stopped")
+
+    async def _load_from_db(self) -> None:
+        """Load recent kills from database into in-memory cache."""
+        try:
+            cutoff = datetime.now(UTC) - timedelta(hours=self._max_age_hours)
+            factory = get_session_factory()
+            async with factory() as session:
+                result = await session.execute(
+                    select(KillHistoryRecord)
+                    .where(KillHistoryRecord.received_at >= cutoff)
+                    .order_by(KillHistoryRecord.received_at.asc())
+                    .limit(self._max_entries)
+                )
+                rows = result.scalars().all()
+                for row in rows:
+                    kill_data = row.data
+                    kill_id = row.kill_id
+                    self._kills[kill_id] = kill_data
+                    # Rebuild indexes
+                    system_id = kill_data.get("solar_system_id")
+                    if system_id:
+                        self._by_system.setdefault(system_id, set()).add(kill_id)
+                    region_id = kill_data.get("region_id")
+                    if region_id:
+                        self._by_region.setdefault(region_id, set()).add(kill_id)
+                logger.info(f"Loaded {len(rows)} kills from database")
+        except Exception as e:
+            logger.warning(f"Could not load kill history from DB: {e}")
+
+    async def _persist_kill(self, kill_id: int, kill_data: dict[str, Any]) -> None:
+        """Persist a single kill to the database."""
+        try:
+            received_str = kill_data.get("received_at", datetime.now(UTC).isoformat())
+            received_at = datetime.fromisoformat(received_str.replace("Z", "+00:00"))
+
+            record = KillHistoryRecord(
+                kill_id=kill_id,
+                system_id=kill_data.get("solar_system_id", 0),
+                region_id=kill_data.get("region_id"),
+                total_value=kill_data.get("total_value"),
+                is_pod=kill_data.get("is_pod", False),
+                received_at=received_at,
+                data=kill_data,
+            )
+            factory = get_session_factory()
+            async with factory() as session:
+                await session.merge(record)
+                await session.commit()
+        except Exception as e:
+            logger.debug(f"Could not persist kill {kill_id}: {e}")
+
+    async def _delete_expired_from_db(self, cutoff: datetime) -> int:
+        """Delete expired kills from the database."""
+        try:
+            factory = get_session_factory()
+            async with factory() as session:
+                result = await session.execute(
+                    delete(KillHistoryRecord).where(KillHistoryRecord.received_at < cutoff)
+                )
+                await session.commit()
+                return result.rowcount  # type: ignore[return-value]
+        except Exception as e:
+            logger.debug(f"Could not delete expired kills from DB: {e}")
+            return 0
 
     def add_kill(self, kill_data: dict[str, Any]) -> bool:
         """Add a kill to the history.
@@ -146,6 +218,13 @@ class KillHistory:
         # Enforce size limit (evict oldest)
         while len(self._kills) > self._max_entries:
             self._evict_oldest()
+
+        # Fire-and-forget DB persistence
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._persist_kill(kill_id, kill_data))
+        except RuntimeError:
+            pass  # No event loop — skip persistence (e.g., testing)
 
         return True
 
@@ -212,6 +291,12 @@ class KillHistory:
 
         if expired:
             logger.debug(f"Cleaned up {len(expired)} expired kills")
+            # Also clean DB
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._delete_expired_from_db(cutoff))
+            except RuntimeError:
+                pass
 
         return len(expired)
 

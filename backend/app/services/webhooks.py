@@ -1,4 +1,7 @@
-"""Webhook service for Discord and Slack notifications."""
+"""Webhook service for Discord and Slack notifications.
+
+Subscriptions are stored in PostgreSQL and cached in-memory for fast dispatch.
+"""
 
 import asyncio
 import logging
@@ -7,8 +10,11 @@ from enum import StrEnum
 
 import httpx
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from ..core.config import settings
+from ..db.database import get_session_factory
+from ..db.models import WebhookSubscriptionDB
 
 logger = logging.getLogger(__name__)
 
@@ -57,8 +63,85 @@ class WebhookSubscription(BaseModel):
     name: str | None = None  # Optional friendly name
 
 
-# In-memory subscription storage
+# In-memory cache of subscriptions (loaded from DB on startup)
 _subscriptions: dict[str, WebhookSubscription] = {}
+
+
+def _db_row_to_subscription(row: WebhookSubscriptionDB) -> WebhookSubscription:
+    """Convert DB row to Pydantic model."""
+    return WebhookSubscription(
+        id=row.id,
+        webhook_url=row.webhook_url,
+        webhook_type=WebhookType(row.webhook_type),
+        systems=row.systems or [],
+        regions=row.regions or [],
+        min_value=row.min_value,
+        include_pods=row.include_pods,
+        ship_types=row.ship_types or [],
+        enabled=row.enabled,
+        created_at=row.created_at,
+        name=row.name,
+    )
+
+
+def _subscription_to_db(sub: WebhookSubscription) -> WebhookSubscriptionDB:
+    """Convert Pydantic model to DB row."""
+    return WebhookSubscriptionDB(
+        id=sub.id,
+        webhook_url=sub.webhook_url,
+        webhook_type=sub.webhook_type.value,
+        name=sub.name,
+        systems=list(sub.systems),
+        regions=list(sub.regions),
+        min_value=sub.min_value,
+        include_pods=sub.include_pods,
+        ship_types=list(sub.ship_types),
+        enabled=sub.enabled,
+        created_at=sub.created_at,
+    )
+
+
+async def load_subscriptions_from_db() -> None:
+    """Load all subscriptions from database into in-memory cache."""
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(select(WebhookSubscriptionDB))
+            rows = result.scalars().all()
+            for row in rows:
+                sub = _db_row_to_subscription(row)
+                _subscriptions[sub.id] = sub
+            logger.info(f"Loaded {len(rows)} webhook subscriptions from database")
+    except Exception as e:
+        logger.warning(f"Could not load webhook subscriptions from DB: {e}")
+
+
+async def _save_subscription_to_db(sub: WebhookSubscription) -> None:
+    """Persist a subscription to database."""
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            db_row = _subscription_to_db(sub)
+            await session.merge(db_row)
+            await session.commit()
+    except Exception as e:
+        logger.warning(f"Could not save webhook subscription {sub.id} to DB: {e}")
+
+
+async def _delete_subscription_from_db(subscription_id: str) -> None:
+    """Delete a subscription from database."""
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(WebhookSubscriptionDB).where(WebhookSubscriptionDB.id == subscription_id)
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                await session.delete(row)
+                await session.commit()
+    except Exception as e:
+        logger.warning(f"Could not delete webhook subscription {subscription_id} from DB: {e}")
 
 
 def _format_discord_embed(alert: KillAlert) -> dict:
@@ -136,11 +219,7 @@ async def send_webhook(
     webhook_type: WebhookType,
     alert: KillAlert,
 ) -> bool:
-    """
-    Send alert to a webhook.
-
-    Returns True if successful, False otherwise.
-    """
+    """Send alert to a webhook. Returns True if successful."""
     try:
         if webhook_type == WebhookType.discord:
             payload = _format_discord_embed(alert)
@@ -198,11 +277,7 @@ def _should_alert(subscription: WebhookSubscription, alert: KillAlert) -> bool:
 
 
 async def dispatch_alert(alert: KillAlert) -> int:
-    """
-    Dispatch alert to all matching subscriptions.
-
-    Returns number of successful notifications sent.
-    """
+    """Dispatch alert to all matching subscriptions. Returns count of successful sends."""
     tasks = []
 
     for subscription in _subscriptions.values():
@@ -216,19 +291,21 @@ async def dispatch_alert(alert: KillAlert) -> int:
     return sum(1 for r in results if r is True)
 
 
-# Subscription management
+# Subscription management (write-through: update in-memory + persist to DB)
 
 
-def add_subscription(subscription: WebhookSubscription) -> None:
-    """Add a webhook subscription."""
+async def add_subscription(subscription: WebhookSubscription) -> None:
+    """Add a webhook subscription (persisted to DB)."""
     _subscriptions[subscription.id] = subscription
+    await _save_subscription_to_db(subscription)
     logger.info(f"Added webhook subscription: {subscription.id}")
 
 
-def remove_subscription(subscription_id: str) -> bool:
+async def remove_subscription(subscription_id: str) -> bool:
     """Remove a webhook subscription. Returns True if found and removed."""
     if subscription_id in _subscriptions:
         del _subscriptions[subscription_id]
+        await _delete_subscription_from_db(subscription_id)
         logger.info(f"Removed webhook subscription: {subscription_id}")
         return True
     return False
@@ -250,26 +327,28 @@ def clear_subscriptions() -> None:
 
 
 # Initialize default subscriptions from settings
-def init_default_subscriptions() -> None:
-    """Initialize subscriptions from environment settings."""
-    if settings.DISCORD_WEBHOOK_URL:
-        add_subscription(
+async def init_default_subscriptions() -> None:
+    """Load persisted subscriptions from DB, then add env-based defaults."""
+    await load_subscriptions_from_db()
+
+    if settings.DISCORD_WEBHOOK_URL and "default-discord" not in _subscriptions:
+        await add_subscription(
             WebhookSubscription(
                 id="default-discord",
                 webhook_url=settings.DISCORD_WEBHOOK_URL,
                 webhook_type=WebhookType.discord,
-                systems=[],  # All systems
+                systems=[],
                 include_pods=True,
             )
         )
 
-    if settings.SLACK_WEBHOOK_URL:
-        add_subscription(
+    if settings.SLACK_WEBHOOK_URL and "default-slack" not in _subscriptions:
+        await add_subscription(
             WebhookSubscription(
                 id="default-slack",
                 webhook_url=settings.SLACK_WEBHOOK_URL,
                 webhook_type=WebhookType.slack,
-                systems=[],  # All systems
+                systems=[],
                 include_pods=True,
             )
         )

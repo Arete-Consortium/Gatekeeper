@@ -6,8 +6,8 @@ Currently, the app uses JSON files for data storage.
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import JSON, Boolean, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
 
@@ -36,136 +36,6 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User(character_id={self.character_id}, tier={self.subscription_tier})>"
-
-
-class Region(Base):
-    """EVE Online region."""
-
-    __tablename__ = "regions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    faction_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    # Relationships
-    systems: Mapped[list["SolarSystem"]] = relationship(back_populates="region")
-
-    def __repr__(self) -> str:
-        return f"<Region(id={self.id}, name={self.name})>"
-
-
-class SolarSystem(Base):
-    """EVE Online solar system."""
-
-    __tablename__ = "solar_systems"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
-    region_id: Mapped[int] = mapped_column(Integer, ForeignKey("regions.id"), nullable=False)
-    constellation_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    security_status: Mapped[float] = mapped_column(Float, nullable=False)
-    security_class: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )  # highsec, lowsec, nullsec, wh
-    position_x: Mapped[float] = mapped_column(Float, nullable=False)
-    position_y: Mapped[float] = mapped_column(Float, nullable=False)
-    position_z: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    # Relationships
-    region: Mapped["Region"] = relationship(back_populates="systems")
-    connections_from: Mapped[list["Stargate"]] = relationship(
-        "Stargate",
-        foreign_keys="Stargate.source_system_id",
-        back_populates="source_system",
-    )
-    connections_to: Mapped[list["Stargate"]] = relationship(
-        "Stargate",
-        foreign_keys="Stargate.destination_system_id",
-        back_populates="destination_system",
-    )
-
-    __table_args__ = (Index("ix_solar_systems_region_security", "region_id", "security_class"),)
-
-    def __repr__(self) -> str:
-        return f"<SolarSystem(id={self.id}, name={self.name}, security={self.security_status})>"
-
-
-class Stargate(Base):
-    """Stargate connection between two systems."""
-
-    __tablename__ = "stargates"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_system_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("solar_systems.id"), nullable=False
-    )
-    destination_system_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("solar_systems.id"), nullable=False
-    )
-
-    # Relationships
-    source_system: Mapped["SolarSystem"] = relationship(
-        "SolarSystem",
-        foreign_keys=[source_system_id],
-        back_populates="connections_from",
-    )
-    destination_system: Mapped["SolarSystem"] = relationship(
-        "SolarSystem",
-        foreign_keys=[destination_system_id],
-        back_populates="connections_to",
-    )
-
-    __table_args__ = (
-        Index("ix_stargates_source", "source_system_id"),
-        Index("ix_stargates_destination", "destination_system_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<Stargate(source={self.source_system_id}, dest={self.destination_system_id})>"
-
-
-class KillRecord(Base):
-    """Cached kill data from zKillboard."""
-
-    __tablename__ = "kill_records"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # zKillboard kill ID
-    system_id: Mapped[int] = mapped_column(Integer, ForeignKey("solar_systems.id"), nullable=False)
-    kill_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    ship_type_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    victim_corporation_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    victim_alliance_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    attacker_count: Mapped[int] = mapped_column(Integer, default=0)
-    is_pod: Mapped[bool] = mapped_column(default=False)
-    total_value: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fetched_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-    )
-
-    __table_args__ = (Index("ix_kill_records_system_time", "system_id", "kill_time"),)
-
-    def __repr__(self) -> str:
-        return f"<KillRecord(id={self.id}, system={self.system_id})>"
-
-
-class CacheEntry(Base):
-    """Generic cache storage for API responses."""
-
-    __tablename__ = "cache_entries"
-
-    key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    value: Mapped[str] = mapped_column(Text, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
-    )
-
-    __table_args__ = (Index("ix_cache_entries_expires", "expires_at"),)
-
-    def __repr__(self) -> str:
-        return f"<CacheEntry(key={self.key})>"
 
 
 class RouteBookmark(Base):
@@ -265,3 +135,78 @@ class JumpBridgeConnectionDB(Base):
 
     def __repr__(self) -> str:
         return f"<JumpBridgeConnectionDB(id={self.id}, {self.from_system} \u00bb {self.to_system})>"
+
+
+class WebhookSubscriptionDB(Base):
+    """Persistent webhook subscription for kill alerts."""
+
+    __tablename__ = "webhook_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    webhook_url: Mapped[str] = mapped_column(Text, nullable=False)
+    webhook_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    systems: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    regions: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    min_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    include_pods: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ship_types: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<WebhookSubscriptionDB(id={self.id}, type={self.webhook_type})>"
+
+
+class KillHistoryRecord(Base):
+    """Persisted kill history record (full kill data as JSON)."""
+
+    __tablename__ = "kill_history"
+
+    kill_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    system_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    region_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    is_pod: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    __table_args__ = (
+        Index("ix_kill_history_system", "system_id"),
+        Index("ix_kill_history_region", "region_id"),
+        Index("ix_kill_history_received", "received_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<KillHistoryRecord(kill_id={self.kill_id}, system={self.system_id})>"
+
+
+class PageviewRecord(Base):
+    """Persisted pageview event for analytics."""
+
+    __tablename__ = "pageviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    client_ip: Mapped[str] = mapped_column(String(45), nullable=False, default="unknown")
+    viewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_pageviews_path", "path"),
+        Index("ix_pageviews_viewed_at", "viewed_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PageviewRecord(id={self.id}, path={self.path})>"

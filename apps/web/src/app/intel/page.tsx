@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Radar, MessageSquareText, Users, Bell, AlertTriangle, UserSearch } from 'lucide-react';
+import { Radar, MessageSquareText, Users, Bell, AlertTriangle, Search } from 'lucide-react';
 import IntelFeed from '@/components/intel/IntelFeed';
 import { ThreatsTab } from '@/components/intel/ThreatsTab';
 import { PilotLookupTab } from '@/components/intel/PilotLookupTab';
@@ -14,7 +14,7 @@ type Tab = 'kill-feed' | 'threats' | 'pilot' | 'intel-parser' | 'fleet' | 'alert
 const tabs: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'kill-feed', label: 'Kill Feed', icon: Radar },
   { key: 'threats', label: 'Threats', icon: AlertTriangle },
-  { key: 'pilot', label: 'Pilot Lookup', icon: UserSearch },
+  { key: 'pilot', label: 'Search / Pin', icon: Search },
   { key: 'intel-parser', label: 'Intel Parser', icon: MessageSquareText },
   { key: 'fleet', label: 'Fleet', icon: Users },
   { key: 'alerts', label: 'Alerts', icon: Bell },

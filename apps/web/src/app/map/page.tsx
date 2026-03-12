@@ -202,6 +202,8 @@ function MapPageContent() {
       showLandmarks: true,
       showSovStructures: false,
       showSkyhooks: false,
+      showSovereignty: false,
+      showActivity: false,
       showWormholes: false,
       showMarketHubs: false,
     };
@@ -565,10 +567,12 @@ function MapPageContent() {
           <Toggle checked={layers.showRoute} onChange={(v) => updateLayer('showRoute', v)} label="Route overlay" />
           <ProToggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" isPro={isPro} />
           <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
+          <ProToggle checked={layers.showActivity === true} onChange={(v) => updateLayer('showActivity', v)} label="System activity" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
           <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
+          <ProToggle checked={layers.showSovereignty === true} onChange={(v) => updateLayer('showSovereignty', v)} label="Alliance sovereignty" isPro={isPro} />
           <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
           <div className="flex items-center gap-2">
             <Toggle checked={false} onChange={() => {}} label="Upwell structures" disabled />
@@ -911,6 +915,9 @@ function MapPageContent() {
                 fwSystems={isPro ? fwData?.fw_systems : undefined}
                 landmarks={mapConfig?.landmarks}
                 sovStructures={isPro ? sovStructData?.structures : undefined}
+                sovereigntyData={isPro ? sovData?.sovereignty : undefined}
+                allianceData={isPro ? sovData?.alliances : undefined}
+                activityData={isPro ? activityData : undefined}
                 wormholeConnections={isPro ? wormholeData?.connections : undefined}
                 marketHubs={marketHubData?.hubs}
                 characterSystemId={characterLocation?.solar_system_id}
@@ -921,6 +928,8 @@ function MapPageContent() {
                   showHeatmap: false,
                   showThera: false,
                   showFW: false,
+                  showSovereignty: false,
+                  showActivity: false,
                   showSovStructures: false,
                   showSkyhooks: false,
                   showWormholes: false,

@@ -34,6 +34,4 @@ async def appraise_items(request: AppraisalRequest) -> AppraisalResponse:
         return await appraise(request.raw_text)
     except Exception as exc:
         logger.exception("Appraisal failed: %s", exc)
-        raise HTTPException(
-            status_code=500, detail="Appraisal failed. Please try again."
-        ) from exc
+        raise HTTPException(status_code=500, detail="Appraisal failed. Please try again.") from exc

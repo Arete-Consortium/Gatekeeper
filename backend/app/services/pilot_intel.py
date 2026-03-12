@@ -73,7 +73,9 @@ async def _fetch_esi_names(ids: list[int], category: str) -> dict[int, str]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
             resp = await client.post(url, json=ids)
             resp.raise_for_status()
-            return {item["id"]: item["name"] for item in resp.json() if item.get("category") == category}
+            return {
+                item["id"]: item["name"] for item in resp.json() if item.get("category") == category
+            }
     except Exception as e:
         logger.warning(f"Failed to resolve {category} names: {e}")
         return {}
@@ -114,12 +116,20 @@ async def _fetch_zkill_stats(character_id: int) -> dict | None:
             for tl in top_lists:
                 if tl.get("type") == "shipType":
                     top_ships = [
-                        {"id": item.get("typeID"), "name": item.get("typeName", ""), "kills": item.get("kills", 0)}
+                        {
+                            "id": item.get("typeID"),
+                            "name": item.get("typeName", ""),
+                            "kills": item.get("kills", 0),
+                        }
                         for item in tl.get("values", [])[:10]
                     ]
                 elif tl.get("type") == "solarSystem":
                     top_systems = [
-                        {"id": item.get("solarSystemID"), "name": item.get("solarSystemName", ""), "kills": item.get("kills", 0)}
+                        {
+                            "id": item.get("solarSystemID"),
+                            "name": item.get("solarSystemName", ""),
+                            "kills": item.get("kills", 0),
+                        }
                         for item in tl.get("values", [])[:5]
                     ]
 
@@ -143,15 +153,28 @@ async def _fetch_zkill_stats(character_id: int) -> dict | None:
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             # No zKill data for this character — not an error
-            empty = {"kills": 0, "losses": 0, "solo_kills": 0, "danger_ratio": 0, "gang_ratio": 0,
-                     "active_pvp_kills": 0, "active_pvp_systems": 0, "activity": {},
-                     "top_ships": [], "top_systems": [], "isk_destroyed": 0, "isk_lost": 0}
+            empty = {
+                "kills": 0,
+                "losses": 0,
+                "solo_kills": 0,
+                "danger_ratio": 0,
+                "gang_ratio": 0,
+                "active_pvp_kills": 0,
+                "active_pvp_systems": 0,
+                "activity": {},
+                "top_ships": [],
+                "top_systems": [],
+                "isk_destroyed": 0,
+                "isk_lost": 0,
+            }
             await cache.set_json(cache_key, empty, PILOT_STATS_TTL)
             return empty
         if e.response.status_code == 429:
             logger.warning("zKillboard rate limit hit fetching pilot stats")
         else:
-            logger.warning(f"HTTP {e.response.status_code} fetching zKill stats for pilot {character_id}")
+            logger.warning(
+                f"HTTP {e.response.status_code} fetching zKill stats for pilot {character_id}"
+            )
         return None
     except Exception as e:
         logger.warning(f"Failed to fetch zKill stats for pilot {character_id}: {e}")
@@ -239,17 +262,49 @@ def _detect_flags(zkill: dict) -> list[str]:
     ship_names = [s.get("name", "").lower() for s in top_ships]
 
     # Cyno flag — uses covert cynos or regular cynos
-    cyno_ships = {"prospect", "venture", "endurance", "force recon", "falcon", "rapier",
-                  "arazu", "pilgrim", "lachesis", "huginn"}
+    cyno_ships = {
+        "prospect",
+        "venture",
+        "endurance",
+        "force recon",
+        "falcon",
+        "rapier",
+        "arazu",
+        "pilgrim",
+        "lachesis",
+        "huginn",
+    }
     if any(name in cyno_ships for name in ship_names):
         flags.append("possible_cyno")
 
     # Capital pilot
-    cap_keywords = {"dreadnought", "carrier", "supercarrier", "titan", "force auxiliary",
-                    "revelation", "naglfar", "moros", "phoenix", "archon", "thanatos",
-                    "chimera", "nidhoggur", "nyx", "hel", "aeon", "wyvern",
-                    "avatar", "erebus", "ragnarok", "leviathan", "apostle", "lif",
-                    "minokawa", "ninazu"}
+    cap_keywords = {
+        "dreadnought",
+        "carrier",
+        "supercarrier",
+        "titan",
+        "force auxiliary",
+        "revelation",
+        "naglfar",
+        "moros",
+        "phoenix",
+        "archon",
+        "thanatos",
+        "chimera",
+        "nidhoggur",
+        "nyx",
+        "hel",
+        "aeon",
+        "wyvern",
+        "avatar",
+        "erebus",
+        "ragnarok",
+        "leviathan",
+        "apostle",
+        "lif",
+        "minokawa",
+        "ninazu",
+    }
     if any(name in cap_keywords for name in ship_names):
         flags.append("capital_pilot")
 
@@ -287,6 +342,86 @@ async def resolve_character_names(names: list[str]) -> dict[str, int]:
     except Exception as e:
         logger.warning(f"Failed to resolve character names: {e}")
         return {}
+
+
+async def search_systems(query: str) -> list[dict]:
+    """Search for system names via ESI search endpoint."""
+    url = "https://esi.evetech.net/latest/search/"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+            resp = await client.get(
+                url,
+                params={
+                    "categories": "solar_system",
+                    "search": query,
+                    "datasource": "tranquility",
+                    "strict": "false",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            system_ids = data.get("solar_system", [])[:10]
+
+            if not system_ids:
+                return []
+
+            names_resp = await client.post(
+                "https://esi.evetech.net/latest/universe/names/",
+                json=system_ids,
+                params={"datasource": "tranquility"},
+            )
+            names_resp.raise_for_status()
+            results = []
+            for entry in names_resp.json():
+                if entry.get("category") == "solar_system":
+                    results.append({"id": entry["id"], "name": entry["name"]})
+            return results
+    except Exception as e:
+        logger.warning(f"System search failed: {e}")
+        return []
+
+
+async def search_characters(query: str) -> list[dict]:
+    """Search for character names via ESI POST /universe/ids/.
+
+    Returns list of {id, name} dicts for matching characters.
+    ESI /universe/ids/ does exact name match, so we also try the
+    ESI search endpoint for prefix matching.
+    """
+    url = "https://esi.evetech.net/latest/search/"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+            resp = await client.get(
+                url,
+                params={
+                    "categories": "character",
+                    "search": query,
+                    "datasource": "tranquility",
+                    "strict": "false",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            char_ids = data.get("character", [])[:10]
+
+            if not char_ids:
+                return []
+
+            # Resolve IDs to names
+            results = []
+            names_resp = await client.post(
+                "https://esi.evetech.net/latest/universe/names/",
+                json=char_ids,
+                params={"datasource": "tranquility"},
+            )
+            names_resp.raise_for_status()
+            for entry in names_resp.json():
+                if entry.get("category") == "character":
+                    results.append({"id": entry["id"], "name": entry["name"]})
+            return results
+    except Exception as e:
+        logger.warning(f"Character search failed: {e}")
+        return []
 
 
 async def get_pilot_stats(character_id: int) -> dict | None:
@@ -328,10 +463,18 @@ async def get_pilot_stats(character_id: int) -> dict | None:
             pass
 
     zkill = zkill_data or {
-        "kills": 0, "losses": 0, "solo_kills": 0, "danger_ratio": 0,
-        "gang_ratio": 0, "active_pvp_kills": 0, "active_pvp_systems": 0,
-        "activity": {}, "top_ships": [], "top_systems": [],
-        "isk_destroyed": 0, "isk_lost": 0,
+        "kills": 0,
+        "losses": 0,
+        "solo_kills": 0,
+        "danger_ratio": 0,
+        "gang_ratio": 0,
+        "active_pvp_kills": 0,
+        "active_pvp_systems": 0,
+        "activity": {},
+        "top_ships": [],
+        "top_systems": [],
+        "isk_destroyed": 0,
+        "isk_lost": 0,
     }
 
     threat_level = _compute_threat_level(zkill)

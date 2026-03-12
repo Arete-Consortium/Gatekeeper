@@ -67,9 +67,7 @@ def parse_items(raw_text: str) -> list[tuple[str, int]]:
             continue
 
         # Multiplier: "Tritanium x1000" or "Tritanium x 1000"
-        mult_match = re.match(
-            r"^(.+?)\s+x\s*(\d[\d,]*)\s*$", line, re.IGNORECASE
-        )
+        mult_match = re.match(r"^(.+?)\s+x\s*(\d[\d,]*)\s*$", line, re.IGNORECASE)
         if mult_match:
             name = mult_match.group(1).strip()
             qty = int(mult_match.group(2).replace(",", ""))

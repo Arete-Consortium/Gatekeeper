@@ -3,7 +3,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
-import type { RouteResponse, MapConfig, MapConfigSystem, Gate } from '@/lib/types';
+import type { RouteResponse, MapConfig, Gate } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
 interface RouteMapProps {
@@ -124,9 +124,13 @@ export function RouteMap({ route }: RouteMapProps) {
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, w, h);
 
-    // Draw gates (background connections)
-    ctx.lineWidth = 0.5;
+    // Draw gates — subway style with region-colored connections
     const sysLookup = new Map(visibleSystems.map((s) => [s.name, s]));
+
+    // Separate intra-region and cross-region gates
+    const regionBatches = new Map<string, Array<[number, number, number, number]>>();
+    const crossPaths: Array<[number, number, number, number]> = [];
+
     for (const gate of visibleGates) {
       const from = sysLookup.get(gate.from_system);
       const to = sysLookup.get(gate.to_system);
@@ -135,17 +139,49 @@ export function RouteMap({ route }: RouteMapProps) {
       const [x1, y1] = toScreen(from.x, from.y);
       const [x2, y2] = toScreen(to.x, to.y);
 
-      // Dim color for non-route gates
-      const minSec = Math.min(from.sec, to.sec);
-      if (minSec >= 0.5) ctx.strokeStyle = 'rgba(60, 90, 60, 0.4)';
-      else if (minSec > 0) ctx.strokeStyle = 'rgba(120, 90, 30, 0.4)';
-      else ctx.strokeStyle = 'rgba(100, 30, 30, 0.4)';
+      const fromRegion = mapConfig?.systems[gate.from_system]?.region_name;
+      const toRegion = mapConfig?.systems[gate.to_system]?.region_name;
 
+      if (fromRegion && toRegion && fromRegion !== toRegion) {
+        crossPaths.push([x1, y1, x2, y2]);
+      } else {
+        const regionKey = fromRegion || 'unknown';
+        let batch = regionBatches.get(regionKey);
+        if (!batch) { batch = []; regionBatches.set(regionKey, batch); }
+        batch.push([x1, y1, x2, y2]);
+      }
+    }
+
+    // Intra-region gates colored by region (use security color as a proxy since we don't have regionId here)
+    ctx.lineWidth = 0.8;
+    ctx.globalAlpha = 0.35;
+    for (const [, paths] of regionBatches) {
+      // Use the security-based dim color for context gates
+      ctx.strokeStyle = '#475569';
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+      for (const [x1, y1, x2, y2] of paths) {
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+      }
       ctx.stroke();
     }
+
+    // Cross-region gates — dashed
+    if (crossPaths.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#334155';
+      ctx.globalAlpha = 0.15;
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      for (const [x1, y1, x2, y2] of crossPaths) {
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
 
     // Draw non-route systems (small dots)
     for (const sys of visibleSystems) {
@@ -202,21 +238,24 @@ export function RouteMap({ route }: RouteMapProps) {
         ctx.stroke();
       }
 
-      // Label (show for endpoints and every Nth system)
+      // Label below node — subway style
       const showLabel = isEndpoint || routePositions.length <= 15 || i % Math.ceil(routePositions.length / 12) === 0;
       if (showLabel) {
         const label = sys.name;
-        const metrics = ctx.measureText(label);
-        const lx = sx + radius + 5;
-        const ly = sy;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
 
-        // Background
-        ctx.fillStyle = 'rgba(10, 14, 23, 0.85)';
-        ctx.fillRect(lx - 2, ly - labelFontSize / 2 - 1, metrics.width + 4, labelFontSize + 2);
+        // Text shadow
+        ctx.fillStyle = '#000000';
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(label, sx + 0.5, sy + radius + 4.5);
 
-        // Text
-        ctx.fillStyle = isEndpoint ? '#ffffff' : '#aabbcc';
-        ctx.fillText(label, lx, ly);
+        // Label text
+        ctx.fillStyle = isEndpoint ? '#ffffff' : '#94a3b8';
+        ctx.globalAlpha = isEndpoint ? 1 : 0.85;
+        ctx.fillText(label, sx, sy + radius + 4);
+        ctx.globalAlpha = 1;
+        ctx.textBaseline = 'middle';
       }
     }
 

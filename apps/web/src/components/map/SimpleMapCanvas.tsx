@@ -7,7 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapSystem, MapGate, MapViewport, MapLayers, MapRegion, SystemRisk } from './types';
-import { getSecurityColor, getSpectralColor, getRiskColor } from './types';
+import { getSecurityColor, getSpectralColor, getRiskColor, getRegionColor } from './types';
 import { buildQuadtree, type Quadtree } from './utils/spatial';
 
 const MIN_ZOOM = 0.1;
@@ -219,14 +219,12 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
-    // Draw gates — Pochven subway style
+    // Draw gates — subway style with region-colored connections
     if (layers.showGates) {
-      // Intra-region gates — visible colored lines
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = Math.max(0.8, Math.min(1.5, viewport.zoom * 0.8));
-      ctx.globalAlpha = 0.5;
-      ctx.beginPath();
+      const gateLineWidth = Math.max(0.8, Math.min(1.8, viewport.zoom * 0.9));
 
+      // Batch intra-region gates by regionId for efficient colored drawing
+      const regionBatches = new Map<number, Array<{ fx: number; fy: number; tx: number; ty: number }>>();
       const crossRegionPaths: Array<{ fx: number; fy: number; tx: number; ty: number }> = [];
 
       for (const gate of gates) {
@@ -247,17 +245,34 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         if (crossRegionGates.has(key)) {
           crossRegionPaths.push({ fx: fromScreen.x, fy: fromScreen.y, tx: toScreen.x, ty: toScreen.y });
         } else {
-          ctx.moveTo(fromScreen.x, fromScreen.y);
-          ctx.lineTo(toScreen.x, toScreen.y);
+          const regionId = from.regionId;
+          let batch = regionBatches.get(regionId);
+          if (!batch) {
+            batch = [];
+            regionBatches.set(regionId, batch);
+          }
+          batch.push({ fx: fromScreen.x, fy: fromScreen.y, tx: toScreen.x, ty: toScreen.y });
         }
       }
-      ctx.stroke();
 
-      // Cross-region gates — dashed, subtle (Pochven cross-Krai style)
+      // Draw intra-region gates — colored by region
+      ctx.lineWidth = gateLineWidth;
+      ctx.globalAlpha = 0.45;
+      for (const [regionId, paths] of regionBatches) {
+        ctx.strokeStyle = getRegionColor(regionId);
+        ctx.beginPath();
+        for (const p of paths) {
+          ctx.moveTo(p.fx, p.fy);
+          ctx.lineTo(p.tx, p.ty);
+        }
+        ctx.stroke();
+      }
+
+      // Cross-region gates — dashed, subtle
       if (crossRegionPaths.length > 0) {
         ctx.save();
         ctx.strokeStyle = '#334155';
-        ctx.globalAlpha = 0.25;
+        ctx.globalAlpha = 0.2;
         ctx.setLineDash([4, 3]);
         ctx.lineWidth = Math.max(0.5, Math.min(1, viewport.zoom * 0.5));
         ctx.beginPath();

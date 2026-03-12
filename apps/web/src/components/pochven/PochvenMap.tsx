@@ -24,9 +24,9 @@ interface PochvenGate {
 }
 
 const KRAI_COLORS: Record<Krai, string> = {
-  veles: '#22c55e',  // green
-  svarog: '#ef4444', // red
-  perun: '#3b82f6',  // blue
+  perun: '#22c55e',  // green
+  svarog: '#3b82f6', // blue
+  veles: '#f59e0b',  // orange
 };
 
 const KRAI_LABELS: Record<Krai, string> = {
@@ -171,8 +171,8 @@ function getAdjacent(name: string): string[] {
   return adj;
 }
 
-const NODE_H = 24;
-const NODE_PAD_X = 12;
+const NODE_RADIUS = 8;
+const DIAMOND_SIZE = 10;
 
 export function PochvenMap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -205,35 +205,20 @@ export function PochvenMap() {
     [size]
   );
 
-  const nodeWidths = useMemo(() => {
-    if (typeof document === 'undefined') return new Map<string, number>();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return new Map<string, number>();
-    const fontSize = Math.max(10, Math.min(13, size.w / 75));
-    ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-    const widths = new Map<string, number>();
-    for (const sys of SYSTEMS) {
-      widths.set(sys.name, ctx.measureText(sys.name).width + NODE_PAD_X * 2);
-    }
-    return widths;
-  }, [size.w]);
-
   const hitTest = useCallback(
     (cx: number, cy: number): string | null => {
+      const hitRadius = 14; // generous hit area
       for (const sys of SYSTEMS) {
         const pos = toCanvas(sys.gx, sys.gy);
-        const w = nodeWidths.get(sys.name) || 80;
-        const halfW = w / 2;
-        const halfH = NODE_H / 2;
-        if (cx >= pos.x - halfW - 4 && cx <= pos.x + halfW + 4 &&
-            cy >= pos.y - halfH - 4 && cy <= pos.y + halfH + 4) {
+        const dx = cx - pos.x;
+        const dy = cy - pos.y;
+        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
           return sys.name;
         }
       }
       return null;
     },
-    [toCanvas, nodeWidths]
+    [toCanvas]
   );
 
   const handleClick = useCallback(
@@ -293,142 +278,167 @@ export function PochvenMap() {
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, size.w, size.h);
 
-    const fontSize = Math.max(10, Math.min(13, size.w / 75));
+    const fontSize = Math.max(9, Math.min(12, size.w / 85));
+    const nodeRadius = Math.max(5, Math.min(NODE_RADIUS, size.w / 120));
+    const diamondSize = Math.max(6, Math.min(DIAMOND_SIZE, size.w / 100));
 
-    // Edge-to-edge line connection helper
-    const getEdgePoint = (from: PochvenSystem, to: PochvenSystem) => {
-      const fp = toCanvas(from.gx, from.gy);
-      const tp = toCanvas(to.gx, to.gy);
-      const fw = (nodeWidths.get(from.name) || 80) / 2;
-      const fh = NODE_H / 2;
-      const dx = tp.x - fp.x;
-      const dy = tp.y - fp.y;
-      const angle = Math.atan2(dy, dx);
-      const tanA = Math.abs(dy / (dx || 0.001));
-      const tanBox = fh / fw;
-      let ex: number, ey: number;
-      if (tanA <= tanBox) {
-        ex = fp.x + Math.sign(dx) * fw;
-        ey = fp.y + Math.sign(dx) * fw * Math.tan(angle);
-      } else {
-        ey = fp.y + Math.sign(dy) * fh;
-        ex = fp.x + Math.sign(dy) * fh / Math.tan(angle);
-      }
-      return { x: ex, y: ey };
+    // ── Krai region backgrounds ──
+    const kraiSystems: Record<Krai, { x: number; y: number }[]> = {
+      perun: [], svarog: [], veles: [],
     };
-
-    // Draw connections
-    for (const gate of GATES) {
-      const fromSys = SYSTEM_MAP.get(gate.from);
-      const toSys = SYSTEM_MAP.get(gate.to);
-      if (!fromSys || !toSys) continue;
-
-      const fromEdge = getEdgePoint(fromSys, toSys);
-      const toEdge = getEdgePoint(toSys, fromSys);
-      const isOnPath = false;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(fromEdge.x, fromEdge.y);
-      ctx.lineTo(toEdge.x, toEdge.y);
-
-      if (isOnPath) {
-        ctx.strokeStyle = '#22d3ee';
-        ctx.lineWidth = 3;
-        ctx.shadowColor = '#22d3ee';
-        ctx.shadowBlur = 8;
-      } else if (gate.crossKrai) {
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1.5;
-      } else {
-        ctx.strokeStyle = KRAI_COLORS[fromSys.krai] + '70';
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Draw system nodes
-    ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
     for (const sys of SYSTEMS) {
-      const pos = toCanvas(sys.gx, sys.gy);
-      const w = nodeWidths.get(sys.name) || 80;
-      const halfW = w / 2;
-      const halfH = NODE_H / 2;
-      const isHovered = hovered === sys.name;
-      const isSelected = selected === sys.name;
-      const isOnPath = false;
-      const color = KRAI_COLORS[sys.krai];
-
-      ctx.save();
-
-      if (isSelected || isOnPath) {
-        ctx.shadowColor = isSelected ? '#22d3ee' : color;
-        ctx.shadowBlur = isSelected ? 14 : 8;
+      kraiSystems[sys.krai].push(toCanvas(sys.gx, sys.gy));
+    }
+    for (const krai of ['veles', 'svarog', 'perun'] as Krai[]) {
+      const pts = kraiSystems[krai];
+      if (pts.length === 0) continue;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of pts) {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
       }
-      if (isHovered && !isSelected) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 10;
-      }
-
-      const rx = pos.x - halfW;
-      const ry = pos.y - halfH;
-      const expand = isHovered ? 2 : 0;
-
-      ctx.fillStyle = isSelected ? '#22d3ee' : color;
+      const pad = 25;
+      ctx.fillStyle = KRAI_COLORS[krai] + '0a';
+      ctx.strokeStyle = KRAI_COLORS[krai] + '18';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(rx - expand, ry - expand, w + expand * 2, NODE_H + expand * 2, 4);
+      ctx.roundRect(minX - pad, minY - pad, maxX - minX + pad * 2, maxY - minY + pad * 2, 8);
       ctx.fill();
-
-      if (isSelected) {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(rx - 3, ry - 3, w + 6, NODE_H + 6, 6);
-        ctx.stroke();
-      }
-
-      // Home system diamond marker
-      if (sys.type === 'home') {
-        ctx.strokeStyle = '#ffffff80';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(rx - 5, ry - 5, w + 10, NODE_H + 10, 8);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-
-      // Label
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(sys.name, pos.x, pos.y);
+      ctx.stroke();
     }
 
-    // Krai labels (dim, in background)
+    // ── Krai labels (dim, behind everything) ──
     ctx.font = `600 ${Math.max(12, size.w / 55)}px system-ui, -apple-system, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     const velesLabel = toCanvas(0.50, 0.28);
-    ctx.fillStyle = KRAI_COLORS.veles + '25';
+    ctx.fillStyle = KRAI_COLORS.veles + '20';
     ctx.fillText('KRAI VELES', velesLabel.x, velesLabel.y);
 
     const svarogLabel = toCanvas(0.15, 0.65);
-    ctx.fillStyle = KRAI_COLORS.svarog + '25';
+    ctx.fillStyle = KRAI_COLORS.svarog + '20';
     ctx.fillText('KRAI SVAROG', svarogLabel.x, svarogLabel.y);
 
     const perunLabel = toCanvas(0.85, 0.65);
-    ctx.fillStyle = KRAI_COLORS.perun + '25';
+    ctx.fillStyle = KRAI_COLORS.perun + '20';
     ctx.fillText('KRAI PERUN', perunLabel.x, perunLabel.y);
 
-  }, [size, hovered, selected, toCanvas, nodeWidths]);
+    // ── Draw connections ──
+    for (const gate of GATES) {
+      const fromSys = SYSTEM_MAP.get(gate.from);
+      const toSys = SYSTEM_MAP.get(gate.to);
+      if (!fromSys || !toSys) continue;
+
+      const fp = toCanvas(fromSys.gx, fromSys.gy);
+      const tp = toCanvas(toSys.gx, toSys.gy);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(fp.x, fp.y);
+      ctx.lineTo(tp.x, tp.y);
+
+      if (gate.crossKrai) {
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = '#334155';
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1.5;
+      } else {
+        ctx.strokeStyle = KRAI_COLORS[fromSys.krai] + '60';
+        ctx.lineWidth = 2;
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    // ── Draw system nodes ──
+    ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+
+    // Helper: draw diamond shape
+    const drawDiamond = (cx: number, cy: number, s: number) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - s);
+      ctx.lineTo(cx + s, cy);
+      ctx.lineTo(cx, cy + s);
+      ctx.lineTo(cx - s, cy);
+      ctx.closePath();
+    };
+
+    for (const sys of SYSTEMS) {
+      const pos = toCanvas(sys.gx, sys.gy);
+      const isHovered = hovered === sys.name;
+      const isSelected = selected === sys.name;
+      const color = KRAI_COLORS[sys.krai];
+      const isBorder = sys.type === 'border';
+
+      ctx.save();
+
+      // Glow for hovered/selected
+      if (isSelected) {
+        ctx.shadowColor = '#22d3ee';
+        ctx.shadowBlur = 16;
+      } else if (isHovered) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
+      }
+
+      const r = isHovered ? nodeRadius + 2 : nodeRadius;
+      const d = isHovered ? diamondSize + 2 : diamondSize;
+
+      // Fill shape
+      ctx.fillStyle = isSelected ? '#22d3ee' : color;
+      if (isBorder) {
+        drawDiamond(pos.x, pos.y, d);
+      } else {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+
+      // Stroke for home systems (thicker ring)
+      if (sys.type === 'home') {
+        ctx.strokeStyle = '#ffffff60';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, r + 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Selection ring
+      if (isSelected) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        if (isBorder) {
+          drawDiamond(pos.x, pos.y, d + 4);
+        } else {
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r + 4, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // Label below node — subway style with text shadow
+      ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const labelY = pos.y + (isBorder ? d : r) + 4;
+      // Text shadow for readability
+      ctx.fillStyle = '#000000';
+      ctx.globalAlpha = 0.6;
+      ctx.fillText(sys.name, pos.x + 0.5, labelY + 0.5);
+      // Label text
+      ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#c8ccd4';
+      ctx.globalAlpha = isSelected || isHovered ? 1 : 0.9;
+      ctx.fillText(sys.name, pos.x, labelY);
+      ctx.globalAlpha = 1;
+    }
+
+  }, [size, hovered, selected, toCanvas]);
 
   // ── Info panel data ─────────────────────────────────────────────────────────
 

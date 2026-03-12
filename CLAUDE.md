@@ -118,6 +118,7 @@ apps/web/src/
 | iHub ADM | SovStructuresOverlay | `showSovStructures` | Yes | /map/sovereignty/structures |
 | Skyhook halos | SkyhookHaloOverlay | `showSkyhooks` | Yes | /map/sovereignty/structures |
 | Wormholes | WormholeOverlay | `showWormholes` | Yes | /api/v1/wormholes/ |
+| System activity | ActivityOverlay | `showActivity` | Yes | /map/activity |
 | Trade hubs | MarketHubsOverlay | `showMarketHubs` | No | /map/market-hubs |
 
 ### Sov Structures Overlay Details
@@ -178,8 +179,9 @@ backend/
 - **pochven.py**: 27-system Pochven internal gate network (3 Krais, 30 SDE-verified connections)
 - **intel.py**: Kill data aggregation, risk scoring, hot systems
 - **auth.py**: EVE SSO OAuth2 → JWT + httpOnly cookie (`gk_session`), session endpoint
-- **webhooks.py**: Discord/Slack kill alert dispatch, subscription filtering (system/region/value/pod/ship)
+- **webhooks.py**: Discord/Slack kill alert dispatch, subscription filtering (system/region/value/pod/ship), **PostgreSQL-persisted subscriptions** (write-through)
 - **zkill_listener.py**: zKillboard RedisQ → kill history + WebSocket broadcast + webhook dispatch
+- **kill_history.py**: Rolling kill window with **PostgreSQL persistence** — loads on startup, fire-and-forget writes, background cleanup
 - **wormhole.py**: User-submitted wormhole connections with mass/life tracking, automatic expiry
 - **pilot_intel.py**: Pilot threat assessment — ESI character info + zKill aggregate stats, threat level scoring, timezone inference, behavior flags (solo_hunter, capital_pilot, possible_cyno, gang_focus, recently_active)
 - **hotzone.py**: Hotzone detection — aggregates kill history with trend prediction (decay factor 0.7), gate camp detection (pod:kill ratio > 0.5)

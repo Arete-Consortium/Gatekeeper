@@ -18,17 +18,13 @@ class MarketTickerItem(BaseModel):
     lowest: float = Field(..., description="Lowest price for the day")
     volume: int = Field(..., description="Total volume traded")
     date: str = Field(..., description="Date of the market data (YYYY-MM-DD)")
-    price_change_pct: float = Field(
-        0.0, description="Price change percentage vs previous day"
-    )
+    price_change_pct: float = Field(0.0, description="Price change percentage vs previous day")
 
 
 class MarketTickerResponse(BaseModel):
     """Response containing all tracked market ticker items."""
 
-    items: list[MarketTickerItem] = Field(
-        default_factory=list, description="Market ticker entries"
-    )
+    items: list[MarketTickerItem] = Field(default_factory=list, description="Market ticker entries")
     item_count: int = Field(0, description="Number of ticker items")
 
 

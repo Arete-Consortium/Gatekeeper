@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { useKillStream } from '@/components/map/useKillStream';
 import type { MapKill } from '@/components/map/types';
 import { PilotThreatCard } from '@/components/intel/PilotThreatCard';
 import { SystemSummaryCard } from '@/components/intel/SystemSummaryCard';
+import { loadPinnedCorps, savePinnedCorps, loadPinnedAlliances, savePinnedAlliances } from '@/lib/pinnedItems';
+import type { PinnedCorp, PinnedAlliance } from '@/lib/pinnedItems';
 import { Skull, Radio } from 'lucide-react';
 
 function formatIsk(value: number): string {
@@ -38,6 +40,36 @@ export function LiveKillFeed() {
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Pinned corps/alliances for popover PilotThreatCards
+  const [pinnedCorps, setPinnedCorps] = useState<PinnedCorp[]>([]);
+  const [pinnedAlliances, setPinnedAlliances] = useState<PinnedAlliance[]>([]);
+
+  useEffect(() => {
+    setPinnedCorps(loadPinnedCorps());
+    setPinnedAlliances(loadPinnedAlliances());
+  }, []);
+
+  const pinnedCorpIds = useMemo(() => new Set(pinnedCorps.map((c) => c.corporationId)), [pinnedCorps]);
+  const pinnedAllianceIds = useMemo(() => new Set(pinnedAlliances.map((a) => a.allianceId)), [pinnedAlliances]);
+
+  const handleTogglePinCorp = useCallback((corpId: number, corpName: string) => {
+    setPinnedCorps((prev) => {
+      const exists = prev.some((c) => c.corporationId === corpId);
+      const next = exists ? prev.filter((c) => c.corporationId !== corpId) : [...prev, { corporationId: corpId, name: corpName }];
+      savePinnedCorps(next);
+      return next;
+    });
+  }, []);
+
+  const handleTogglePinAlliance = useCallback((allianceId: number, allianceName: string) => {
+    setPinnedAlliances((prev) => {
+      const exists = prev.some((a) => a.allianceId === allianceId);
+      const next = exists ? prev.filter((a) => a.allianceId !== allianceId) : [...prev, { allianceId, name: allianceName }];
+      savePinnedAlliances(next);
+      return next;
+    });
+  }, []);
 
   // Close popover on click outside
   useEffect(() => {
@@ -150,6 +182,10 @@ export function LiveKillFeed() {
             <PilotThreatCard
               characterId={popover.characterId}
               onClose={() => setPopover(null)}
+              onPinCorp={handleTogglePinCorp}
+              onPinAlliance={handleTogglePinAlliance}
+              pinnedCorpIds={pinnedCorpIds}
+              pinnedAllianceIds={pinnedAllianceIds}
             />
           ) : (
             <SystemSummaryCard

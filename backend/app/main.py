@@ -167,7 +167,7 @@ async def startup_event() -> None:
     # Initialize default webhook subscriptions from env vars
     from .services.webhooks import init_default_subscriptions
 
-    init_default_subscriptions()
+    await init_default_subscriptions()
 
     # Load persisted wormhole connections from database
     from .services.wormhole import get_wormhole_service

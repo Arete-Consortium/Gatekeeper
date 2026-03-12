@@ -347,9 +347,7 @@ class WormholeService:
         session = await self._get_session()
         try:
             await session.execute(
-                delete(WormholeConnectionDB).where(
-                    WormholeConnectionDB.id == connection_id
-                )
+                delete(WormholeConnectionDB).where(WormholeConnectionDB.id == connection_id)
             )
             await session.commit()
         except Exception:

@@ -101,6 +101,7 @@ def get_hotzone_systems(
     region_names: dict[int, str] = {}
     try:
         from .data_loader import load_map_config
+
         config = load_map_config()
         if config and hasattr(config, "systems"):
             for sys_data in config.systems.values():

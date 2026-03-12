@@ -23,17 +23,13 @@ class AppraisalItem(BaseModel):
     buy_price: float = Field(..., description="Jita best buy price per unit")
     sell_price: float = Field(..., description="Jita lowest sell price per unit")
     buy_total: float = Field(..., description="Total buy value (buy_price * quantity)")
-    sell_total: float = Field(
-        ..., description="Total sell value (sell_price * quantity)"
-    )
+    sell_total: float = Field(..., description="Total sell value (sell_price * quantity)")
 
 
 class AppraisalResponse(BaseModel):
     """Full appraisal result with all items and totals."""
 
-    items: list[AppraisalItem] = Field(
-        default_factory=list, description="Appraised items"
-    )
+    items: list[AppraisalItem] = Field(default_factory=list, description="Appraised items")
     total_buy: float = Field(0.0, description="Sum of all buy totals")
     total_sell: float = Field(0.0, description="Sum of all sell totals")
     unknown_items: list[str] = Field(

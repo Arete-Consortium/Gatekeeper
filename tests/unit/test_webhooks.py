@@ -30,6 +30,25 @@ from backend.app.services.webhooks import (
     send_webhook,
 )
 
+# Patch DB persistence for all tests in this module — we test the in-memory logic,
+# not the database layer.
+_DB_PATCHES = [
+    "backend.app.services.webhooks._save_subscription_to_db",
+    "backend.app.services.webhooks._delete_subscription_from_db",
+    "backend.app.services.webhooks.load_subscriptions_from_db",
+]
+
+
+@pytest.fixture(autouse=True)
+def _mock_db_ops():
+    """Prevent actual DB calls during webhook unit tests."""
+    with (
+        patch(_DB_PATCHES[0], new_callable=AsyncMock),
+        patch(_DB_PATCHES[1], new_callable=AsyncMock),
+        patch(_DB_PATCHES[2], new_callable=AsyncMock),
+    ):
+        yield
+
 
 @pytest.fixture
 def mock_universe():
@@ -267,35 +286,39 @@ class TestSubscriptionManagement:
         """Clear subscriptions before each test."""
         clear_subscriptions()
 
-    def test_add_subscription(self, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_add_subscription(self, sample_subscription):
         """Test adding a subscription."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
         assert len(list_subscriptions()) == 1
         assert get_subscription("test-sub-1") == sample_subscription
 
-    def test_remove_subscription(self, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_remove_subscription(self, sample_subscription):
         """Test removing a subscription."""
-        add_subscription(sample_subscription)
-        result = remove_subscription("test-sub-1")
+        await add_subscription(sample_subscription)
+        result = await remove_subscription("test-sub-1")
 
         assert result is True
         assert len(list_subscriptions()) == 0
 
-    def test_remove_nonexistent_subscription(self):
+    @pytest.mark.asyncio
+    async def test_remove_nonexistent_subscription(self):
         """Test removing nonexistent subscription."""
-        result = remove_subscription("nonexistent")
+        result = await remove_subscription("nonexistent")
         assert result is False
 
-    def test_list_subscriptions(self, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_list_subscriptions(self, sample_subscription):
         """Test listing subscriptions."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
         sub2 = WebhookSubscription(
             id="test-sub-2",
             webhook_url="https://hooks.slack.com/test",
             webhook_type=WebhookType.slack,
         )
-        add_subscription(sub2)
+        await add_subscription(sub2)
 
         subs = list_subscriptions()
         assert len(subs) == 2
@@ -317,7 +340,7 @@ class TestDispatchAlert:
     @pytest.mark.asyncio
     async def test_dispatch_matching_subscription(self, sample_alert, sample_subscription):
         """Test dispatch to matching subscription."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
         with patch(
             "backend.app.services.webhooks.send_webhook",
@@ -342,9 +365,10 @@ class TestWebhookAPI:
         assert response.total == 0
         assert response.webhooks == []
 
-    def test_create_webhook(self, mock_universe, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_create_webhook(self, mock_universe, sample_subscription):
         """Test creating a webhook."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
         request = WebhookCreateRequest(
             webhook_url="https://discord.com/api/webhooks/new",
@@ -355,14 +379,15 @@ class TestWebhookAPI:
         )
 
         with patch("backend.app.api.v1.webhooks.load_universe", return_value=mock_universe):
-            response = create_webhook(request)
+            response = await create_webhook(request)
 
         assert response.webhook_type == WebhookType.discord
         assert response.systems == ["Jita"]
         assert response.min_value == 1_000_000
         assert response.include_pods is True
 
-    def test_create_webhook_invalid_system(self, mock_universe):
+    @pytest.mark.asyncio
+    async def test_create_webhook_invalid_system(self, mock_universe):
         """Test creating webhook with invalid system."""
         request = WebhookCreateRequest(
             webhook_url="https://discord.com/api/webhooks/new",
@@ -374,13 +399,14 @@ class TestWebhookAPI:
             patch("backend.app.api.v1.webhooks.load_universe", return_value=mock_universe),
             pytest.raises(Exception) as exc_info,
         ):
-            create_webhook(request)
+            await create_webhook(request)
 
         assert "Unknown system: FakeSystem" in str(exc_info.value.detail)
 
-    def test_get_webhook(self, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_get_webhook(self, sample_subscription):
         """Test getting a webhook."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
         response = get_webhook("test-sub-1")
         assert response.id == "test-sub-1"
@@ -392,9 +418,10 @@ class TestWebhookAPI:
 
         assert "Webhook not found" in str(exc_info.value.detail)
 
-    def test_update_webhook(self, mock_universe, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_update_webhook(self, mock_universe, sample_subscription):
         """Test updating a webhook."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
         request = WebhookUpdateRequest(
             systems=["Jita", "Amarr"],
@@ -407,18 +434,20 @@ class TestWebhookAPI:
         assert response.systems == ["Jita", "Amarr"]
         assert response.enabled is False
 
-    def test_delete_webhook(self, sample_subscription):
+    @pytest.mark.asyncio
+    async def test_delete_webhook(self, sample_subscription):
         """Test deleting a webhook."""
-        add_subscription(sample_subscription)
+        await add_subscription(sample_subscription)
 
-        delete_webhook("test-sub-1")
+        await delete_webhook("test-sub-1")
 
         assert len(list_subscriptions()) == 0
 
-    def test_delete_webhook_not_found(self):
+    @pytest.mark.asyncio
+    async def test_delete_webhook_not_found(self):
         """Test deleting nonexistent webhook."""
         with pytest.raises(Exception) as exc_info:
-            delete_webhook("nonexistent")
+            await delete_webhook("nonexistent")
 
         assert "Webhook not found" in str(exc_info.value.detail)
 
@@ -664,7 +693,8 @@ class TestInitDefaultSubscriptions:
         """Clear subscriptions before each test."""
         clear_subscriptions()
 
-    def test_init_discord_webhook(self):
+    @pytest.mark.asyncio
+    async def test_init_discord_webhook(self):
         """Test initializing Discord webhook from settings."""
         from backend.app.services.webhooks import init_default_subscriptions
 
@@ -672,14 +702,15 @@ class TestInitDefaultSubscriptions:
             mock_settings.DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/default"
             mock_settings.SLACK_WEBHOOK_URL = None
 
-            init_default_subscriptions()
+            await init_default_subscriptions()
 
         subs = list_subscriptions()
         assert len(subs) == 1
         assert subs[0].id == "default-discord"
         assert subs[0].webhook_type == WebhookType.discord
 
-    def test_init_slack_webhook(self):
+    @pytest.mark.asyncio
+    async def test_init_slack_webhook(self):
         """Test initializing Slack webhook from settings."""
         from backend.app.services.webhooks import init_default_subscriptions
 
@@ -687,14 +718,15 @@ class TestInitDefaultSubscriptions:
             mock_settings.DISCORD_WEBHOOK_URL = None
             mock_settings.SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/default"
 
-            init_default_subscriptions()
+            await init_default_subscriptions()
 
         subs = list_subscriptions()
         assert len(subs) == 1
         assert subs[0].id == "default-slack"
         assert subs[0].webhook_type == WebhookType.slack
 
-    def test_init_both_webhooks(self):
+    @pytest.mark.asyncio
+    async def test_init_both_webhooks(self):
         """Test initializing both Discord and Slack webhooks."""
         from backend.app.services.webhooks import init_default_subscriptions
 
@@ -702,7 +734,7 @@ class TestInitDefaultSubscriptions:
             mock_settings.DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/default"
             mock_settings.SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/default"
 
-            init_default_subscriptions()
+            await init_default_subscriptions()
 
         subs = list_subscriptions()
         assert len(subs) == 2
@@ -710,7 +742,8 @@ class TestInitDefaultSubscriptions:
         assert "default-discord" in ids
         assert "default-slack" in ids
 
-    def test_init_no_webhooks(self):
+    @pytest.mark.asyncio
+    async def test_init_no_webhooks(self):
         """Test initialization with no webhooks configured."""
         from backend.app.services.webhooks import init_default_subscriptions
 
@@ -718,7 +751,7 @@ class TestInitDefaultSubscriptions:
             mock_settings.DISCORD_WEBHOOK_URL = None
             mock_settings.SLACK_WEBHOOK_URL = None
 
-            init_default_subscriptions()
+            await init_default_subscriptions()
 
         subs = list_subscriptions()
         assert len(subs) == 0

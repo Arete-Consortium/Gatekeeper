@@ -18,6 +18,7 @@ from ...services.intel_parser import (
     parse_intel_text,
     submit_intel,
 )
+from ...services.pilot_intel import search_characters, search_systems
 from ...services.pilot_intel import get_pilot_stats, resolve_character_names
 
 router = APIRouter(prefix="/intel", tags=["intel"])
@@ -408,9 +409,7 @@ async def get_pilot_threat(character_id: int) -> PilotThreatResponse:
 class FleetPilotLookupRequest(BaseModel):
     """Request to look up multiple pilots by name."""
 
-    names: list[str] = Field(
-        ..., description="Pilot names to look up", min_length=1, max_length=50
-    )
+    names: list[str] = Field(..., description="Pilot names to look up", min_length=1, max_length=50)
 
 
 class FleetPilotLookupResponse(BaseModel):
@@ -434,7 +433,6 @@ class FleetPilotLookupResponse(BaseModel):
 )
 async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLookupResponse:
     """Look up multiple pilots by name and return aggregate threat data."""
-    import asyncio
 
     # Resolve names to IDs
     name_to_id = await resolve_character_names(request.names)
@@ -484,4 +482,56 @@ async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLook
             "total_kills": total_kills,
             "total_losses": total_losses,
         },
+    )
+
+
+class CharacterSearchResult(BaseModel):
+    id: int
+    name: str
+    category: str = "character"
+
+
+class CharacterSearchResponse(BaseModel):
+    results: list[CharacterSearchResult]
+
+
+@router.get(
+    "/pilot/search",
+    response_model=CharacterSearchResponse,
+    summary="Search for characters by name prefix",
+    description="Returns matching character names from ESI for autocomplete.",
+)
+async def search_characters_endpoint(
+    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
+) -> CharacterSearchResponse:
+    """Search ESI for character names matching query."""
+    results = await search_characters(q)
+    return CharacterSearchResponse(
+        results=[CharacterSearchResult(id=r["id"], name=r["name"]) for r in results]
+    )
+
+
+class SystemSearchResult(BaseModel):
+    id: int
+    name: str
+    category: str = "solar_system"
+
+
+class SystemSearchResponse(BaseModel):
+    results: list[SystemSearchResult]
+
+
+@router.get(
+    "/system/search",
+    response_model=SystemSearchResponse,
+    summary="Search for systems by name prefix",
+    description="Returns matching system names from ESI for autocomplete.",
+)
+async def search_systems_endpoint(
+    q: str = Query(..., min_length=3, max_length=64, description="Search query (min 3 chars)"),
+) -> SystemSearchResponse:
+    """Search ESI for system names matching query."""
+    results = await search_systems(q)
+    return SystemSearchResponse(
+        results=[SystemSearchResult(id=r["id"], name=r["name"]) for r in results]
     )

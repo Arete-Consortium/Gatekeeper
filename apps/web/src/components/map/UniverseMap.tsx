@@ -33,6 +33,8 @@ import { Minimap } from './Minimap';
 import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
+import { SovereigntyOverlay } from './SovereigntyOverlay';
+import { ActivityOverlay } from './ActivityOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
@@ -52,6 +54,8 @@ const DEFAULT_LAYERS: MapLayers = {
   showLandmarks: true,
   showSovStructures: false,
   showSkyhooks: false,
+  showSovereignty: false,
+  showActivity: false,
   showWormholes: false,
   showMarketHubs: false,
 };
@@ -76,6 +80,9 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       fwSystems,
       landmarks = [],
       sovStructures,
+      sovereigntyData,
+      allianceData,
+      activityData,
       wormholeConnections = [],
       marketHubs = [],
       characterSystemId,
@@ -325,6 +332,26 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           onDeselect={onDeselect}
           sovStructureSystems={sovStructureSystemIds}
         />
+
+        {/* Sovereignty Overlay (colored rings per alliance) */}
+        {layers.showSovereignty && sovereigntyData && allianceData && (
+          <SovereigntyOverlay
+            sovereignty={sovereigntyData}
+            alliances={allianceData}
+            systems={systemMap}
+            viewport={viewport}
+            factions={{}}
+          />
+        )}
+
+        {/* Activity Overlay (jump traffic + kill activity) */}
+        {layers.showActivity && activityData && (
+          <ActivityOverlay
+            activityData={activityData}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
 
         {/* Risk Heatmap (renders behind other overlays) */}
         {layers.showHeatmap && risks.length > 0 && (

@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
 import type { MapConfig } from '@/lib/types';
 import type { MapSystem, MapGate, MapViewport, MapLayers } from '@/components/map/types';
-import { getSecurityColor } from '@/components/map/types';
+import { getSecurityColor, getRegionColor } from '@/components/map/types';
 import { calculateFitZoom, worldToScreen, screenToWorld, buildQuadtree } from '@/components/map/utils/spatial';
 import type { Quadtree } from '@/components/map/utils/spatial';
 import { Loader2 } from 'lucide-react';
@@ -266,20 +266,53 @@ export function JumpRangeMap({
       ctx.setLineDash([]);
     }
 
-    // Draw gate lines (faint, for context)
-    ctx.lineWidth = 0.3;
-    ctx.strokeStyle = '#334155';
-    ctx.globalAlpha = 0.3;
+    // Draw gate lines — subway style with region colors
+    const regionGateBatches = new Map<number, Array<{ x1: number; y1: number; x2: number; y2: number }>>();
+    const crossRegionGatePaths: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+
     for (const gate of visibleGates) {
       const from = systemById.get(gate.fromSystemId);
       const to = systemById.get(gate.toSystemId);
       if (!from || !to) continue;
       const p1 = worldToScreen(from.x, from.y, viewport);
       const p2 = worldToScreen(to.x, to.y, viewport);
+
+      if (from.regionId !== to.regionId) {
+        crossRegionGatePaths.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
+      } else {
+        let batch = regionGateBatches.get(from.regionId);
+        if (!batch) { batch = []; regionGateBatches.set(from.regionId, batch); }
+        batch.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y });
+      }
+    }
+
+    // Intra-region gates — colored by region
+    ctx.lineWidth = 0.6;
+    ctx.globalAlpha = 0.3;
+    for (const [regionId, paths] of regionGateBatches) {
+      ctx.strokeStyle = getRegionColor(regionId);
       ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
+      for (const p of paths) {
+        ctx.moveTo(p.x1, p.y1);
+        ctx.lineTo(p.x2, p.y2);
+      }
       ctx.stroke();
+    }
+
+    // Cross-region gates — dashed
+    if (crossRegionGatePaths.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#334155';
+      ctx.globalAlpha = 0.15;
+      ctx.setLineDash([4, 3]);
+      ctx.lineWidth = 0.4;
+      ctx.beginPath();
+      for (const p of crossRegionGatePaths) {
+        ctx.moveTo(p.x1, p.y1);
+        ctx.lineTo(p.x2, p.y2);
+      }
+      ctx.stroke();
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
 
@@ -364,12 +397,18 @@ export function JumpRangeMap({
       ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
 
-      // Labels for origin, dest, waypoints, and hovered
+      // Labels below nodes — subway style
       if (isOrigin || isDest || isWaypoint || isHovered) {
         ctx.font = '11px system-ui, sans-serif';
-        ctx.fillStyle = '#e2e8f0';
         ctx.textAlign = 'center';
-        ctx.fillText(sys.name, pos.x, pos.y - radius - 4);
+        // Text shadow
+        ctx.fillStyle = '#000000';
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(sys.name, pos.x + 0.5, pos.y + radius + 11.5);
+        // Label
+        ctx.fillStyle = '#e2e8f0';
+        ctx.globalAlpha = 1;
+        ctx.fillText(sys.name, pos.x, pos.y + radius + 11);
       }
     }
 

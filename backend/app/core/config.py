@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Project Info
     PROJECT_NAME: str = "EVE Gatekeeper"
-    API_VERSION: str = "1.0.0"
+    API_VERSION: str = "2.0.0"
     DEBUG: bool = False
     API_BASE_URL: str | None = None  # Base URL for generating links (e.g., session join URLs)
 
@@ -82,7 +82,6 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = True  # Must be True for SameSite=None
     COOKIE_SAMESITE: str = "none"  # Required for cross-origin
     COOKIE_MAX_AGE: int = 86400  # 24h, matches JWT expiry
-    FRONTEND_ORIGIN: str = "https://gatekeeper.aretedriver.dev"
 
     # Security
     API_KEY_ENABLED: bool = False
@@ -102,11 +101,6 @@ class Settings(BaseSettings):
     DISCORD_WEBHOOK_URL: str | None = None
     SLACK_WEBHOOK_URL: str | None = None
     WEBHOOK_TIMEOUT: int = 10  # seconds
-
-    # Cache TTLs (in seconds)
-    CACHE_TTL_ESI: int = 300  # 5 minutes
-    CACHE_TTL_ROUTE: int = 600  # 10 minutes
-    CACHE_TTL_RISK: int = 120  # 2 minutes
 
     # Universe Data Refresh
     UNIVERSE_REFRESH_ENABLED: bool = True

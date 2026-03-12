@@ -12,16 +12,37 @@ from .data_loader import load_universe
 
 # Krai assignments (9 systems each, verified against SDE region data)
 KRAI_PERUN: set[str] = {
-    "Ignebaener", "Kino", "Komo", "Konola", "Krirald",
-    "Nalvula", "Otanuomi", "Otela", "Sakenta",
+    "Ignebaener",
+    "Kino",
+    "Komo",
+    "Konola",
+    "Krirald",
+    "Nalvula",
+    "Otanuomi",
+    "Otela",
+    "Sakenta",
 }
 KRAI_SVAROG: set[str] = {
-    "Ahtila", "Harva", "Kuharah", "Nani", "Niarja",
-    "Raravoss", "Skarkon", "Tunudan", "Urhinichi",
+    "Ahtila",
+    "Harva",
+    "Kuharah",
+    "Nani",
+    "Niarja",
+    "Raravoss",
+    "Skarkon",
+    "Tunudan",
+    "Urhinichi",
 }
 KRAI_VELES: set[str] = {
-    "Ala", "Angymonne", "Archee", "Arvasaras", "Ichoriya",
-    "Kaunokka", "Senda", "Vale", "Wirashoda",
+    "Ala",
+    "Angymonne",
+    "Archee",
+    "Arvasaras",
+    "Ichoriya",
+    "Kaunokka",
+    "Senda",
+    "Vale",
+    "Wirashoda",
 }
 
 # All 27 Pochven systems
@@ -32,9 +53,12 @@ HOME_SYSTEMS: set[str] = {"Kino", "Niarja", "Archee"}
 
 # Border systems (between two Krais, require 1.0 standing)
 BORDER_SYSTEMS: set[str] = {
-    "Ahtila", "Senda",       # Veles ↔ Svarog
-    "Arvasaras", "Sakenta",  # Veles ↔ Perun
-    "Otanuomi", "Urhinichi", # Perun ↔ Svarog
+    "Ahtila",
+    "Senda",  # Veles ↔ Svarog
+    "Arvasaras",
+    "Sakenta",  # Veles ↔ Perun
+    "Otanuomi",
+    "Urhinichi",  # Perun ↔ Svarog
 }
 
 # Internal conduit gate connections (from SDE gate data).
@@ -72,8 +96,8 @@ _INTERNAL_CONNECTIONS: list[tuple[str, str]] = [
     ("Wirashoda", "Senda"),
     ("Ala", "Vale"),
     # Cross-Krai connections
-    ("Senda", "Ahtila"),       # Veles ↔ Svarog
-    ("Otanuomi", "Urhinichi"), # Perun ↔ Svarog
+    ("Senda", "Ahtila"),  # Veles ↔ Svarog
+    ("Otanuomi", "Urhinichi"),  # Perun ↔ Svarog
 ]
 
 

@@ -143,9 +143,7 @@ async def fetch_ticker_data(
         else TRADE_HUB_REGIONS
     )
     items = (
-        {type_id: TRACKED_ITEMS[type_id]}
-        if type_id and type_id in TRACKED_ITEMS
-        else TRACKED_ITEMS
+        {type_id: TRACKED_ITEMS[type_id]} if type_id and type_id in TRACKED_ITEMS else TRACKED_ITEMS
     )
 
     now = time.time()

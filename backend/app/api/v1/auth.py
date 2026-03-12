@@ -573,7 +573,10 @@ async def logout(
         logger.info("Character logged out", extra={"character_id": character_id})
 
     response = JSONResponse(
-        content={"status": "logged_out", "character_id": str(character_id) if character_id else None}
+        content={
+            "status": "logged_out",
+            "character_id": str(character_id) if character_id else None,
+        }
     )
     _clear_session_cookie(response)
     return response

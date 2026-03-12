@@ -119,7 +119,7 @@ def list_webhooks() -> WebhookListResponse:
     summary="Create webhook subscription",
     description="Create a new webhook subscription for kill alerts.",
 )
-def create_webhook(request: WebhookCreateRequest) -> WebhookResponse:
+async def create_webhook(request: WebhookCreateRequest) -> WebhookResponse:
     """Create a new webhook subscription."""
     universe = load_universe()
 
@@ -137,7 +137,7 @@ def create_webhook(request: WebhookCreateRequest) -> WebhookResponse:
         include_pods=request.include_pods,
     )
 
-    add_subscription(subscription)
+    await add_subscription(subscription)
     return _subscription_to_response(subscription)
 
 
@@ -194,9 +194,9 @@ def update_webhook(webhook_id: str, request: WebhookUpdateRequest) -> WebhookRes
     summary="Delete webhook subscription",
     description="Delete a webhook subscription.",
 )
-def delete_webhook(webhook_id: str) -> None:
+async def delete_webhook(webhook_id: str) -> None:
     """Delete a webhook subscription."""
-    if not remove_subscription(webhook_id):
+    if not await remove_subscription(webhook_id):
         raise HTTPException(status_code=404, detail="Webhook not found")
 
 

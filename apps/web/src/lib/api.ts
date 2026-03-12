@@ -642,6 +642,24 @@ class GatekeeperAPIService {
     });
   }
 
+  /**
+   * Search for character names (autocomplete)
+   */
+  async searchCharacters(query: string): Promise<{ results: { id: number; name: string }[] }> {
+    return this.request<{ results: { id: number; name: string }[] }>(
+      `/api/v1/intel/pilot/search?q=${encodeURIComponent(query)}`
+    );
+  }
+
+  /**
+   * Search for system names via ESI (autocomplete)
+   */
+  async searchSystemsESI(query: string): Promise<{ results: { id: number; name: string }[] }> {
+    return this.request<{ results: { id: number; name: string }[] }>(
+      `/api/v1/intel/system/search?q=${encodeURIComponent(query)}`
+    );
+  }
+
   // ==================== Intel Parse ====================
 
   /**

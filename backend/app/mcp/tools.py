@@ -732,7 +732,7 @@ async def create_alert_subscription(
             min_value=validated_min_value,
         )
 
-        add_subscription(subscription)
+        await add_subscription(subscription)
     except Exception as e:
         return {
             "error": f"Failed to create subscription: {str(e)}",

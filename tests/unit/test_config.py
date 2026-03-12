@@ -45,13 +45,6 @@ class TestSettingsDefaults:
         settings = Settings()
         assert settings.API_VERSION is not None
 
-    def test_default_cache_ttl(self):
-        """Should have default cache TTL values."""
-        settings = Settings()
-        assert settings.CACHE_TTL_RISK > 0
-        assert settings.CACHE_TTL_ROUTE > 0
-
-
 class TestDatabaseUrl:
     """Tests for database_url property."""
 

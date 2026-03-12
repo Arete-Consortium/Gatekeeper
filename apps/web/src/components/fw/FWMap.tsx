@@ -510,14 +510,19 @@ export function FWMap() {
         ctx.shadowColor = '#22d3ee';
         ctx.shadowBlur = 8;
       } else if (sameWarzone) {
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 1;
+        // Subway-style: color gate by occupier faction of 'from' system
+        const factionColor = FACTION_COLORS[fromFaction]?.fill || '#334155';
+        ctx.strokeStyle = factionColor;
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1.5;
       } else {
         ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = '#334155';
+        ctx.globalAlpha = 0.2;
+        ctx.lineWidth = 0.8;
       }
       ctx.stroke();
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
 
@@ -634,9 +639,16 @@ export function FWMap() {
       if (showLabel) {
         const fontSize = Math.max(9, Math.min(12, size.w / 90 * viewport.zoom));
         ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = isSelected || isHovered || isRouteNode ? '#ffffff' : '#94a3b8';
         ctx.textAlign = 'center';
-        ctx.fillText(sys.name, pos.x, pos.y - drawR - 4);
+        // Text shadow for readability
+        ctx.fillStyle = '#000000';
+        ctx.globalAlpha = 0.6;
+        ctx.fillText(sys.name, pos.x + 0.5, pos.y + drawR + fontSize - 1.5);
+        // Label below node — subway style
+        ctx.fillStyle = isSelected || isHovered || isRouteNode ? '#ffffff' : '#94a3b8';
+        ctx.globalAlpha = isSelected || isHovered || isRouteNode ? 1 : 0.85;
+        ctx.fillText(sys.name, pos.x, pos.y + drawR + fontSize - 2);
+        ctx.globalAlpha = 1;
       }
     }
 
