@@ -682,6 +682,24 @@ export interface PilotThreatStats {
   top_systems: { id: number; name: string; kills: number }[];
 }
 
+// Pilot deep-dive intel report
+export interface PilotDeepDiveStats extends PilotThreatStats {
+  fleet_companions: { character_id: number; name: string; kills: number }[];
+  activity_pattern: { hourly: Record<string, number>; peak_hours: number[] };
+  corp_history: { corporation_id: number; corporation_name: string; start_date: string }[];
+  recent_kills: {
+    kill_id: number;
+    timestamp: string;
+    system_id: number | null;
+    system_name: string;
+    ship_type_id: number | null;
+    ship_name: string;
+    value: number;
+    is_loss: boolean;
+    attacker_count: number;
+  }[];
+}
+
 // Fleet pilot lookup
 export interface FleetPilotLookupResponse {
   total_pilots: number;

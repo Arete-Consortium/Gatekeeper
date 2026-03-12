@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
 import { Card, Button } from '@/components/ui';
 import { PilotThreatCard } from './PilotThreatCard';
+import { PilotDeepDive } from './PilotDeepDive';
 import { SystemSummaryCard } from './SystemSummaryCard';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { Search, UserSearch, MapPin, Pin, Loader2 } from 'lucide-react';
@@ -59,6 +60,9 @@ export function PilotLookupTab() {
   const [isSystemSearching, setIsSystemSearching] = useState(false);
   const systemDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const systemListRef = useRef<HTMLDivElement>(null);
+
+  // ── Deep dive ──
+  const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
 
   // ── Pinned items ──
   const [pinnedPilots, setPinnedPilots] = useState<PinnedPilot[]>([]);
@@ -247,6 +251,11 @@ export function PilotLookupTab() {
 
   return (
     <div className="space-y-6">
+      {/* Deep Dive Panel */}
+      {deepDiveId && (
+        <PilotDeepDive characterId={deepDiveId} onClose={() => setDeepDiveId(null)} />
+      )}
+
       {/* Search Forms - side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Pilot Search */}
@@ -369,6 +378,7 @@ export function PilotLookupTab() {
             onPinAlliance={handleTogglePinAlliance}
             pinnedCorpIds={pinnedCorpIds}
             pinnedAllianceIds={pinnedAllianceIds}
+            onDeepDive={setDeepDiveId}
           />
         )}
 
@@ -403,6 +413,7 @@ export function PilotLookupTab() {
                 onPinAlliance={handleTogglePinAlliance}
                 pinnedCorpIds={pinnedCorpIds}
                 pinnedAllianceIds={pinnedAllianceIds}
+                onDeepDive={setDeepDiveId}
               />
             ))}
           </div>

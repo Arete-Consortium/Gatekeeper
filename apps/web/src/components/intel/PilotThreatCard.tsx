@@ -27,6 +27,7 @@ interface PilotThreatCardProps {
   onPinAlliance?: (allianceId: number, name: string) => void;
   pinnedCorpIds?: Set<number>;
   pinnedAllianceIds?: Set<number>;
+  onDeepDive?: (characterId: number) => void;
 }
 
 const THREAT_COLORS: Record<string, string> = {
@@ -61,7 +62,7 @@ function formatIsk(value: number): string {
   return value.toString();
 }
 
-export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCorp, onPinAlliance, pinnedCorpIds, pinnedAllianceIds }: PilotThreatCardProps) {
+export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCorp, onPinAlliance, pinnedCorpIds, pinnedAllianceIds, onDeepDive }: PilotThreatCardProps) {
   const [pilot, setPilot] = useState<PilotThreatStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -305,14 +306,24 @@ export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCo
             {pilot.security_status.toFixed(2)}
           </span>
         </span>
-        <a
-          href={`https://zkillboard.com/character/${pilot.character_id}/`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary hover:text-primary/80 transition-colors"
-        >
-          zKillboard →
-        </a>
+        <div className="flex items-center gap-3">
+          {onDeepDive && (
+            <button
+              onClick={() => onDeepDive(pilot.character_id)}
+              className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
+            >
+              Deep Dive
+            </button>
+          )}
+          <a
+            href={`https://zkillboard.com/character/${pilot.character_id}/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:text-primary/80 transition-colors"
+          >
+            zKillboard →
+          </a>
+        </div>
       </div>
     </Card>
   );

@@ -660,6 +660,15 @@ class GatekeeperAPIService {
     );
   }
 
+  /**
+   * Get pilot deep-dive intel report
+   */
+  async getPilotDeepDive(characterId: number): Promise<import('./types').PilotDeepDiveStats> {
+    return this.request<import('./types').PilotDeepDiveStats>(
+      `/api/v1/intel/pilot/${characterId}/deep-dive`
+    );
+  }
+
   // ==================== Intel Parse ====================
 
   /**

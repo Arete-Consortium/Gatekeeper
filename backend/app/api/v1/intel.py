@@ -19,7 +19,7 @@ from ...services.intel_parser import (
     submit_intel,
 )
 from ...services.pilot_intel import search_characters, search_systems
-from ...services.pilot_intel import get_pilot_stats, resolve_character_names
+from ...services.pilot_intel import get_pilot_stats, get_pilot_deep_dive, resolve_character_names
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -404,6 +404,66 @@ async def get_pilot_threat(character_id: int) -> PilotThreatResponse:
     if result is None:
         raise HTTPException(status_code=404, detail=f"Character {character_id} not found")
     return PilotThreatResponse(**result)
+
+
+class FleetCompanion(BaseModel):
+    """A pilot frequently seen on the same killmails."""
+
+    character_id: int
+    name: str
+    kills: int = 0
+
+
+class CorpHistoryEntry(BaseModel):
+    """A corporation history entry."""
+
+    corporation_id: int
+    corporation_name: str = "Unknown"
+    start_date: str = ""
+
+
+class RecentKill(BaseModel):
+    """A recent killmail summary."""
+
+    kill_id: int
+    timestamp: str = ""
+    system_id: int | None = None
+    system_name: str = "Unknown"
+    ship_type_id: int | None = None
+    ship_name: str = "Unknown"
+    value: float = 0
+    is_loss: bool = False
+    attacker_count: int = 0
+
+
+class ActivityPattern(BaseModel):
+    """Activity distribution by hour of day (UTC)."""
+
+    hourly: dict[str, int] = Field(default_factory=dict)
+    peak_hours: list[int] = Field(default_factory=list)
+
+
+class PilotDeepDiveResponse(PilotThreatResponse):
+    """Extended pilot intel with deep-dive data."""
+
+    fleet_companions: list[FleetCompanion] = Field(default_factory=list)
+    activity_pattern: ActivityPattern = Field(default_factory=ActivityPattern)
+    corp_history: list[CorpHistoryEntry] = Field(default_factory=list)
+    recent_kills: list[RecentKill] = Field(default_factory=list)
+
+
+@router.get(
+    "/pilot/{character_id}/deep-dive",
+    response_model=PilotDeepDiveResponse,
+    summary="Get pilot deep-dive intel report",
+    description="Returns extended pilot intel: fleet companions, activity patterns, corp history, recent kills.",
+)
+async def get_pilot_deep_dive_endpoint(character_id: int) -> PilotDeepDiveResponse:
+    """Get deep-dive intel report for a pilot by character ID."""
+    result = await get_pilot_deep_dive(character_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Character {character_id} not found")
+    return PilotDeepDiveResponse(**result)
 
 
 class FleetPilotLookupRequest(BaseModel):
