@@ -7,11 +7,12 @@ from backend.app.api.v1.auth import (
     AuthStatus,
     CharacterInfo,
     LoginResponse,
+    OAuthStateData,
     TokenResponse,
     _oauth_states,
     cleanup_expired_states,
+    consume_state,
     generate_state,
-    validate_state,
 )
 from backend.app.services.token_store import MemoryTokenStore
 
@@ -36,39 +37,43 @@ class TestOAuthStateManagement:
         state = generate_state()
 
         assert state in _oauth_states
-        assert _oauth_states[state] > datetime.now(UTC)
+        assert _oauth_states[state].expires_at > datetime.now(UTC)
 
-    def test_validate_state_accepts_valid_state(self):
+    def test_consume_state_accepts_valid_state(self):
         """Test that valid state is accepted."""
         state = generate_state()
 
-        result = validate_state(state)
+        result = consume_state(state)
 
-        assert result is True
+        assert result is not None
         # State should be consumed (removed)
         assert state not in _oauth_states
 
-    def test_validate_state_rejects_invalid_state(self):
+    def test_consume_state_rejects_invalid_state(self):
         """Test that invalid state is rejected."""
-        result = validate_state("nonexistent_state")
+        result = consume_state("nonexistent_state")
 
-        assert result is False
+        assert result is None
 
-    def test_validate_state_rejects_expired_state(self):
+    def test_consume_state_rejects_expired_state(self):
         """Test that expired state is rejected."""
         state = "expired_state"
-        _oauth_states[state] = datetime.now(UTC) - timedelta(minutes=1)
+        _oauth_states[state] = OAuthStateData(
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
 
-        result = validate_state(state)
+        result = consume_state(state)
 
-        assert result is False
+        assert result is None
 
     def test_cleanup_expired_states(self):
         """Test that expired states are cleaned up."""
         # Add some states
         valid_state = generate_state()
         expired_state = "expired_state"
-        _oauth_states[expired_state] = datetime.now(UTC) - timedelta(minutes=1)
+        _oauth_states[expired_state] = OAuthStateData(
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
 
         cleanup_expired_states()
 

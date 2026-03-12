@@ -132,5 +132,6 @@ export async function fetchSession(): Promise<AuthUser | null> {
  */
 export function getLoginUrl(): string {
   const apiUrl = localStorage.getItem('gatekeeper_api_url') || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  return `${apiUrl}/api/v1/auth/login/redirect`;
+  const origin = encodeURIComponent(window.location.origin);
+  return `${apiUrl}/api/v1/auth/login/redirect?frontend_origin=${origin}`;
 }

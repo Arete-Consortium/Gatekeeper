@@ -148,15 +148,39 @@ def _clear_session_cookie(response: JSONResponse) -> None:
 OAUTH_STATE_TTL_MINUTES = 10
 OAUTH_STATE_MAX_ENTRIES = 10000  # Prevent memory exhaustion
 
+# Allowed frontend origins for OAuth redirect (prevent open redirect)
+ALLOWED_FRONTEND_ORIGINS: set[str] = {
+    "https://edengk.com",
+    "https://gatekeeper.aretedriver.dev",
+    "https://eve-gatekeeper-web.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:8080",
+}
+
+
+class OAuthStateData:
+    """Data associated with an OAuth state token."""
+
+    __slots__ = ("expires_at", "frontend_origin")
+
+    def __init__(self, expires_at: datetime, frontend_origin: str | None = None):
+        self.expires_at = expires_at
+        self.frontend_origin = frontend_origin
+
+
 # In-memory state storage (use Redis in production)
-_oauth_states: dict[str, datetime] = {}
+_oauth_states: dict[str, OAuthStateData] = {}
 
 
-def generate_state(ttl_minutes: int = OAUTH_STATE_TTL_MINUTES) -> str:
+def generate_state(
+    ttl_minutes: int = OAUTH_STATE_TTL_MINUTES,
+    frontend_origin: str | None = None,
+) -> str:
     """Generate a secure random state parameter.
 
     Args:
         ttl_minutes: State validity in minutes
+        frontend_origin: The frontend origin URL to redirect back to after auth
 
     Returns:
         Secure random state token
@@ -166,17 +190,20 @@ def generate_state(ttl_minutes: int = OAUTH_STATE_TTL_MINUTES) -> str:
         cleanup_expired_states()
         # If still over limit, remove oldest entries
         if len(_oauth_states) >= OAUTH_STATE_MAX_ENTRIES:
-            sorted_states = sorted(_oauth_states.items(), key=lambda x: x[1])
+            sorted_states = sorted(_oauth_states.items(), key=lambda x: x[1].expires_at)
             for state, _ in sorted_states[: len(sorted_states) // 2]:
                 _oauth_states.pop(state, None)
 
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
+    _oauth_states[state] = OAuthStateData(
+        expires_at=datetime.now(UTC) + timedelta(minutes=ttl_minutes),
+        frontend_origin=frontend_origin,
+    )
     return state
 
 
-def validate_state(state: str) -> bool:
-    """Validate and consume OAuth state.
+def consume_state(state: str) -> OAuthStateData | None:
+    """Validate and consume OAuth state, returning the stored data.
 
     State tokens are single-use to prevent replay attacks.
 
@@ -184,12 +211,14 @@ def validate_state(state: str) -> bool:
         state: State token to validate
 
     Returns:
-        True if state is valid and not expired
+        OAuthStateData if valid and not expired, None otherwise
     """
     if state not in _oauth_states:
-        return False
-    expires = _oauth_states.pop(state)
-    return datetime.now(UTC) < expires
+        return None
+    data = _oauth_states.pop(state)
+    if datetime.now(UTC) >= data.expires_at:
+        return None
+    return data
 
 
 def cleanup_expired_states() -> int:
@@ -199,7 +228,7 @@ def cleanup_expired_states() -> int:
         Number of expired states removed
     """
     now = datetime.now(UTC)
-    expired = [s for s, exp in _oauth_states.items() if now >= exp]
+    expired = [s for s, data in _oauth_states.items() if now >= data.expires_at]
     for s in expired:
         _oauth_states.pop(s, None)
     return len(expired)
@@ -234,6 +263,7 @@ DEFAULT_SCOPES = [
 async def login(
     redirect_uri: str | None = Query(None, description="Override callback URL"),
     scopes: str | None = Query(None, description="Space-separated ESI scopes"),
+    frontend_origin: str | None = Query(None, description="Frontend origin for post-auth redirect"),
 ) -> LoginResponse:
     """
     Initiate EVE SSO login.
@@ -247,11 +277,16 @@ async def login(
             detail="ESI OAuth not configured. Set ESI_CLIENT_ID environment variable.",
         )
 
+    # Validate frontend_origin against allowlist
+    validated_origin = None
+    if frontend_origin and frontend_origin in ALLOWED_FRONTEND_ORIGINS:
+        validated_origin = frontend_origin
+
     # Clean up expired states
     cleanup_expired_states()
 
-    # Generate state for CSRF protection
-    state = generate_state()
+    # Generate state for CSRF protection (carries frontend_origin)
+    state = generate_state(frontend_origin=validated_origin)
 
     # Parse scopes
     scope_list = scopes.split() if scopes else DEFAULT_SCOPES
@@ -277,6 +312,7 @@ async def login(
 async def login_redirect(
     redirect_uri: str | None = Query(None),
     scopes: str | None = Query(None),
+    frontend_origin: str | None = Query(None),
 ) -> RedirectResponse:
     """
     Redirect directly to EVE SSO.
@@ -284,7 +320,9 @@ async def login_redirect(
     For browser-based flows, use this endpoint to immediately redirect
     to EVE's login page instead of returning the URL.
     """
-    login_response = await login(redirect_uri=redirect_uri, scopes=scopes)
+    login_response = await login(
+        redirect_uri=redirect_uri, scopes=scopes, frontend_origin=frontend_origin
+    )
     return RedirectResponse(url=login_response.auth_url, status_code=302)
 
 
@@ -301,8 +339,9 @@ async def callback(
     Exchanges the authorization code for access and refresh tokens,
     then stores them for the authenticated character.
     """
-    # Validate state
-    if not validate_state(state):
+    # Validate and consume state (returns stored data including frontend_origin)
+    state_data = consume_state(state)
+    if not state_data:
         logger.warning("OAuth callback failed: invalid state")
         raise HTTPException(
             status_code=400,
@@ -389,12 +428,13 @@ async def callback(
         extra={"character_id": character_id, "character_name": verify_data["CharacterName"]},
     )
 
-    # If a frontend base URL is configured, redirect to the frontend callback
-    # with character_id so the SPA can exchange it for a JWT.
-    if settings.API_BASE_URL:
+    # Redirect to the frontend that initiated the login.
+    # Priority: state_data.frontend_origin (dynamic) > settings.API_BASE_URL (fallback)
+    frontend_url = state_data.frontend_origin or settings.API_BASE_URL
+    if frontend_url:
         from urllib.parse import urlencode
 
-        frontend_url = settings.API_BASE_URL.rstrip("/")
+        frontend_url = frontend_url.rstrip("/")
         params = urlencode({"character_id": character_id})
         return RedirectResponse(
             url=f"{frontend_url}/auth/callback?{params}",

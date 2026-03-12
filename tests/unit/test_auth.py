@@ -5,10 +5,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from backend.app.api.v1.auth import (
+    OAuthStateData,
     _oauth_states,
     cleanup_expired_states,
+    consume_state,
     generate_state,
-    validate_state,
 )
 from backend.app.services.token_store import MemoryTokenStore
 
@@ -27,28 +28,40 @@ class TestOAuthState:
         assert state1 != state2
         assert len(state1) > 20  # Sufficient entropy
 
-    def test_validate_state_accepts_valid_state(self):
+    def test_consume_state_accepts_valid_state(self):
         """Valid state should be accepted and consumed."""
         state = generate_state()
-        assert validate_state(state) is True
+        result = consume_state(state)
+        assert result is not None
         # State should be consumed
-        assert validate_state(state) is False
+        assert consume_state(state) is None
 
-    def test_validate_state_rejects_unknown_state(self):
+    def test_consume_state_rejects_unknown_state(self):
         """Unknown state should be rejected."""
-        assert validate_state("unknown-state") is False
+        assert consume_state("unknown-state") is None
 
-    def test_validate_state_rejects_expired_state(self):
+    def test_consume_state_rejects_expired_state(self):
         """Expired state should be rejected."""
         state = "test-expired-state"
-        _oauth_states[state] = datetime.now(UTC) - timedelta(minutes=1)
-        assert validate_state(state) is False
+        _oauth_states[state] = OAuthStateData(
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+        assert consume_state(state) is None
+
+    def test_consume_state_returns_frontend_origin(self):
+        """consume_state should return stored frontend_origin."""
+        state = generate_state(frontend_origin="https://edengk.com")
+        result = consume_state(state)
+        assert result is not None
+        assert result.frontend_origin == "https://edengk.com"
 
     def test_cleanup_expired_states(self):
         """Expired states should be cleaned up."""
         valid = generate_state()
         expired = "expired-state"
-        _oauth_states[expired] = datetime.now(UTC) - timedelta(minutes=1)
+        _oauth_states[expired] = OAuthStateData(
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
 
         cleanup_expired_states()
 
