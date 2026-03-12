@@ -39,27 +39,22 @@ interface SearchSuggestion {
   name: string;
 }
 
-export function PilotLookupTab() {
-  // ── Pilot search state ──
-  const [pilotName, setPilotName] = useState('');
-  const [resolvedId, setResolvedId] = useState<number | null>(null);
-  const [pilotSuggestions, setPilotSuggestions] = useState<SearchSuggestion[]>([]);
-  const [isPilotDropdownOpen, setIsPilotDropdownOpen] = useState(false);
-  const [pilotActiveIndex, setPilotActiveIndex] = useState(0);
-  const [isPilotSearching, setIsPilotSearching] = useState(false);
-  const pilotDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pilotInputRef = useRef<HTMLInputElement>(null);
-  const pilotListRef = useRef<HTMLDivElement>(null);
+interface UnifiedSuggestion extends SearchSuggestion {
+  type: 'pilot' | 'system';
+}
 
-  // ── System search state ──
-  const [systemQuery, setSystemQuery] = useState('');
+export function PilotLookupTab() {
+  // ── Unified search state ──
+  const [query, setQuery] = useState('');
+  const [resolvedId, setResolvedId] = useState<number | null>(null);
   const [resolvedSystem, setResolvedSystem] = useState<{ id: number; name: string } | null>(null);
-  const [systemSuggestions, setSystemSuggestions] = useState<SearchSuggestion[]>([]);
-  const [isSystemDropdownOpen, setIsSystemDropdownOpen] = useState(false);
-  const [systemActiveIndex, setSystemActiveIndex] = useState(0);
-  const [isSystemSearching, setIsSystemSearching] = useState(false);
-  const systemDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const systemListRef = useRef<HTMLDivElement>(null);
+  const [suggestions, setSuggestions] = useState<UnifiedSuggestion[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // ── Deep dive ──
   const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
@@ -145,108 +140,74 @@ export function PilotLookupTab() {
     },
   });
 
-  // ── Pilot autocomplete ──
-  const handlePilotInputChange = useCallback((value: string) => {
-    setPilotName(value);
+  // ── Unified autocomplete — search both pilots and systems in parallel ──
+  const handleInputChange = useCallback((value: string) => {
+    setQuery(value);
     if (resolvedId) { setResolvedId(null); resetPilot(); }
-    if (pilotDebounceRef.current) clearTimeout(pilotDebounceRef.current);
+    if (resolvedSystem) setResolvedSystem(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (value.trim().length < 3) {
-      setPilotSuggestions([]); setIsPilotDropdownOpen(false); return;
+      setSuggestions([]); setIsDropdownOpen(false); return;
     }
-    setIsPilotSearching(true);
-    pilotDebounceRef.current = setTimeout(async () => {
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
       try {
-        const data = await GatekeeperAPI.searchCharacters(value.trim());
-        setPilotSuggestions(data.results);
-        setIsPilotDropdownOpen(data.results.length > 0);
-        setPilotActiveIndex(0);
-      } catch { setPilotSuggestions([]); setIsPilotDropdownOpen(false); }
-      finally { setIsPilotSearching(false); }
+        const [pilots, systems] = await Promise.all([
+          GatekeeperAPI.searchCharacters(value.trim()).catch(() => ({ results: [] })),
+          GatekeeperAPI.searchSystemsESI(value.trim()).catch(() => ({ results: [] })),
+        ]);
+        const merged: UnifiedSuggestion[] = [
+          ...systems.results.slice(0, 5).map((s: SearchSuggestion) => ({ ...s, type: 'system' as const })),
+          ...pilots.results.slice(0, 5).map((s: SearchSuggestion) => ({ ...s, type: 'pilot' as const })),
+        ];
+        setSuggestions(merged);
+        setIsDropdownOpen(merged.length > 0);
+        setActiveIndex(0);
+      } catch { setSuggestions([]); setIsDropdownOpen(false); }
+      finally { setIsSearching(false); }
     }, 300);
-  }, [resolvedId, resetPilot]);
+  }, [resolvedId, resolvedSystem, resetPilot]);
 
-  const handleSelectPilot = useCallback((s: SearchSuggestion) => {
-    setPilotName(s.name);
-    setPilotSuggestions([]); setIsPilotDropdownOpen(false);
-    setResolvedId(null); resetPilot();
-    lookupPilot({ name: s.name, id: s.id });
+  const handleSelect = useCallback((s: UnifiedSuggestion) => {
+    setQuery(s.name);
+    setSuggestions([]); setIsDropdownOpen(false);
+    if (s.type === 'pilot') {
+      setResolvedId(null); resetPilot();
+      lookupPilot({ name: s.name, id: s.id });
+    } else {
+      setResolvedSystem(s);
+    }
   }, [lookupPilot, resetPilot]);
 
-  const handlePilotSearch = () => {
-    const trimmed = pilotName.trim();
+  const handleSearch = () => {
+    const trimmed = query.trim();
     if (!trimmed) return;
-    setResolvedId(null); setIsPilotDropdownOpen(false); resetPilot();
+    setResolvedId(null); setIsDropdownOpen(false); resetPilot();
     lookupPilot({ name: trimmed });
   };
 
-  const handlePilotKeyDown = (e: React.KeyboardEvent) => {
-    if (isPilotDropdownOpen && pilotSuggestions.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setPilotActiveIndex((p) => Math.min(p + 1, pilotSuggestions.length - 1)); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setPilotActiveIndex((p) => Math.max(p - 1, 0)); return; }
-      if (e.key === 'Enter') { e.preventDefault(); if (pilotSuggestions[pilotActiveIndex]) handleSelectPilot(pilotSuggestions[pilotActiveIndex]); return; }
-      if (e.key === 'Escape') { e.preventDefault(); setIsPilotDropdownOpen(false); return; }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isDropdownOpen && suggestions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex((p) => Math.min(p + 1, suggestions.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex((p) => Math.max(p - 1, 0)); return; }
+      if (e.key === 'Enter') { e.preventDefault(); if (suggestions[activeIndex]) handleSelect(suggestions[activeIndex]); return; }
+      if (e.key === 'Escape') { e.preventDefault(); setIsDropdownOpen(false); return; }
     }
-    if (e.key === 'Enter') handlePilotSearch();
+    if (e.key === 'Enter') handleSearch();
   };
 
-  // ── System autocomplete ──
-  const handleSystemInputChange = useCallback((value: string) => {
-    setSystemQuery(value);
-    if (resolvedSystem) setResolvedSystem(null);
-    if (systemDebounceRef.current) clearTimeout(systemDebounceRef.current);
-
-    if (value.trim().length < 3) {
-      setSystemSuggestions([]); setIsSystemDropdownOpen(false); return;
-    }
-    setIsSystemSearching(true);
-    systemDebounceRef.current = setTimeout(async () => {
-      try {
-        const data = await GatekeeperAPI.searchSystemsESI(value.trim());
-        setSystemSuggestions(data.results);
-        setIsSystemDropdownOpen(data.results.length > 0);
-        setSystemActiveIndex(0);
-      } catch { setSystemSuggestions([]); setIsSystemDropdownOpen(false); }
-      finally { setIsSystemSearching(false); }
-    }, 300);
-  }, [resolvedSystem]);
-
-  const handleSelectSystem = useCallback((s: SearchSuggestion) => {
-    setSystemQuery(s.name);
-    setSystemSuggestions([]); setIsSystemDropdownOpen(false);
-    setResolvedSystem(s);
-  }, []);
-
-  const handleSystemKeyDown = (e: React.KeyboardEvent) => {
-    if (isSystemDropdownOpen && systemSuggestions.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSystemActiveIndex((p) => Math.min(p + 1, systemSuggestions.length - 1)); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setSystemActiveIndex((p) => Math.max(p - 1, 0)); return; }
-      if (e.key === 'Enter') { e.preventDefault(); if (systemSuggestions[systemActiveIndex]) handleSelectSystem(systemSuggestions[systemActiveIndex]); return; }
-      if (e.key === 'Escape') { e.preventDefault(); setIsSystemDropdownOpen(false); return; }
-    }
-  };
-
-  // Scroll active items into view
+  // Scroll active item into view
   useEffect(() => {
-    if (pilotListRef.current) {
-      const el = pilotListRef.current.children[pilotActiveIndex] as HTMLElement | undefined;
+    if (listRef.current) {
+      const el = listRef.current.children[activeIndex] as HTMLElement | undefined;
       el?.scrollIntoView({ block: 'nearest' });
     }
-  }, [pilotActiveIndex]);
-
-  useEffect(() => {
-    if (systemListRef.current) {
-      const el = systemListRef.current.children[systemActiveIndex] as HTMLElement | undefined;
-      el?.scrollIntoView({ block: 'nearest' });
-    }
-  }, [systemActiveIndex]);
+  }, [activeIndex]);
 
   // Cleanup debounce on unmount
   useEffect(() => {
-    return () => {
-      if (pilotDebounceRef.current) clearTimeout(pilotDebounceRef.current);
-      if (systemDebounceRef.current) clearTimeout(systemDebounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, []);
 
   return (
@@ -256,113 +217,68 @@ export function PilotLookupTab() {
         <PilotDeepDive characterId={deepDiveId} onClose={() => setDeepDiveId(null)} />
       )}
 
-      {/* Search Forms - side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Pilot Search */}
-        <Card>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <UserSearch className="h-4 w-4 text-text-secondary" />
-              <span className="text-sm font-medium text-text">Pilot Lookup</span>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  ref={pilotInputRef}
-                  type="text"
-                  role="combobox"
-                  value={pilotName}
-                  onChange={(e) => handlePilotInputChange(e.target.value)}
-                  onKeyDown={handlePilotKeyDown}
-                  onFocus={() => { if (pilotSuggestions.length > 0) setIsPilotDropdownOpen(true); }}
-                  onBlur={() => setTimeout(() => setIsPilotDropdownOpen(false), 150)}
-                  placeholder="Search pilot name..."
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-                  aria-autocomplete="list"
-                  aria-expanded={isPilotDropdownOpen}
-                />
-                {isPilotSearching && (
-                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary animate-spin" />
-                )}
-                {isPilotDropdownOpen && pilotSuggestions.length > 0 && (
-                  <div ref={pilotListRef} className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto" role="listbox">
-                    {pilotSuggestions.map((s, i) => (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSelectPilot(s)}
-                        onMouseEnter={() => setPilotActiveIndex(i)}
-                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${i === pilotActiveIndex ? 'bg-primary/20 text-text' : 'hover:bg-card-hover text-text'}`}
-                        role="option"
-                        aria-selected={i === pilotActiveIndex}
-                      >
+      {/* Unified Search */}
+      <Card>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-text-secondary" />
+            <span className="text-sm font-medium text-text">Pilot / System Lookup</span>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                role="combobox"
+                value={query}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => { if (suggestions.length > 0) setIsDropdownOpen(true); }}
+                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
+                placeholder="Search pilot or system name..."
+                className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-autocomplete="list"
+                aria-expanded={isDropdownOpen}
+              />
+              {isSearching && (
+                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary animate-spin" />
+              )}
+              {isDropdownOpen && suggestions.length > 0 && (
+                <div ref={listRef} className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto" role="listbox">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={`${s.type}-${s.id}`}
+                      onClick={() => handleSelect(s)}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${i === activeIndex ? 'bg-primary/20 text-text' : 'hover:bg-card-hover text-text'}`}
+                      role="option"
+                      aria-selected={i === activeIndex}
+                    >
+                      {s.type === 'system' ? (
+                        <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
+                      ) : (
                         <UserSearch className="h-3 w-3 text-text-secondary shrink-0" />
-                        <span className="truncate">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <Button onClick={handlePilotSearch} disabled={!pilotName.trim() || isPilotPending} loading={isPilotPending}>
-                <Search className="h-4 w-4" />
-              </Button>
+                      )}
+                      <span className="truncate">{s.name}</span>
+                      <span className="ml-auto text-[10px] text-text-secondary uppercase tracking-wider">{s.type}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+            <Button onClick={handleSearch} disabled={!query.trim() || isPilotPending} loading={isPilotPending}>
+              <Search className="h-4 w-4" />
+            </Button>
           </div>
-        </Card>
-
-        {/* System Search */}
-        <Card>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-text-secondary" />
-              <span className="text-sm font-medium text-text">System Lookup</span>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  role="combobox"
-                  value={systemQuery}
-                  onChange={(e) => handleSystemInputChange(e.target.value)}
-                  onKeyDown={handleSystemKeyDown}
-                  onFocus={() => { if (systemSuggestions.length > 0) setIsSystemDropdownOpen(true); }}
-                  onBlur={() => setTimeout(() => setIsSystemDropdownOpen(false), 150)}
-                  placeholder="Search system name..."
-                  className="w-full px-3 py-2 bg-card border border-border rounded-lg text-sm text-text placeholder:text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
-                  aria-autocomplete="list"
-                  aria-expanded={isSystemDropdownOpen}
-                />
-                {isSystemSearching && (
-                  <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary animate-spin" />
-                )}
-                {isSystemDropdownOpen && systemSuggestions.length > 0 && (
-                  <div ref={systemListRef} className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto" role="listbox">
-                    {systemSuggestions.map((s, i) => (
-                      <button
-                        key={s.id}
-                        onClick={() => handleSelectSystem(s)}
-                        onMouseEnter={() => setSystemActiveIndex(i)}
-                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${i === systemActiveIndex ? 'bg-primary/20 text-text' : 'hover:bg-card-hover text-text'}`}
-                        role="option"
-                        aria-selected={i === systemActiveIndex}
-                      >
-                        <MapPin className="h-3 w-3 text-text-secondary shrink-0" />
-                        <span className="truncate">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Pilot Error */}
       {pilotError && (
         <ErrorMessage
           title="Pilot lookup failed"
           message={getUserFriendlyError(pilotError)}
-          onRetry={handlePilotSearch}
+          onRetry={handleSearch}
         />
       )}
 
@@ -387,7 +303,7 @@ export function PilotLookupTab() {
           <SystemSummaryCard
             systemName={resolvedSystem.name}
             systemId={resolvedSystem.id}
-            onClose={() => { setResolvedSystem(null); setSystemQuery(''); }}
+            onClose={() => { setResolvedSystem(null); setQuery(''); }}
             onPin={handleTogglePinSystem}
             isPinned={pinnedSystems.some((s) => s.systemId === resolvedSystem.id)}
           />
