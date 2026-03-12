@@ -225,50 +225,9 @@ export function FWMap() {
   }, [fwSystems, warzoneFilter]);
 
   // Compress inter-warzone spacing by 50% (pull warzones toward global center)
-  const visibleSystems = useMemo(() => {
-    if (filteredSystems.length === 0) return filteredSystems;
-
-    // Group systems by warzone
-    const warzoneOf = (sys: FWSystemNode): number => {
-      for (let i = 0; i < WARZONES.length; i++) {
-        if (WARZONES[i].factions.includes(sys.fw.occupier_faction_id) ||
-            WARZONES[i].factions.includes(sys.fw.owner_faction_id)) {
-          return i;
-        }
-      }
-      return -1;
-    };
-
-    // Calculate warzone centroids
-    const wzSums = new Map<number, { sx: number; sy: number; count: number }>();
-    for (const s of filteredSystems) {
-      const wz = warzoneOf(s);
-      const acc = wzSums.get(wz) || { sx: 0, sy: 0, count: 0 };
-      acc.sx += s.x; acc.sy += s.y; acc.count += 1;
-      wzSums.set(wz, acc);
-    }
-
-    const wzCentroids = new Map<number, { cx: number; cy: number }>();
-    for (const [wz, { sx, sy, count }] of wzSums) {
-      wzCentroids.set(wz, { cx: sx / count, cy: sy / count });
-    }
-
-    // Global centroid
-    let gcx = 0, gcy = 0;
-    for (const { cx, cy } of wzCentroids.values()) { gcx += cx; gcy += cy; }
-    gcx /= wzCentroids.size; gcy /= wzCentroids.size;
-
-    // Compress by 50%
-    const factor = 0.5;
-    return filteredSystems.map((s) => {
-      const wz = warzoneOf(s);
-      const wc = wzCentroids.get(wz);
-      if (!wc) return s;
-      const dx = (gcx - wc.cx) * (1 - factor);
-      const dy = (gcy - wc.cy) * (1 - factor);
-      return { ...s, x: s.x + dx, y: s.y + dy };
-    });
-  }, [filteredSystems]);
+  // Use filtered systems directly — no warzone compression needed
+  // (only 2 warzones, compression collapses them on top of each other)
+  const visibleSystems = filteredSystems;
 
   // Hot system lookup (system_id -> kills)
   const hotSystemMap = useMemo(() => {
