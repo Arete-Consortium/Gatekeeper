@@ -152,9 +152,28 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
               {data.threat_level}
             </span>
           </div>
-          <div className="text-xs text-gray-400 truncate">
-            {data.corporation_name}
-            {data.alliance_name && <span className="text-gray-500"> / {data.alliance_name}</span>}
+          <div className="text-xs truncate">
+            <a
+              href={`https://zkillboard.com/corporation/${data.corporation_id}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-cyan-400 transition-colors"
+            >
+              {data.corporation_name}
+            </a>
+            {data.alliance_name && data.alliance_id && (
+              <span className="text-gray-500"> / <a
+                href={`https://zkillboard.com/alliance/${data.alliance_id}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-cyan-400 transition-colors"
+              >
+                {data.alliance_name}
+              </a></span>
+            )}
+            {data.alliance_name && !data.alliance_id && (
+              <span className="text-gray-500"> / {data.alliance_name}</span>
+            )}
           </div>
         </div>
         <button onClick={onClose} className="text-gray-500 hover:text-white p-1">
@@ -284,23 +303,26 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
             </h3>
             <div className="space-y-1">
               {data.corp_history.slice(0, 8).map((entry, i) => (
-                <div
+                <a
                   key={`${entry.corporation_id}-${i}`}
-                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50"
+                  href={`https://zkillboard.com/corporation/${entry.corporation_id}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors"
                 >
                   <img
                     src={`https://images.evetech.net/corporations/${entry.corporation_id}/logo?size=32`}
                     alt=""
                     className="w-4 h-4 rounded"
                   />
-                  <span className="text-[11px] text-gray-200 flex-1 truncate">{entry.corporation_name}</span>
+                  <span className="text-[11px] text-cyan-300 hover:text-cyan-200 flex-1 truncate">{entry.corporation_name}</span>
                   <span className="text-[10px] text-gray-500">{formatDate(entry.start_date)}</span>
                   {i > 0 && data.corp_history[i - 1]?.start_date && (
                     <span className="text-[9px] text-gray-600 font-mono">
                       {timeSince(entry.start_date)}
                     </span>
                   )}
-                </div>
+                </a>
               ))}
               {data.corp_history.length > 8 && (
                 <div className="text-[10px] text-gray-500 px-2">
@@ -320,9 +342,12 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
             </h3>
             <div className="space-y-1">
               {data.recent_kills.slice(0, 10).map((kill) => (
-                <div
+                <a
                   key={kill.kill_id}
-                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50"
+                  href={`https://zkillboard.com/kill/${kill.kill_id}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors"
                 >
                   {kill.ship_type_id && (
                     <img
@@ -331,14 +356,14 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
                       className="w-4 h-4"
                     />
                   )}
-                  <span className={`text-[11px] flex-1 truncate ${kill.is_loss ? 'text-red-400' : 'text-gray-200'}`}>
+                  <span className={`text-[11px] flex-1 truncate ${kill.is_loss ? 'text-red-400' : 'text-cyan-300 hover:text-cyan-200'}`}>
                     {kill.ship_name}
                     {kill.is_loss && <span className="text-[9px] ml-1 text-red-500">(loss)</span>}
                   </span>
                   <span className="text-[10px] text-gray-500 truncate">{kill.system_name}</span>
                   <span className="text-[10px] text-yellow-400/80 font-mono">{formatIsk(kill.value)}</span>
                   <span className="text-[9px] text-gray-600">{timeSince(kill.timestamp)}</span>
-                </div>
+                </a>
               ))}
             </div>
           </section>
