@@ -391,17 +391,16 @@ async def search_systems(query: str) -> list[dict]:
     Performs case-insensitive prefix match against all known systems.
     Falls back to ESI /universe/ids/ for exact match if no local results.
     """
-    from backend.app.services.data_loader import load_universe
+    from .data_loader import load_universe
 
     query_lower = query.lower()
     universe = load_universe()
-    systems = universe.get("systems", {})
 
     # Local prefix search (fast, no API call)
     results = []
-    for name, sys_data in systems.items():
+    for name, sys_data in universe.systems.items():
         if name.lower().startswith(query_lower):
-            results.append({"id": sys_data["id"], "name": name})
+            results.append({"id": sys_data.id, "name": name})
         if len(results) >= 10:
             break
 
@@ -427,16 +426,38 @@ async def search_systems(query: str) -> list[dict]:
 
 
 async def search_characters(query: str) -> list[dict]:
-    """Search for character names via ESI POST /universe/ids/.
+    """Search for character names via zKill autocomplete with ESI fallback.
 
-    Returns list of {id, name} dicts for matching characters.
-    ESI /universe/ids/ is a public endpoint (no auth) that does exact name
-    resolution. The deprecated /search/ endpoint required SSO auth.
+    zKill autocomplete provides prefix matching (like typing in zKill search).
+    Falls back to ESI /universe/ids/ for exact match if zKill fails.
+    Returns list of {id, name} dicts.
     """
+    if not query or len(query) < 2:
+        return []
+
+    # Try zKill autocomplete first (prefix matching, public, no auth)
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
+            resp = await client.get(
+                f"https://zkillboard.com/autocomplete/{query}/",
+                headers={"User-Agent": "EVE-Gatekeeper/2.0 github.com/Arete-Consortium/EVE_Gatekeeper"},
+            )
+            if resp.status_code == 200:
+                results = resp.json()
+                characters = [
+                    {"id": int(r["id"]), "name": r["name"]}
+                    for r in results
+                    if r.get("type") == "character"
+                ][:10]
+                if characters:
+                    return characters
+    except Exception as e:
+        logger.debug(f"zKill autocomplete failed, falling back to ESI: {e}")
+
+    # Fallback: ESI /universe/ids/ (exact match only)
     url = "https://esi.evetech.net/latest/universe/ids/"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            # /universe/ids/ accepts a list of name strings and resolves them
             resp = await client.post(
                 url,
                 json=[query],

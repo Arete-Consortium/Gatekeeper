@@ -147,7 +147,7 @@ export function PilotLookupTab() {
     if (resolvedSystem) setResolvedSystem(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (value.trim().length < 3) {
+    if (value.trim().length < 2) {
       setSuggestions([]); setIsDropdownOpen(false); return;
     }
     setIsSearching(true);
