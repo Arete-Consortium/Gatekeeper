@@ -113,14 +113,18 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       [layersProp]
     );
 
+    // Exclude Pochven (region 10000070) — has its own dedicated /pochven page
+    const POCHVEN_REGION_ID = 10000070;
+
     // Compress inter-region distances by pulling regions 50% closer together
     // while preserving intra-region layout
     const compressedSystems = useMemo(() => {
-      if (systems.length === 0) return systems;
+      const baseSystems = systems.filter((s) => s.regionId !== POCHVEN_REGION_ID);
+      if (baseSystems.length === 0) return baseSystems;
 
       // Calculate region centroids
       const regionSums = new Map<number, { sx: number; sy: number; count: number }>();
-      for (const s of systems) {
+      for (const s of baseSystems) {
         const acc = regionSums.get(s.regionId) || { sx: 0, sy: 0, count: 0 };
         acc.sx += s.x;
         acc.sy += s.y;
@@ -141,7 +145,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       // Compress: newPos = pos + (globalCenter - regionCenter) * (1 - factor)
       // factor=0.5 means 50% compression of inter-region gaps
       const factor = 0.5;
-      return systems.map((s) => {
+      return baseSystems.map((s) => {
         const rc = regionCentroids.get(s.regionId);
         if (!rc) return s;
         const dx = (gcx - rc.cx) * (1 - factor);

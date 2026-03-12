@@ -219,6 +219,7 @@ function MapPageContent() {
     return (localStorage.getItem('gk_map_color_mode') as 'security' | 'risk' | 'star') || 'security';
   });
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
   const [showRoutePanel, setShowRoutePanel] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
@@ -303,6 +304,52 @@ function MapPageContent() {
     };
     return transformMapConfig(mapConfig);
   }, [mapConfig]);
+
+  // Region filter: sorted region options for dropdown
+  const regionOptions = useMemo(() => {
+    const entries: { id: number; name: string }[] = [];
+    regionNames.forEach((name, id) => entries.push({ id, name }));
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    return entries;
+  }, [regionNames]);
+
+  // Region-filtered systems and gates (region + border systems)
+  const regionFilteredSystems = useMemo(() => {
+    if (!selectedRegion) return systems;
+    // Systems in the selected region
+    const regionSystemIds = new Set(
+      systems.filter((s) => s.regionId === selectedRegion).map((s) => s.systemId)
+    );
+    // Border systems: systems in other regions that share a gate with a region system
+    const borderIds = new Set<number>();
+    for (const g of gates) {
+      if (regionSystemIds.has(g.fromSystemId) && !regionSystemIds.has(g.toSystemId)) {
+        borderIds.add(g.toSystemId);
+      }
+      if (regionSystemIds.has(g.toSystemId) && !regionSystemIds.has(g.fromSystemId)) {
+        borderIds.add(g.fromSystemId);
+      }
+    }
+    const visibleIds = new Set([...regionSystemIds, ...borderIds]);
+    return systems.filter((s) => visibleIds.has(s.systemId));
+  }, [systems, gates, selectedRegion]);
+
+  const regionFilteredGates = useMemo(() => {
+    if (!selectedRegion) return gates;
+    const visibleIds = new Set(regionFilteredSystems.map((s) => s.systemId));
+    return gates.filter((g) => visibleIds.has(g.fromSystemId) && visibleIds.has(g.toSystemId));
+  }, [gates, regionFilteredSystems, selectedRegion]);
+
+  // Auto-fit viewport when region changes
+  const prevRegionRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (selectedRegion === prevRegionRef.current) return;
+    prevRegionRef.current = selectedRegion;
+    if (selectedRegion && regionFilteredSystems.length > 0) {
+      const ids = regionFilteredSystems.map((s) => s.systemId);
+      requestAnimationFrame(() => mapRef.current?.fitToSystems(ids));
+    }
+  }, [selectedRegion, regionFilteredSystems]);
 
   // Kill stream
   const { kills, isConnected: killsConnected } = useKillStream({
@@ -477,9 +524,13 @@ function MapPageContent() {
 
   const handleSearchSelect = useCallback(
     (system: MapSystem) => {
+      // Clear region filter so the searched system is visible
+      setSelectedRegion(null);
       setSelectedSystem(system.systemId);
-      mapRef.current?.panTo(system.systemId);
-      mapRef.current?.zoomTo(2);
+      requestAnimationFrame(() => {
+        mapRef.current?.panTo(system.systemId);
+        mapRef.current?.zoomTo(2);
+      });
       if (routeState.mode !== 'idle') selectRouteSystem(system.systemId);
     },
     [routeState.mode, selectRouteSystem]
@@ -555,6 +606,23 @@ function MapPageContent() {
   // Shared sidebar content used in both desktop aside and mobile overlay
   const sidebarContent = (
     <>
+      {/* Region Filter */}
+      <CollapsibleSection
+        title="Region"
+        icon={<Map className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+      >
+        <select
+          value={selectedRegion ?? ''}
+          onChange={(e) => setSelectedRegion(e.target.value ? Number(e.target.value) : null)}
+          className="w-full px-2 py-1.5 bg-card border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">All Regions</option>
+          {regionOptions.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+      </CollapsibleSection>
+
       {/* Layers — collapsible */}
       <CollapsibleSection
         title="Layers"
@@ -910,8 +978,8 @@ function MapPageContent() {
             <>
               <UniverseMap
                 ref={mapRef}
-                systems={systems}
-                gates={gates}
+                systems={regionFilteredSystems}
+                gates={regionFilteredGates}
                 regionNames={regionNames}
                 routes={mapRoutes}
                 kills={isPro ? kills : []}
