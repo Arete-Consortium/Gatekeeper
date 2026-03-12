@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Badge } from '@/components/ui';
 import { GatekeeperAPI } from '@/lib/api';
-import type { PilotThreatStats } from '@/lib/types';
+import type { PilotDeepDiveStats } from '@/lib/types';
 import {
   Shield,
   Skull,
@@ -63,18 +63,18 @@ function formatIsk(value: number): string {
 }
 
 export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCorp, onPinAlliance, pinnedCorpIds, pinnedAllianceIds, onDeepDive }: PilotThreatCardProps) {
-  const [pilot, setPilot] = useState<PilotThreatStats | null>(null);
+  const [pilot, setPilot] = useState<PilotDeepDiveStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch on mount
+  // Fetch deep-dive data on mount (includes fleet companions + recent kills)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     (async () => {
       try {
-        const data = await GatekeeperAPI.getPilotStats(characterId);
+        const data = await GatekeeperAPI.getPilotDeepDive(characterId);
         if (!cancelled) {
           setPilot(data);
           setLoading(false);
@@ -283,15 +283,74 @@ export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCo
 
       {/* Top ships */}
       {pilot.top_ships.length > 0 && (
-        <div className="px-4 py-2">
+        <div className="px-4 py-2 border-b border-border">
           <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1.5">
             Top Ships
           </div>
           <div className="space-y-1">
             {pilot.top_ships.map((ship) => (
               <div key={ship.id} className="flex items-center justify-between text-xs">
-                <span className="text-text">{ship.name}</span>
+                <div className="flex items-center gap-1.5">
+                  <img
+                    src={`https://images.evetech.net/types/${ship.id}/icon?size=32`}
+                    alt=""
+                    className="w-4 h-4"
+                  />
+                  <span className="text-text">{ship.name}</span>
+                </div>
                 <span className="text-text-secondary font-mono">{ship.kills}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fleet companions */}
+      {pilot.fleet_companions && pilot.fleet_companions.length > 0 && (
+        <div className="px-4 py-2 border-b border-border">
+          <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            Flies With
+          </div>
+          <div className="space-y-1">
+            {pilot.fleet_companions.slice(0, 5).map((comp) => (
+              <div key={comp.character_id} className="flex items-center gap-2 text-xs">
+                <img
+                  src={`https://images.evetech.net/characters/${comp.character_id}/portrait?size=32`}
+                  alt=""
+                  className="w-4 h-4 rounded"
+                />
+                <span className="text-text flex-1 truncate">{comp.name}</span>
+                <span className="text-text-secondary font-mono">{comp.kills}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent kills/losses */}
+      {pilot.recent_kills && pilot.recent_kills.length > 0 && (
+        <div className="px-4 py-2 border-b border-border">
+          <div className="text-[10px] text-text-secondary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <Skull className="h-3 w-3" />
+            Recent Activity
+          </div>
+          <div className="space-y-1">
+            {pilot.recent_kills.slice(0, 5).map((kill) => (
+              <div key={kill.kill_id} className="flex items-center gap-1.5 text-[11px]">
+                {kill.ship_type_id && (
+                  <img
+                    src={`https://images.evetech.net/types/${kill.ship_type_id}/icon?size=32`}
+                    alt=""
+                    className="w-4 h-4"
+                  />
+                )}
+                <span className={`flex-1 truncate ${kill.is_loss ? 'text-red-400' : 'text-text'}`}>
+                  {kill.ship_name}
+                  {kill.is_loss && <span className="text-[9px] ml-0.5 text-red-500">(loss)</span>}
+                </span>
+                <span className="text-text-secondary truncate text-[10px]">{kill.system_name}</span>
+                <span className="text-yellow-400/80 font-mono text-[10px]">{formatIsk(kill.value)}</span>
               </div>
             ))}
           </div>
