@@ -32,13 +32,13 @@ import { RiskHeatmap } from './RiskHeatmap';
 import { Minimap } from './Minimap';
 import { TheraOverlay } from './TheraOverlay';
 import { FWOverlay } from './FWOverlay';
-import { LandmarksOverlay } from './LandmarksOverlay';
+// LandmarksOverlay removed — low ROI toggle
 import { SovereigntyOverlay } from './SovereigntyOverlay';
 import { ActivityOverlay } from './ActivityOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
-import { MarketHubsOverlay } from './MarketHubsOverlay';
+// MarketHubsOverlay removed — low ROI toggle
 import { CharacterMarker } from './CharacterMarker';
 
 // Default layer visibility
@@ -58,6 +58,8 @@ const DEFAULT_LAYERS: MapLayers = {
   showActivity: false,
   showWormholes: false,
   showMarketHubs: false,
+  showHighsec: true,
+  showNullsec: true,
 };
 
 // Animation duration in ms
@@ -148,13 +150,34 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       });
     }, [systems]);
 
+    // Filter systems by security class (highsec/nullsec toggles)
+    const filteredSystems = useMemo(() => {
+      const hideHighsec = layers.showHighsec === false;
+      const hideNullsec = layers.showNullsec === false;
+      if (!hideHighsec && !hideNullsec) return compressedSystems;
+      return compressedSystems.filter((s) => {
+        if (hideHighsec && s.security >= 0.5) return false;
+        if (hideNullsec && s.security <= 0.0) return false;
+        return true;
+      });
+    }, [compressedSystems, layers.showHighsec, layers.showNullsec]);
+
+    // Filter gates to only include those between visible systems
+    const filteredGates = useMemo(() => {
+      const hideHighsec = layers.showHighsec === false;
+      const hideNullsec = layers.showNullsec === false;
+      if (!hideHighsec && !hideNullsec) return gates;
+      const visibleIds = new Set(filteredSystems.map((s) => s.systemId));
+      return gates.filter((g) => visibleIds.has(g.fromSystemId) && visibleIds.has(g.toSystemId));
+    }, [gates, filteredSystems, layers.showHighsec, layers.showNullsec]);
+
     // Build efficient data structures (systemMap used for panTo/fitToSystems)
-    const { systemMap } = useMapDataFromProps(compressedSystems, gates);
+    const { systemMap } = useMapDataFromProps(filteredSystems, filteredGates);
 
     // Calculate region centers for labels
     const regions = useMemo(
-      () => calculateRegionCenters(compressedSystems, regionNames),
-      [compressedSystems, regionNames]
+      () => calculateRegionCenters(filteredSystems, regionNames),
+      [filteredSystems, regionNames]
     );
 
     // Viewport state
@@ -194,9 +217,9 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
     // Center on systems when they first load (deferred to avoid synchronous setState in effect)
     const initializedRef = useRef(false);
     useEffect(() => {
-      if (initializedRef.current || compressedSystems.length === 0 || viewport.width === 0) return;
+      if (initializedRef.current || filteredSystems.length === 0 || viewport.width === 0) return;
       initializedRef.current = true;
-      const fit = calculateFitZoom(compressedSystems, viewport.width, viewport.height);
+      const fit = calculateFitZoom(filteredSystems, viewport.width, viewport.height);
       const frameId = requestAnimationFrame(() => {
         setViewport((prev) => ({
           ...prev,
@@ -206,7 +229,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         }));
       });
       return () => cancelAnimationFrame(frameId);
-    }, [compressedSystems, viewport.width, viewport.height]);
+    }, [filteredSystems, viewport.width, viewport.height]);
 
     // Animate viewport to target
     const animateViewport = useCallback(
@@ -350,8 +373,8 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         style={{ backgroundColor: '#0a0e17' }}
       >
         <SimpleMapCanvas
-          systems={compressedSystems}
-          gates={gates}
+          systems={filteredSystems}
+          gates={filteredGates}
           viewport={viewport}
           onViewportChange={handleViewportChange}
           selectedSystem={selectedSystem}
@@ -464,23 +487,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
           />
         )}
 
-        {/* Landmarks */}
-        {layers.showLandmarks && landmarks.length > 0 && (
-          <LandmarksOverlay
-            landmarks={landmarks}
-            systems={systemMap}
-            viewport={viewport}
-          />
-        )}
-
-        {/* Market Hubs */}
-        {layers.showMarketHubs && marketHubs.length > 0 && (
-          <MarketHubsOverlay
-            hubs={marketHubs}
-            systems={systemMap}
-            viewport={viewport}
-          />
-        )}
+        {/* Landmarks and Market Hubs removed — low ROI */}
 
         {/* Character location marker */}
         {characterSystemId && characterName && (
@@ -502,7 +509,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
 
         {/* Minimap overview */}
         <Minimap
-          systems={compressedSystems}
+          systems={filteredSystems}
           viewport={viewport}
           onViewportChange={handleMinimapViewportChange}
           size={150}

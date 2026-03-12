@@ -585,12 +585,40 @@ async def _fetch_recent_killmails(character_id: int, limit: int = 15) -> list[di
         return []
 
 
-def _extract_fleet_companions(zkill_cached: dict) -> list[dict]:
-    """Extract fleet companions from cached zKill stats.
+async def _extract_fleet_companions_from_kills(
+    recent_kills: list[dict], exclude_id: int = 0
+) -> list[dict]:
+    """Extract fleet companions by aggregating attacker_ids from recent killmails.
 
-    Uses fleet_characters field populated during _fetch_zkill_stats.
+    Counts how often each character appears alongside the target pilot,
+    then resolves names via ESI. Excludes the target pilot themselves.
     """
-    return zkill_cached.get("fleet_characters", [])
+    from collections import Counter
+
+    companion_counts: Counter = Counter()
+    for kill in recent_kills:
+        for char_id in kill.get("attacker_ids", []):
+            if char_id and char_id != exclude_id:
+                companion_counts[char_id] += 1
+
+    if not companion_counts:
+        return []
+
+    # Top 10 by frequency
+    top = companion_counts.most_common(10)
+    top_ids = [cid for cid, _ in top]
+
+    # Resolve names
+    names = await _fetch_esi_names(top_ids, "character")
+
+    return [
+        {
+            "character_id": cid,
+            "name": names.get(cid, f"Unknown ({cid})"),
+            "kills": count,
+        }
+        for cid, count in top
+    ]
 
 
 def _build_activity_pattern(activity: dict) -> dict:
@@ -636,11 +664,10 @@ async def get_pilot_deep_dive(character_id: int) -> dict | None:
     if base is None:
         return None
 
-    # Extract fleet companions from zKill topLists (raw stats, not the filtered version)
-    # Re-fetch raw stats to get topLists
-    cache = await get_cache()
-    raw_zkill = await cache.get_json(f"pilot:zkill:{character_id}")
-    fleet_companions = _extract_fleet_companions(raw_zkill) if raw_zkill else []
+    # Extract fleet companions from killmail attacker lists
+    fleet_companions = await _extract_fleet_companions_from_kills(
+        recent_kills, exclude_id=character_id
+    )
 
     # Build activity pattern
     activity = zkill_data.get("activity", {}) if zkill_data else {}

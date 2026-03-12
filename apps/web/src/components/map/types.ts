@@ -94,6 +94,8 @@ export interface MapLayers {
   showActivity?: boolean;
   showWormholes?: boolean;
   showMarketHubs?: boolean;
+  showHighsec?: boolean;
+  showNullsec?: boolean;
 }
 
 // Region data for map labels
@@ -192,10 +194,10 @@ export const SECURITY_COLORS = {
 } as const;
 
 export const RISK_COLORS = {
-  green: '#32d74b',
-  yellow: '#ffd60a',
-  orange: '#ff9f0a',
-  red: '#ff453a',
+  green: '#06b6d4',   // cyan-500 — safe (contrasts with sec-status green)
+  yellow: '#a78bfa',  // violet-400 — caution
+  orange: '#e879f9',  // fuchsia-400 — danger
+  red: '#f43f5e',     // rose-500 — critical
 } as const;
 
 export function getSecurityColor(security: number): string {

@@ -468,17 +468,30 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.restore();
     }
 
-    // Draw system labels at zoom — Pochven-style clean text
+    // Draw system labels at zoom — progressive density
+    // At medium zoom (2.5-5): only show labels for notable systems (hubs, selected, hovered, highlighted)
+    // At high zoom (5+): show all labels
     if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
       const labelFontSize = Math.max(9, Math.min(11, 10 * (viewport.zoom / 3)));
       ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = 'center';
+
+      const showAllLabels = viewport.zoom >= 5;
 
       // Skip labels for systems that have sov structure overlays (rendered by SVG)
       const skipLabelSet = layers.showSovStructures && viewport.zoom >= 1.5 ? sovStructureSystems : undefined;
 
       for (const system of systems) {
         if (skipLabelSet?.has(system.systemId)) continue;
+
+        const isSelected = system.systemId === selectedSystem;
+        const isHovered = system.systemId === hoveredSystemId;
+        const isHighlighted = highlightedSet.has(system.systemId);
+        const isTradeHub = TRADE_HUBS.has(system.systemId);
+        const isNotable = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 3);
+
+        // At medium zoom, only show labels for notable/interacted systems
+        if (!showAllLabels && !isSelected && !isHovered && !isHighlighted && !isNotable) continue;
 
         const screen = worldToScreen(system.x, system.y);
         if (
@@ -487,9 +500,6 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
           screen.y < 0 ||
           screen.y > viewport.height
         ) continue;
-
-        const isSelected = system.systemId === selectedSystem;
-        const isHovered = system.systemId === hoveredSystemId;
 
         // Text shadow for readability
         ctx.fillStyle = '#000000';

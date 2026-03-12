@@ -369,7 +369,7 @@ describe('SovStructuresOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders two-row text block at high zoom', () => {
+  it('renders indicator dots at high zoom', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct()] }}
@@ -379,30 +379,12 @@ describe('SovStructuresOverlay', () => {
     );
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // 1 dark bg rect
-    const rects = svg!.querySelectorAll('rect');
-    expect(rects.length).toBe(1);
-    expect(rects[0]).toHaveAttribute('fill', 'rgba(0,0,0,0.85)');
-    // Row 1: system name, Row 2: ADM text
-    const texts = svg!.querySelectorAll('text');
-    expect(texts.length).toBe(2);
-    expect(texts[0]!.textContent).toBe('System-100');
-    expect(texts[1]!.textContent).toContain('ADM 4.0');
+    // ADM dot + invisible hit area = 2 circles per system
+    const circles = svg!.querySelectorAll('circle');
+    expect(circles.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('shows ADM with one decimal place', () => {
-    const { container } = render(
-      <SovStructuresOverlay
-        structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 3.7 })] }}
-        systems={SYSTEMS}
-        viewport={highZoom}
-      />
-    );
-    const texts = container.querySelectorAll('text');
-    expect(texts[1]!.textContent).toContain('ADM 3.7');
-  });
-
-  it('uses green color for high ADM text', () => {
+  it('uses green dot color for high ADM', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 5 })] }}
@@ -410,12 +392,12 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    // ADM tspan inside the second text element
-    const tspans = container.querySelectorAll('tspan');
-    expect(tspans[0]).toHaveAttribute('fill', '#86efac');
+    const circles = container.querySelectorAll('circle');
+    // First circle is the ADM indicator dot
+    expect(circles[0]).toHaveAttribute('fill', '#22c55e');
   });
 
-  it('uses red color for low ADM text', () => {
+  it('uses red dot color for low ADM', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 1 })] }}
@@ -423,11 +405,11 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const tspans = container.querySelectorAll('tspan');
-    expect(tspans[0]).toHaveAttribute('fill', '#fca5a5');
+    const circles = container.querySelectorAll('circle');
+    expect(circles[0]).toHaveAttribute('fill', '#ef4444');
   });
 
-  it('uses amber color for medium ADM text', () => {
+  it('uses yellow dot color for medium ADM', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ vulnerability_occupancy_level: 3 })] }}
@@ -435,8 +417,8 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    const tspans = container.querySelectorAll('tspan');
-    expect(tspans[0]).toHaveAttribute('fill', '#fcd34d');
+    const circles = container.querySelectorAll('circle');
+    expect(circles[0]).toHaveAttribute('fill', '#eab308');
   });
 
   it('renders nothing for empty structures', () => {
@@ -450,7 +432,7 @@ describe('SovStructuresOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders skyhook-only system', () => {
+  it('renders skyhook-only system with sky-blue dot', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct({ structure_type_id: 81826, vulnerability_occupancy_level: null })] }}
@@ -458,21 +440,14 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    // 1 bg rect
-    const rects = container.querySelectorAll('rect');
-    expect(rects.length).toBe(1);
-    expect(rects[0]).toHaveAttribute('fill', 'rgba(0,0,0,0.85)');
-    // Row 1: name, Row 2: "S"
-    const texts = container.querySelectorAll('text');
-    expect(texts.length).toBe(2);
-    expect(texts[0]!.textContent).toBe('System-100');
-    const tspans = container.querySelectorAll('tspan');
-    expect(tspans.length).toBe(1);
-    expect(tspans[0]).toHaveAttribute('fill', '#7dd3fc');
-    expect(tspans[0]!.textContent).toBe('S');
+    const circles = container.querySelectorAll('circle');
+    // ADM dot (gray for null) + skyhook dot + hit area
+    expect(circles.length).toBeGreaterThanOrEqual(3);
+    // Skyhook dot is the second circle
+    expect(circles[1]).toHaveAttribute('fill', '#7dd3fc');
   });
 
-  it('renders both ADM and skyhook in row 2', () => {
+  it('renders both ADM and skyhook dots', () => {
     const { container } = render(
       <SovStructuresOverlay
         structures={{ '100': [
@@ -483,32 +458,33 @@ describe('SovStructuresOverlay', () => {
         viewport={highZoom}
       />
     );
-    // 1 bg rect only
-    const rects = container.querySelectorAll('rect');
-    expect(rects.length).toBe(1);
-    // Row 1: name, Row 2: ADM + S
-    const texts = container.querySelectorAll('text');
-    expect(texts.length).toBe(2);
-    expect(texts[0]!.textContent).toBe('System-100');
-    // Row 2 contains both ADM and S tspans
-    const tspans = texts[1]!.querySelectorAll('tspan');
-    expect(tspans.length).toBeGreaterThanOrEqual(2);
-    expect(texts[1]!.textContent).toContain('ADM 5.0');
-    expect(texts[1]!.textContent).toContain('S');
+    const circles = container.querySelectorAll('circle');
+    // ADM dot + skyhook dot + hit area = 3
+    expect(circles.length).toBeGreaterThanOrEqual(3);
+    // ADM dot green
+    expect(circles[0]).toHaveAttribute('fill', '#22c55e');
+    // Skyhook dot sky-blue
+    expect(circles[1]).toHaveAttribute('fill', '#7dd3fc');
   });
 
-  it('increases font size when deeply zoomed', () => {
-    const { container } = render(
+  it('scales dot size with zoom', () => {
+    const { container: c1 } = render(
+      <SovStructuresOverlay
+        structures={{ '100': [makeStruct()] }}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 2 }}
+      />
+    );
+    const { container: c2 } = render(
       <SovStructuresOverlay
         structures={{ '100': [makeStruct()] }}
         systems={SYSTEMS}
         viewport={{ ...VIEWPORT, zoom: 4 }}
       />
     );
-    const text = container.querySelector('text');
-    expect(text).toBeTruthy();
-    // Base font 8, zoomed = 8 * 1.3 = 10.4 → rounded to 10
-    expect(Number(text!.getAttribute('font-size'))).toBeGreaterThan(8);
+    const r1 = Number(c1.querySelector('circle')!.getAttribute('r'));
+    const r2 = Number(c2.querySelector('circle')!.getAttribute('r'));
+    expect(r2).toBeGreaterThanOrEqual(r1);
   });
 });
 

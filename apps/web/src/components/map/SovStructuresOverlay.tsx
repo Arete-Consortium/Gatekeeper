@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import type { MapSystem, MapViewport } from './types';
 import type { SovStructure } from '@/lib/types';
 
@@ -25,26 +25,26 @@ function admColor(level: number | null): string {
   return '#86efac';
 }
 
+// ADM dot color (smaller version of the same scale)
+function admDotColor(level: number | null): string {
+  if (level === null || level === 0) return '#6b7280';
+  if (level <= 1) return '#ef4444';
+  if (level <= 2) return '#f97316';
+  if (level <= 3) return '#eab308';
+  if (level <= 4) return '#84cc16';
+  return '#22c55e';
+}
+
 const SKYHOOK_FG = '#7dd3fc';
-const BLOCK_BG = 'rgba(0,0,0,0.85)';
-const NAME_COLOR = '#e2e8f0'; // slate-200
 
 interface StructMarker {
   systemId: number;
   name: string;
   x: number;
   y: number;
-  offsetY: number;
   ihubAdm: number | null;
   hasTcu: boolean;
   hasSkyhook: boolean;
-}
-
-function rectsOverlap(
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
-): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
@@ -52,8 +52,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   systems,
   viewport,
 }: SovStructuresOverlayProps) {
-  const isMobile = viewport.width < 768;
-  const isZoomed = viewport.zoom >= 3;
+  const [hoveredSystem, setHoveredSystem] = useState<number | null>(null);
 
   const markers = useMemo(() => {
     if (viewport.zoom < 1.5) return [];
@@ -86,156 +85,101 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         }
       }
 
-      // Render block for any system with iHub or Skyhook (even if ADM is null)
       if (!hasIhub && !hasSkyhook) continue;
 
-      result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, offsetY: 0, ihubAdm, hasTcu, hasSkyhook });
-    }
-
-    // Collision avoidance: sort by x, then shift overlapping labels down
-    result.sort((a, b) => a.x - b.x);
-
-    // Estimated block dimensions for collision detection
-    // Use conservative char width estimate (~0.62em of larger font)
-    const estCharW = (isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0) * 0.62;
-    const estPadX = 4;
-    const estFontName = Math.round((isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0));
-    const estFontAdm = Math.round((isMobile ? 8 : 7) * (isZoomed ? 1.3 : 1.0));
-    const estLineH1 = estFontName + 3;
-    const estLineH2 = estFontAdm + 3;
-    const estPadY = 2;
-    const estRowGap = 1;
-    const estFullH = estPadY + estLineH1 + estRowGap + estLineH2 + estPadY;
-    const collisionGap = 2;
-
-    const estBlockOffsetX = 8; // must match blockOffsetX in render
-    const placed: { x: number; y: number; w: number; h: number }[] = [];
-
-    for (const m of result) {
-      const w = m.name.length * estCharW + estPadX * 2;
-      let curY = m.y - estFullH / 2 + m.offsetY;
-      const rect = { x: m.x + estBlockOffsetX, y: curY, w, h: estFullH };
-
-      // Shift down until no overlap
-      let maxAttempts = 10;
-      while (maxAttempts-- > 0) {
-        const hasOverlap = placed.some((p) => rectsOverlap(rect, p));
-        if (!hasOverlap) break;
-        rect.y += estFullH + collisionGap;
-      }
-
-      m.offsetY = rect.y - (m.y - estFullH / 2);
-      placed.push(rect);
+      result.push({ systemId: system.systemId, name: system.name, x: sx, y: sy, ihubAdm, hasTcu, hasSkyhook });
     }
 
     return result;
-  }, [structures, systems, viewport, isMobile, isZoomed]);
+  }, [structures, systems, viewport]);
+
+  const handleMouseEnter = useCallback((systemId: number) => {
+    setHoveredSystem(systemId);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredSystem(null);
+  }, []);
 
   if (markers.length === 0) return null;
 
-  // Font sizes: readable but compact
-  const baseFontName = isMobile ? 9 : 8;
-  const baseFontAdm = isMobile ? 8 : 7;
-  const fontScale = isZoomed ? 1.3 : 1.0;
-  const fontName = Math.round(baseFontName * fontScale);
-  const fontAdm = Math.round(baseFontAdm * fontScale);
-
-  // Layout constants
-  const lineH1 = fontName + 3; // row 1 height (name)
-  const lineH2 = fontAdm + 3;  // row 2 height (ADM)
-  const padX = 4;
-  const padY = 2;
-  const rowGap = 1;
-  const blockH = padY + lineH1 + rowGap + lineH2 + padY;
-  // Char width estimate for monospace (~0.6em)
-  const charW = fontName * 0.62;
-  const charWAdm = fontAdm * 0.62;
-
-  // Position: offset to the right of the system dot (not on top)
-  // Canvas labels are suppressed for sov systems, so this block replaces them
-  const blockOffsetX = 8; // pixels right of system center
-  const blockOffsetY = 0; // vertically centered on system
+  const dotRadius = Math.max(2, Math.min(4, 3 * (viewport.zoom / 2)));
+  const hoveredMarker = hoveredSystem ? markers.find((m) => m.systemId === hoveredSystem) : null;
 
   return (
-    <svg
-      className="absolute inset-0 pointer-events-none"
-      width={viewport.width}
-      height={viewport.height}
-      style={{ zIndex: 2 }}
-    >
-      {markers.map((m) => {
-        const hasAdm = m.ihubAdm !== null;
-        const hasSky = m.hasSkyhook;
-
-        // Build row 2 text parts (may be empty for iHub with null ADM)
-        const admText = hasAdm ? `ADM ${m.ihubAdm!.toFixed(1)}` : '';
-        const skyText = hasSky ? 'S' : '';
-        const row2Text = [admText, skyText].filter(Boolean).join('  ');
-        const hasRow2 = row2Text.length > 0;
-
-        // Calculate widths
-        const nameW = m.name.length * charW;
-        const row2W = hasRow2 ? row2Text.length * charWAdm : 0;
-        const contentW = Math.max(nameW, row2W);
-        const blockW = contentW + padX * 2;
-        const thisBlockH = hasRow2 ? blockH : padY + lineH1 + padY;
-
-        const bx = m.x + blockOffsetX;
-        const by = m.y - thisBlockH / 2 + m.offsetY;
-
-        // Text positions (vertically centered in each row)
-        const textX = bx + padX; // left-aligned inside block
-        const nameY = by + padY + lineH1 / 2 + fontName * 0.35;
-        const admY = by + padY + lineH1 + rowGap + lineH2 / 2 + fontAdm * 0.35;
-
-        return (
-          <g key={m.systemId}>
-            {/* Dark opaque background block */}
-            <rect
-              x={bx}
-              y={by}
-              width={blockW}
-              height={thisBlockH}
-              rx={3}
-              fill={BLOCK_BG}
-            />
-            {/* Row 1: System name */}
-            <text
-              x={textX}
-              y={nameY}
-              textAnchor="start"
-              fill={NAME_COLOR}
-              fontSize={fontName}
-              fontFamily="monospace"
-            >
-              {m.name}
-            </text>
-            {/* Row 2: ADM level + Skyhook (only if data exists) */}
-            {hasRow2 && (
-              <text
-                x={textX}
-                y={admY}
-                textAnchor="start"
-                fontSize={fontAdm}
-                fontFamily="monospace"
-              >
-                {hasAdm && (
-                  <tspan fill={admColor(m.ihubAdm)} fontWeight="bold">
-                    ADM {m.ihubAdm!.toFixed(1)}
-                  </tspan>
-                )}
-                {hasAdm && hasSky && (
-                  <tspan fill={NAME_COLOR}>{' '}</tspan>
-                )}
-                {hasSky && (
-                  <tspan fill={SKYHOOK_FG} fontWeight="bold">S</tspan>
-                )}
-              </text>
+    <>
+      <svg
+        className="absolute inset-0"
+        width={viewport.width}
+        height={viewport.height}
+        style={{ zIndex: 2, pointerEvents: 'none' }}
+      >
+        {markers.map((m) => {
+          const color = admDotColor(m.ihubAdm);
+          return (
+            <g key={m.systemId}>
+              {/* Small ADM indicator dot offset to upper-right of system */}
+              <circle
+                cx={m.x + 5}
+                cy={m.y - 5}
+                r={dotRadius}
+                fill={color}
+                opacity={0.9}
+              />
+              {/* Skyhook indicator — tiny sky-blue dot */}
+              {m.hasSkyhook && (
+                <circle
+                  cx={m.x + 5 + dotRadius * 2 + 1}
+                  cy={m.y - 5}
+                  r={dotRadius * 0.7}
+                  fill={SKYHOOK_FG}
+                  opacity={0.9}
+                />
+              )}
+              {/* Invisible hit area for hover */}
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r={Math.max(dotRadius + 6, 10)}
+                fill="transparent"
+                style={{ pointerEvents: 'all' }}
+                onMouseEnter={() => handleMouseEnter(m.systemId)}
+                onMouseLeave={handleMouseLeave}
+              />
+            </g>
+          );
+        })}
+      </svg>
+      {/* Hover tooltip with full ADM info */}
+      {hoveredMarker && (
+        <div
+          className="absolute pointer-events-none z-50"
+          style={{
+            left: hoveredMarker.x + 12,
+            top: hoveredMarker.y - 10,
+            transform: hoveredMarker.x > viewport.width - 200 ? 'translateX(calc(-100% - 24px))' : undefined,
+          }}
+        >
+          <div className="bg-gray-900/95 border border-gray-600 rounded px-2.5 py-1.5 text-xs shadow-lg backdrop-blur-sm whitespace-nowrap">
+            <div className="font-semibold text-slate-200 mb-1">{hoveredMarker.name}</div>
+            {hoveredMarker.ihubAdm !== null && (
+              <div style={{ color: admColor(hoveredMarker.ihubAdm) }} className="font-mono font-bold">
+                ADM {hoveredMarker.ihubAdm.toFixed(1)}
+              </div>
             )}
-          </g>
-        );
-      })}
-    </svg>
+            {hoveredMarker.ihubAdm === null && (
+              <div className="text-gray-500 font-mono">iHub (no ADM)</div>
+            )}
+            {hoveredMarker.hasTcu && (
+              <div className="text-gray-400">TCU</div>
+            )}
+            {hoveredMarker.hasSkyhook && (
+              <div style={{ color: SKYHOOK_FG }} className="font-bold">Skyhook</div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 });
 

@@ -570,8 +570,6 @@ function MapPageContent() {
           <ProToggle checked={layers.showActivity === true} onChange={(v) => updateLayer('showActivity', v)} label="System activity" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
-          <Toggle checked={layers.showLandmarks} onChange={(v) => updateLayer('showLandmarks', v)} label="Landmarks" />
-          <Toggle checked={layers.showMarketHubs === true} onChange={(v) => updateLayer('showMarketHubs', v)} label="Trade hubs" />
           <ProToggle checked={layers.showSovereignty === true} onChange={(v) => updateLayer('showSovereignty', v)} label="Alliance sovereignty" isPro={isPro} />
           <ProToggle checked={layers.showSovStructures} onChange={(v) => updateLayer('showSovStructures', v)} label="iHub ADM" isPro={isPro} />
           <div className="flex items-center gap-2">
@@ -579,6 +577,13 @@ function MapPageContent() {
             <span className="text-[10px] text-text-secondary italic">No public ESI endpoint</span>
           </div>
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
+        </div>
+
+        {/* Security filters */}
+        <div className="mt-3 pt-3 border-t border-border space-y-2.5">
+          <div className="text-xs font-medium text-text-secondary uppercase tracking-wide">Filter</div>
+          <Toggle checked={layers.showHighsec !== false} onChange={(v) => updateLayer('showHighsec', v)} label="Highsec systems" />
+          <Toggle checked={layers.showNullsec !== false} onChange={(v) => updateLayer('showNullsec', v)} label="Nullsec systems" />
         </div>
 
         {/* Intel controls — mobile only (desktop version in toolbar above) */}
