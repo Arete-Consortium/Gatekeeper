@@ -6,18 +6,18 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 2.0.0
-- **Backend**: Python 3.12 / FastAPI — 2,432 tests passing
-- **Frontend**: TypeScript / Next.js 16 / React 18 / TailwindCSS 3.4 — 557 tests passing
-- **Rendering**: Canvas2D (SimpleMapCanvas for universe map), Canvas2D (jump range map, Pochven map)
-- **Deployment**: Fly.io (backend) + Vercel (frontend)
+- **Version**: 1.4.0 (pyproject.toml)
+- **Backend**: Python 3.12 / FastAPI — 2,010 tests passing (95 test files)
+- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 29 test files (Vitest)
+- **Rendering**: Canvas2D subway-style maps (universe, FW, Pochven, route, jump range) + SVG overlays
+- **Deployment**: Fly.io (backend) + Vercel (frontend, auto-deploy on push to main)
 - **Domains**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
 - **Database**: PostgreSQL on Fly.io
-- **Billing**: Stripe (Pro $3/mo), checkout + portal + webhook lifecycle
+- **Billing**: Stripe (Pro $3/mo), direct checkout from account page + portal + webhook lifecycle
 - **Auth**: httpOnly cookie (`gk_session`) + Bearer token fallback, EVE SSO OAuth2
-- **PWA**: manifest.json, standalone mode, theme-color #0e7490
+- **PWA**: manifest.json, standalone mode, theme-color #0e7490, custom logo icons
 
-## Frontend Pages (18 routes)
+## Frontend Pages (19 routes)
 
 | Route | Purpose |
 |-------|---------|
@@ -26,7 +26,8 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 | `/route` | Multi-stop route planner — gate routing + jump drive mode (toggle) |
 | `/appraisal` | Bulk item appraisal — paste items, get buy/sell prices |
 | `/pochven` | Pochven subway map — 27 systems, 3 Krais, BFS pathfinding |
-| `/intel` | Live kill feed — hot systems table, sortable columns |
+| `/fw` | Faction warfare map — Canvas2D, faction-colored gates/systems |
+| `/intel` | Live kill feed — hot systems table, sortable columns, pilot deep-dive |
 | `/intel-parse` | Intel chat parser — paste local/intel → hostile highlights on map |
 | `/fleet` | Fleet composition analyzer — paste fleet comp → threat assessment |
 | `/market` | Market price ticker — ESI history, sortable table, green/red price changes |
@@ -37,17 +38,19 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 | `/settings` | App preferences (API URL override) |
 | `/login` | EVE SSO OAuth2 trigger |
 | `/auth/callback` | OAuth2 callback handler |
-| `/account` | Account management (billing portal) |
+| `/account` | Account management — direct subscribe button (non-Pro) or Stripe portal (Pro) |
+| `/admin` | Hidden admin dashboard — system health metrics |
 
 ## Frontend Architecture
 
 ```
 apps/web/src/
-├── app/              # Next.js App Router pages
+├── app/              # Next.js App Router pages (19 routes)
 ├── components/
-│   ├── map/          # UniverseMap (Canvas2D), overlays, controls, hooks
-│   │   ├── SimpleMapCanvas.tsx    # Main canvas renderer (5400 systems)
+│   ├── map/          # UniverseMap (Canvas2D), 11 SVG overlays, controls, hooks (39 files)
+│   │   ├── SimpleMapCanvas.tsx    # Main canvas renderer (5400 systems, subway-style)
 │   │   ├── UniverseMap.tsx        # Orchestrator — viewport, overlays, imperative ref
+│   │   ├── types.ts               # MapSystem, MapGate, MapViewport, getRegionColor(), getSecurityColor()
 │   │   ├── SovStructuresOverlay.tsx  # iHub ADM / Skyhook labels (SVG, collision-aware)
 │   │   ├── WormholeOverlay.tsx    # User-submitted wormhole connections (SVG)
 │   │   ├── CharacterMarker.tsx    # Real-time character location (SVG, pulsing)
@@ -59,20 +62,27 @@ apps/web/src/
 │   │   ├── RouteOverlay.tsx       # Route path highlight (SVG)
 │   │   ├── LandmarksOverlay.tsx   # SDE landmarks (SVG)
 │   │   ├── SkyhookHaloOverlay.tsx # Skyhook glow halos (SVG, sky-300)
+│   │   ├── SkyhookOverlay.tsx     # Skyhook structure markers (SVG)
+│   │   ├── ActivityOverlay.tsx    # System activity visualization (SVG)
+│   │   ├── MarketHubsOverlay.tsx  # Trade hub markers (SVG)
 │   │   ├── Minimap.tsx            # Overview minimap
 │   │   ├── RouteControls.tsx      # Route planner panel
 │   │   ├── SystemDetailPanel.tsx  # Selected system info
 │   │   ├── SystemSearch.tsx       # System name search
 │   │   └── SavedRoutes.tsx        # Bookmark management
-│   ├── route/        # RouteResult (with "Set In-Game Route"), JumpRangeMap, WaypointList
+│   ├── route/        # RouteResult, JumpRangeMap, RouteMap, JumpStrip, RouteStrip, WaypointList (10 files)
 │   ├── pochven/      # PochvenMap (Canvas2D subway map)
+│   ├── fw/           # FWMap (Canvas2D), FWSidebar, FWSystemDetail
 │   ├── fitting/      # FittingAnalyzer
+│   ├── fleet/        # FleetResult
 │   ├── alerts/       # AlertForm (region filter, ship type tags), AlertCard, RegionFilter
 │   ├── dashboard/    # LiveKillFeed (with PilotThreatCard + SystemSummaryCard popovers)
-│   ├── intel/        # PilotThreatCard (pinnable), PilotLookupTab, IntelFeed (pinned pilots), ThreatsTab (region filter)
+│   ├── intel/        # PilotDeepDive, PilotThreatCard, PilotLookupTab, IntelFeed, SystemSummaryCard, ThreatsTab
 │   ├── system/       # SystemCard, RiskBadge, SecurityBadge
-│   ├── layout/       # Navbar, Footer, StatusIndicator
-│   └── ui/           # Button, Card, Input, Select, Toggle, Badge, etc.
+│   ├── market/       # MarketTicker
+│   ├── characters/   # CharacterCard
+│   ├── layout/       # Navbar (logo from /icon-192.png), Footer, StatusIndicator
+│   └── ui/           # Button, Card, Input, Select, Toggle, Badge, Skeleton, etc. (14 files)
 ├── contexts/
 │   ├── AuthContext.tsx           # Cookie-first auth with localStorage fallback
 │   └── CookieConsentContext.tsx  # GDPR consent state
@@ -90,16 +100,31 @@ apps/web/src/
 - **State**: TanStack Query 5 for server state, React Context for auth + cookie consent
 - **SSR safety**: `dynamic(() => import(...), { ssr: false })` for canvas/WebSocket components
 - **Barrel import pitfall**: Never import canvas components from barrel `@/components/map` — import directly from specific files to avoid SSR module evaluation
-- **Map rendering**: Canvas2D (SimpleMapCanvas) for 5400-system universe map, SVG overlays on top
+- **Map rendering**: Canvas2D subway-style maps with region-colored intra-region gates, dashed cross-region gates, labels below nodes, text shadows
+- **Region coloring**: `getRegionColor(regionId)` in `map/types.ts` — golden ratio conjugate hash (`regionId * 137.508 % 360`) for even HSL hue distribution across ~68 regions
 - **Auth**: httpOnly cookie (`gk_session`) primary, localStorage JWT fallback, `useAuth()` hook, `isPro` gate
 - **Layer persistence**: Map layer toggles + color mode saved to `localStorage` (`gk_map_layers`, `gk_map_color_mode`)
 - **Character tracking**: TanStack Query polls `/character/location` every 10s when authenticated
-- **SVG overlay pattern**: All map overlays (Thera, wormholes, sov, kills, etc.) are SVG elements positioned absolutely over the canvas, using viewport transform `(system.x - viewport.x) * viewport.zoom + viewport.width / 2`
+- **SVG overlay pattern**: All map overlays are SVG elements positioned absolutely over the canvas, using viewport transform `(system.x - viewport.x) * viewport.zoom + viewport.width / 2`
 - **Canvas label suppression**: When SovStructuresOverlay renders for a system (iHub/Skyhook), SimpleMapCanvas skips its canvas label via `sovStructureSystems` Set prop
 - **Service worker**: `sw.js` — network-first for API/navigation, cache-first for static assets, registered in production only via `ServiceWorkerRegistration.tsx`
 - **Wormhole persistence**: PostgreSQL via `WormholeConnectionDB` model, write-through cache, hourly expired connection cleanup
-- **Pinned pilots**: `gk_pinned_pilots` localStorage key, cross-tab sync via `storage` event, shared `loadPinnedPilots()`/`savePinnedPilots()` in PilotLookupTab.tsx
-- **Map aesthetic**: Dark navy `#0a0e17` background (Pochven style) on main map and FW map canvas
+- **Pinning system**: Pilots, corps, alliances, systems pinnable via localStorage with cross-tab sync via `storage` event
+- **Map aesthetic**: Dark navy `#0a0e17` background, subway-style gates (region-colored intra, dashed `#334155` cross-region), labels below nodes with text shadow
+
+### localStorage Keys
+
+| Key | Purpose |
+|-----|---------|
+| `gk_consent` | GDPR cookie consent state (`{ analytics: boolean }`) |
+| `gk_map_color_mode` | Map coloring: "security" / "risk" / "star" |
+| `gk_map_layers` | Map layer toggles (JSON object) |
+| `gk_pinned_pilots` | Pinned pilot intelligence list |
+| `gk_pinned_corps` | Pinned corporation list |
+| `gk_pinned_alliances` | Pinned alliance list |
+| `gk_pinned_systems` | Pinned system list |
+| `gk_session_id` | Session ID fallback |
+| `gatekeeper_api_url` | Custom API URL override (settings page) |
 
 ### Map Layer Architecture
 
@@ -125,17 +150,27 @@ apps/web/src/
 
 - **Structure types**: iHub (32458), TCU (32226), Orbital Skyhook (81080), Metenox Moon Drill (81826)
 - **Rendering**: 2-row stacked text block — Row 1: system name, Row 2: ADM level + "S" for skyhook
-- **ADM colors**: red (≤1) → orange (≤2) → yellow (≤3) → lime (≤4) → green (≥5), gray for null
-- **Font scaling**: 30% increase at zoom ≥ 3
+- **ADM colors**: red (<=1) → orange (<=2) → yellow (<=3) → lime (<=4) → green (>=5), gray for null
+- **Font scaling**: 30% increase at zoom >= 3
 - **Collision avoidance**: Bounding box overlap detection, shifts labels down vertically
 - **Canvas suppression**: Systems with iHub or Skyhook get SVG label, canvas label suppressed. TCU-only systems keep canvas labels.
+
+### Intel System
+
+- **PilotThreatCard**: Quick threat display — threat level, K/D, flags, timezone, pinnable to kill feed
+- **PilotDeepDive**: Full dossier — fleet companions, 24h activity pattern, corp history, recent kills timeline, ship doctrine
+- **PilotLookupTab**: Autocomplete search + bulk fleet lookup with aggregate threat breakdown
+- **IntelFeed**: Live kill feed from WebSocket with pilot/system popovers
+- **SystemSummaryCard**: System-level intel popover with risk scoring
+- **ThreatsTab**: Region-filtered threat aggregation
+- **Pinning**: Pilots, corps, alliances pinnable from threat cards, stored in localStorage, synced cross-tab
 
 ## Backend Architecture
 
 ```
 backend/
 ├── app/
-│   ├── api/v1/       # FastAPI routers
+│   ├── api/v1/       # FastAPI routers (36 files)
 │   │   ├── auth.py         # EVE SSO OAuth2, JWT, httpOnly cookies, session endpoint
 │   │   ├── character.py    # ESI location, ship, waypoint, route-from-here
 │   │   ├── characters.py   # Multi-character management, preferences, avoid/watch lists
@@ -144,14 +179,14 @@ backend/
 │   │   ├── webhooks.py     # Webhook CRUD (duplicate of alerts, masks URLs)
 │   │   ├── wormholes.py    # Wormhole connection CRUD + WebSocket broadcast
 │   │   ├── map.py          # Route/region/constellation visualization
-│   │   ├── intel.py        # Kill aggregation, risk scoring
+│   │   ├── intel.py        # Kill aggregation, risk scoring, pilot deep-dive
 │   │   ├── billing.py      # Stripe checkout/portal/webhook
 │   │   ├── websocket.py    # /ws/killfeed + /ws/map real-time streams
 │   │   └── dependencies.py # Auth deps: LocationScope, WaypointScope, cookie+bearer
 │   ├── core/         # Config, security, pagination
 │   ├── models/       # Pydantic request/response models
 │   ├── db/           # SQLAlchemy models + Alembic migrations
-│   └── services/
+│   └── services/     # 41 service modules
 │       ├── routing.py        # Dijkstra with gate/bridge/Thera/Pochven/wormhole edges
 │       ├── jump_drive.py     # Capital jump planning — fuel, fatigue, range
 │       ├── pochven.py        # 27-system Pochven network
@@ -159,11 +194,19 @@ backend/
 │       ├── wormhole.py       # Wormhole connection management (in-memory + DB)
 │       ├── webhooks.py       # Discord/Slack webhook formatting + dispatch
 │       ├── zkill_listener.py # zKillboard RedisQ listener → kills + alerts
+│       ├── kill_history.py   # Rolling kill window (PostgreSQL persistence)
 │       ├── thera.py          # EVE-Scout API integration (5-min cache)
-│       ├── pilot_intel.py    # Pilot threat assessment (ESI + zKill stats)
+│       ├── pilot_intel.py    # Pilot threat assessment + deep-dive (ESI + zKill + corp history)
 │       ├── hotzone.py        # Hotzone detection with trend prediction
 │       ├── appraisal.py      # Fuzzwork API for Jita prices
-│       └── token_store.py    # Encrypted ESI token storage
+│       ├── stripe_service.py # Stripe billing (checkout, portal, webhooks)
+│       ├── token_store.py    # Encrypted ESI token storage
+│       ├── fw_cache.py       # Faction warfare ESI cache (5-min expiry)
+│       ├── market_hubs.py    # Live ESI market order counts
+│       ├── market_ticker.py  # Market history caching
+│       ├── risk_engine.py    # Risk calculation with zKillboard integration
+│       ├── ai_analyzer.py    # AI-powered route danger analysis
+│       └── ...               # 22 more (fitting, fleet, cache, redis, data_loader, etc.)
 ├── starmap/
 │   ├── sde/          # SDE data models + SQLite schema
 │   ├── esi/          # ESI client with rate limiting + token refresh
@@ -183,8 +226,19 @@ backend/
 - **zkill_listener.py**: zKillboard RedisQ → kill history + WebSocket broadcast + webhook dispatch
 - **kill_history.py**: Rolling kill window with **PostgreSQL persistence** — loads on startup, fire-and-forget writes, background cleanup
 - **wormhole.py**: User-submitted wormhole connections with mass/life tracking, automatic expiry
-- **pilot_intel.py**: Pilot threat assessment — ESI character info + zKill aggregate stats, threat level scoring, timezone inference, behavior flags (solo_hunter, capital_pilot, possible_cyno, gang_focus, recently_active)
+- **pilot_intel.py**: Pilot threat assessment + deep-dive — ESI character info + zKill stats, threat level scoring, timezone inference, behavior flags, fleet companions (from zKill topLists), corp history (ESI), recent kills, 24h activity pattern
 - **hotzone.py**: Hotzone detection — aggregates kill history with trend prediction (decay factor 0.7), gate camp detection (pod:kill ratio > 0.5)
+- **stripe_service.py**: Checkout session creation, billing portal, webhook processing
+- **fw_cache.py**: Faction warfare system data from ESI with 5-min cache
+
+### Intel API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/intel/pilot/{character_id}` | GET | Basic pilot threat assessment |
+| `/intel/pilot/{character_id}/deep-dive` | GET | Full dossier: companions, activity, corp history, recent kills |
+| `/intel/pilot/search` | GET | Autocomplete pilot name search |
+| `/intel/pilot/fleet-lookup` | POST | Bulk fleet threat assessment |
 
 ### Auth Flow
 
@@ -225,7 +279,7 @@ zKillboard RedisQ → zkill_listener._process_kill()
 
 ```bash
 # Backend
-python3 -m pytest tests/ -v --timeout=30
+source .venv/bin/activate && python3 -m pytest tests/ -x -q
 ruff check backend/ tests/ && ruff format backend/ tests/
 
 # Frontend
@@ -235,14 +289,13 @@ cd apps/web && npx next dev
 
 # Deploy
 /home/arete/.fly/bin/flyctl deploy --remote-only --wait-timeout 600 --app eve-gatekeeper
-cd apps/web && npx vercel --prod
-git push origin main  # also triggers Vercel auto-deploy
+git push origin main  # triggers Vercel auto-deploy
 
 # Fly secrets
 /home/arete/.fly/bin/flyctl secrets set KEY=VALUE --app eve-gatekeeper
 
 # Database migrations
-cd /home/arete/projects/EVE_Gatekeeper && alembic revision --autogenerate -m "description"
+cd backend && source ../.venv/bin/activate && alembic revision --autogenerate -m "description"
 alembic upgrade head
 ```
 
@@ -251,13 +304,13 @@ alembic upgrade head
 | Layer | Technology |
 |-------|-----------|
 | Backend framework | FastAPI |
-| Frontend framework | Next.js 16 (App Router) |
-| UI library | React 18 + TailwindCSS 3.4 |
-| Map rendering | Canvas2D + SVG overlays |
-| Server state | TanStack Query 5 |
-| Icons | Lucide React |
-| Testing (backend) | pytest (2432) |
-| Testing (frontend) | Vitest (557) |
+| Frontend framework | Next.js 16.1.6 (App Router) |
+| UI library | React 18.2.0 + TailwindCSS 3.4 |
+| Map rendering | Canvas2D (subway-style) + SVG overlays |
+| Server state | TanStack Query 5.28.0 |
+| Icons | Lucide React 0.363.0 |
+| Testing (backend) | pytest (2010 passing) |
+| Testing (frontend) | Vitest 4.0.18 + Playwright 1.58.0 |
 | Linting | ruff (Python), ESLint (TS) |
 | CI/CD | GitHub Actions |
 | Containerization | Docker (uvicorn) |
@@ -287,3 +340,4 @@ alembic upgrade head
 - Do NOT suppress canvas labels for TCU-only systems — only iHub (32458) and Orbital Skyhook (81080), Metenox Moon Drill (81826)
 - Do NOT render SVG overlay for systems with null ADM without a name-only fallback block
 - Do NOT forget `credentials: 'include'` on cross-origin fetch calls (cookie auth breaks)
+- Do NOT use `--timeout` flag with pytest (plugin not installed) — use `-x -q` for fast failure

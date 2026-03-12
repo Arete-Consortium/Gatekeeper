@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  Map,
   Globe,
   Route,
   Scale,
@@ -98,9 +97,7 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2" aria-label="EVE Gatekeeper home">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Map className="h-5 w-5 text-white" />
-            </div>
+            <img src="/icon-192.png" alt="EVE Gatekeeper" className="w-8 h-8 rounded-lg" />
             <span className="font-bold text-lg text-text hidden sm:block">
               EVE Gatekeeper
             </span>
