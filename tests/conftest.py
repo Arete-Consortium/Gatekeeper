@@ -188,9 +188,13 @@ def mock_risk_config() -> dict:
 def cleanup():
     """Clean up test resources after each test."""
     yield
-    # Cleanup code here if needed
-    import os
+    # Clear lru_cache singletons to prevent cross-test pollution
+    from backend.app.services.data_loader import load_risk_config, load_universe
 
+    load_universe.cache_clear()
+    load_risk_config.cache_clear()
+
+    # Clean up test database
     test_db = "./test_eve_gatekeeper.db"
     if os.path.exists(test_db):
         try:

@@ -6,9 +6,9 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 1.4.0 (pyproject.toml)
-- **Backend**: Python 3.12 / FastAPI — 2,010 tests passing (95 test files)
-- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 29 test files (Vitest)
+- **Version**: 2.0.0 (pyproject.toml)
+- **Backend**: Python 3.12 / FastAPI — 2,592 tests passing (97 test files)
+- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 30 test files, 576 tests (Vitest)
 - **Rendering**: Canvas2D subway-style maps (universe, FW, Pochven, route, jump range) + SVG overlays
 - **Deployment**: Fly.io (backend) + Vercel (frontend, auto-deploy on push to main)
 - **Domains**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
