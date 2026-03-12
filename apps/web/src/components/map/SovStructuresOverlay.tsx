@@ -99,7 +99,6 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
     // Use conservative char width estimate (~0.62em of larger font)
     const estCharW = (isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0) * 0.62;
     const estPadX = 4;
-    const estBlockOffsetY = 4;
     const estFontName = Math.round((isMobile ? 9 : 8) * (isZoomed ? 1.3 : 1.0));
     const estFontAdm = Math.round((isMobile ? 8 : 7) * (isZoomed ? 1.3 : 1.0));
     const estLineH1 = estFontName + 3;
@@ -109,12 +108,13 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
     const estFullH = estPadY + estLineH1 + estRowGap + estLineH2 + estPadY;
     const collisionGap = 2;
 
+    const estBlockOffsetX = 8; // must match blockOffsetX in render
     const placed: { x: number; y: number; w: number; h: number }[] = [];
 
     for (const m of result) {
       const w = m.name.length * estCharW + estPadX * 2;
-      let curY = m.y + estBlockOffsetY + m.offsetY;
-      const rect = { x: m.x - w / 2, y: curY, w, h: estFullH };
+      let curY = m.y - estFullH / 2 + m.offsetY;
+      const rect = { x: m.x + estBlockOffsetX, y: curY, w, h: estFullH };
 
       // Shift down until no overlap
       let maxAttempts = 10;
@@ -124,7 +124,7 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         rect.y += estFullH + collisionGap;
       }
 
-      m.offsetY = rect.y - (m.y + estBlockOffsetY);
+      m.offsetY = rect.y - (m.y - estFullH / 2);
       placed.push(rect);
     }
 
@@ -151,9 +151,10 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
   const charW = fontName * 0.62;
   const charWAdm = fontAdm * 0.62;
 
-  // Position: covers the canvas label area (canvas label is at ~y+11, 9px font)
+  // Position: offset to the right of the system dot (not on top)
   // Canvas labels are suppressed for sov systems, so this block replaces them
-  const blockOffsetY = 4;
+  const blockOffsetX = 8; // pixels right of system center
+  const blockOffsetY = 0; // vertically centered on system
 
   return (
     <svg
@@ -179,10 +180,11 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
         const blockW = contentW + padX * 2;
         const thisBlockH = hasRow2 ? blockH : padY + lineH1 + padY;
 
-        const bx = m.x - blockW / 2;
-        const by = m.y + blockOffsetY + m.offsetY;
+        const bx = m.x + blockOffsetX;
+        const by = m.y - thisBlockH / 2 + m.offsetY;
 
         // Text positions (vertically centered in each row)
+        const textX = bx + padX; // left-aligned inside block
         const nameY = by + padY + lineH1 / 2 + fontName * 0.35;
         const admY = by + padY + lineH1 + rowGap + lineH2 / 2 + fontAdm * 0.35;
 
@@ -199,9 +201,9 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
             />
             {/* Row 1: System name */}
             <text
-              x={m.x}
+              x={textX}
               y={nameY}
-              textAnchor="middle"
+              textAnchor="start"
               fill={NAME_COLOR}
               fontSize={fontName}
               fontFamily="monospace"
@@ -211,9 +213,9 @@ export const SovStructuresOverlay = React.memo(function SovStructuresOverlay({
             {/* Row 2: ADM level + Skyhook (only if data exists) */}
             {hasRow2 && (
               <text
-                x={m.x}
+                x={textX}
                 y={admY}
-                textAnchor="middle"
+                textAnchor="start"
                 fontSize={fontAdm}
                 fontFamily="monospace"
               >

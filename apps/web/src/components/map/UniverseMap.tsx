@@ -111,13 +111,50 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       [layersProp]
     );
 
+    // Compress inter-region distances by pulling regions 50% closer together
+    // while preserving intra-region layout
+    const compressedSystems = useMemo(() => {
+      if (systems.length === 0) return systems;
+
+      // Calculate region centroids
+      const regionSums = new Map<number, { sx: number; sy: number; count: number }>();
+      for (const s of systems) {
+        const acc = regionSums.get(s.regionId) || { sx: 0, sy: 0, count: 0 };
+        acc.sx += s.x;
+        acc.sy += s.y;
+        acc.count += 1;
+        regionSums.set(s.regionId, acc);
+      }
+      const regionCentroids = new Map<number, { cx: number; cy: number }>();
+      for (const [rid, { sx, sy, count }] of regionSums) {
+        regionCentroids.set(rid, { cx: sx / count, cy: sy / count });
+      }
+
+      // Global centroid (average of all region centroids)
+      let gcx = 0, gcy = 0;
+      for (const { cx, cy } of regionCentroids.values()) { gcx += cx; gcy += cy; }
+      gcx /= regionCentroids.size;
+      gcy /= regionCentroids.size;
+
+      // Compress: newPos = pos + (globalCenter - regionCenter) * (1 - factor)
+      // factor=0.5 means 50% compression of inter-region gaps
+      const factor = 0.5;
+      return systems.map((s) => {
+        const rc = regionCentroids.get(s.regionId);
+        if (!rc) return s;
+        const dx = (gcx - rc.cx) * (1 - factor);
+        const dy = (gcy - rc.cy) * (1 - factor);
+        return { ...s, x: s.x + dx, y: s.y + dy };
+      });
+    }, [systems]);
+
     // Build efficient data structures (systemMap used for panTo/fitToSystems)
-    const { systemMap } = useMapDataFromProps(systems, gates);
+    const { systemMap } = useMapDataFromProps(compressedSystems, gates);
 
     // Calculate region centers for labels
     const regions = useMemo(
-      () => calculateRegionCenters(systems, regionNames),
-      [systems, regionNames]
+      () => calculateRegionCenters(compressedSystems, regionNames),
+      [compressedSystems, regionNames]
     );
 
     // Viewport state
@@ -157,9 +194,9 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
     // Center on systems when they first load (deferred to avoid synchronous setState in effect)
     const initializedRef = useRef(false);
     useEffect(() => {
-      if (initializedRef.current || systems.length === 0 || viewport.width === 0) return;
+      if (initializedRef.current || compressedSystems.length === 0 || viewport.width === 0) return;
       initializedRef.current = true;
-      const fit = calculateFitZoom(systems, viewport.width, viewport.height);
+      const fit = calculateFitZoom(compressedSystems, viewport.width, viewport.height);
       const frameId = requestAnimationFrame(() => {
         setViewport((prev) => ({
           ...prev,
@@ -169,7 +206,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         }));
       });
       return () => cancelAnimationFrame(frameId);
-    }, [systems, viewport.width, viewport.height]);
+    }, [compressedSystems, viewport.width, viewport.height]);
 
     // Animate viewport to target
     const animateViewport = useCallback(
@@ -313,7 +350,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         style={{ backgroundColor: '#0a0e17' }}
       >
         <SimpleMapCanvas
-          systems={systems}
+          systems={compressedSystems}
           gates={gates}
           viewport={viewport}
           onViewportChange={handleViewportChange}
@@ -465,7 +502,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
 
         {/* Minimap overview */}
         <Minimap
-          systems={systems}
+          systems={compressedSystems}
           viewport={viewport}
           onViewportChange={handleMinimapViewportChange}
           size={150}
