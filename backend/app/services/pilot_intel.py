@@ -386,37 +386,41 @@ async def resolve_character_names(names: list[str]) -> dict[str, int]:
 
 
 async def search_systems(query: str) -> list[dict]:
-    """Search for system names via ESI search endpoint."""
-    url = "https://esi.evetech.net/latest/search/"
+    """Search for system names using local universe data.
+
+    Performs case-insensitive prefix match against all known systems.
+    Falls back to ESI /universe/ids/ for exact match if no local results.
+    """
+    from backend.app.services.data_loader import load_universe
+
+    query_lower = query.lower()
+    universe = load_universe()
+    systems = universe.get("systems", {})
+
+    # Local prefix search (fast, no API call)
+    results = []
+    for name, sys_data in systems.items():
+        if name.lower().startswith(query_lower):
+            results.append({"id": sys_data["id"], "name": name})
+        if len(results) >= 10:
+            break
+
+    if results:
+        return results
+
+    # Fallback: ESI /universe/ids/ for exact match
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            resp = await client.get(
-                url,
-                params={
-                    "categories": "solar_system",
-                    "search": query,
-                    "datasource": "tranquility",
-                    "strict": "false",
-                },
+            resp = await client.post(
+                "https://esi.evetech.net/latest/universe/ids/",
+                json=[query],
+                params={"datasource": "tranquility"},
             )
             resp.raise_for_status()
             data = resp.json()
-            system_ids = data.get("solar_system", [])[:10]
-
-            if not system_ids:
-                return []
-
-            names_resp = await client.post(
-                "https://esi.evetech.net/latest/universe/names/",
-                json=system_ids,
-                params={"datasource": "tranquility"},
-            )
-            names_resp.raise_for_status()
-            results = []
-            for entry in names_resp.json():
-                if entry.get("category") == "solar_system":
-                    results.append({"id": entry["id"], "name": entry["name"]})
-            return results
+            for sys in data.get("systems", []):
+                results.append({"id": sys["id"], "name": sys["name"]})
+            return results[:10]
     except Exception as e:
         logger.warning(f"System search failed: {e}")
         return []
@@ -426,40 +430,22 @@ async def search_characters(query: str) -> list[dict]:
     """Search for character names via ESI POST /universe/ids/.
 
     Returns list of {id, name} dicts for matching characters.
-    ESI /universe/ids/ does exact name match, so we also try the
-    ESI search endpoint for prefix matching.
+    ESI /universe/ids/ is a public endpoint (no auth) that does exact name
+    resolution. The deprecated /search/ endpoint required SSO auth.
     """
-    url = "https://esi.evetech.net/latest/search/"
+    url = "https://esi.evetech.net/latest/universe/ids/"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            resp = await client.get(
+            # /universe/ids/ accepts a list of name strings and resolves them
+            resp = await client.post(
                 url,
-                params={
-                    "categories": "character",
-                    "search": query,
-                    "datasource": "tranquility",
-                    "strict": "false",
-                },
+                json=[query],
+                params={"datasource": "tranquility"},
             )
             resp.raise_for_status()
             data = resp.json()
-            char_ids = data.get("character", [])[:10]
-
-            if not char_ids:
-                return []
-
-            # Resolve IDs to names
-            results = []
-            names_resp = await client.post(
-                "https://esi.evetech.net/latest/universe/names/",
-                json=char_ids,
-                params={"datasource": "tranquility"},
-            )
-            names_resp.raise_for_status()
-            for entry in names_resp.json():
-                if entry.get("category") == "character":
-                    results.append({"id": entry["id"], "name": entry["name"]})
-            return results
+            characters = data.get("characters", [])
+            return [{"id": c["id"], "name": c["name"]} for c in characters[:10]]
     except Exception as e:
         logger.warning(f"Character search failed: {e}")
         return []
