@@ -221,6 +221,7 @@ function MapPageContent() {
   });
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
+  const [flipRegion, setFlipRegion] = useState(false);
   const [showRoutePanel, setShowRoutePanel] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
@@ -335,22 +336,40 @@ function MapPageContent() {
     return systems.filter((s) => visibleIds.has(s.systemId));
   }, [systems, gates, selectedRegion]);
 
+  // Flip Y coordinates when region is selected and flip toggle is on
+  const displaySystems = useMemo(() => {
+    if (!flipRegion || !selectedRegion) return regionFilteredSystems;
+    // Calculate center Y of the region's systems
+    const regionSystems = regionFilteredSystems.filter((s) => s.regionId === selectedRegion);
+    if (regionSystems.length === 0) return regionFilteredSystems;
+    const sumY = regionSystems.reduce((acc, s) => acc + s.y, 0);
+    const centerY = sumY / regionSystems.length;
+    // Mirror all visible systems around that center Y
+    return regionFilteredSystems.map((s) => ({
+      ...s,
+      y: 2 * centerY - s.y,
+    }));
+  }, [regionFilteredSystems, flipRegion, selectedRegion]);
+
   const regionFilteredGates = useMemo(() => {
     if (!selectedRegion) return gates;
-    const visibleIds = new Set(regionFilteredSystems.map((s) => s.systemId));
+    const visibleIds = new Set(displaySystems.map((s) => s.systemId));
     return gates.filter((g) => visibleIds.has(g.fromSystemId) && visibleIds.has(g.toSystemId));
-  }, [gates, regionFilteredSystems, selectedRegion]);
+  }, [gates, displaySystems, selectedRegion]);
 
-  // Auto-fit viewport when region changes
+  // Auto-fit viewport when region or flip changes
   const prevRegionRef = useRef<number | null>(null);
+  const prevFlipRef = useRef(false);
   useEffect(() => {
-    if (selectedRegion === prevRegionRef.current) return;
+    const regionChanged = selectedRegion !== prevRegionRef.current;
+    const flipChanged = flipRegion !== prevFlipRef.current;
     prevRegionRef.current = selectedRegion;
-    if (selectedRegion && regionFilteredSystems.length > 0) {
-      const ids = regionFilteredSystems.map((s) => s.systemId);
+    prevFlipRef.current = flipRegion;
+    if ((regionChanged || flipChanged) && selectedRegion && displaySystems.length > 0) {
+      const ids = displaySystems.map((s) => s.systemId);
       requestAnimationFrame(() => mapRef.current?.fitToSystems(ids));
     }
-  }, [selectedRegion, regionFilteredSystems]);
+  }, [selectedRegion, displaySystems, flipRegion]);
 
   // Kill stream
   const { kills, isConnected: killsConnected } = useKillStream({
@@ -642,7 +661,7 @@ function MapPageContent() {
       >
         <select
           value={selectedRegion ?? ''}
-          onChange={(e) => setSelectedRegion(e.target.value ? Number(e.target.value) : null)}
+          onChange={(e) => { setSelectedRegion(e.target.value ? Number(e.target.value) : null); setFlipRegion(false); }}
           className="w-full px-2 py-1.5 bg-card border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">All Regions</option>
@@ -650,6 +669,20 @@ function MapPageContent() {
             <option key={r.id} value={r.id}>{r.name}</option>
           ))}
         </select>
+        {selectedRegion && (
+          <button
+            onClick={() => setFlipRegion((f) => !f)}
+            className={`mt-1.5 flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${flipRegion ? 'bg-primary/20 text-primary' : 'bg-card-hover text-text-secondary hover:text-text'}`}
+            title="Flip region vertically (180°)"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 3l0 18" strokeDasharray="2 2" opacity="0.4" />
+              <path d="M21 12l-4-4v3H11v2h6v3z" />
+              <path d="M3 12l4-4v3h6v2H7v3z" />
+            </svg>
+            Flip
+          </button>
+        )}
       </CollapsibleSection>
 
       {/* Layers — collapsible */}
@@ -1007,7 +1040,7 @@ function MapPageContent() {
             <>
               <UniverseMap
                 ref={mapRef}
-                systems={regionFilteredSystems}
+                systems={displaySystems}
                 gates={regionFilteredGates}
                 regionNames={regionNames}
                 routes={mapRoutes}
