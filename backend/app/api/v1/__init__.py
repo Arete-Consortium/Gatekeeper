@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from .admin import router as admin_router
 from .ai import router as ai_router
 from .alerts import router as alerts_router
 from .analytics import router as analytics_router
@@ -39,6 +40,7 @@ from .wormholes import router as wormholes_router
 
 router = APIRouter(prefix="/api/v1")
 
+router.include_router(admin_router)
 router.include_router(ai_router, prefix="/ai", tags=["ai"])
 router.include_router(alerts_router)
 router.include_router(avoidance_router, prefix="/avoidance", tags=["avoidance"])

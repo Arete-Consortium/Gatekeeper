@@ -710,6 +710,31 @@ function MapPageContent() {
         </div>
       </CollapsibleSection>
 
+      {/* System Detail Panel — replaces old inline info */}
+      {selectedSystem && (() => {
+        const system = systems.find((s) => s.systemId === selectedSystem);
+        if (!system) return null;
+        return (
+          <Card>
+            <SystemDetailPanel
+              system={system}
+              gates={gates}
+              systemMap={systemMap}
+              sovData={sovData}
+              fwData={isPro ? fwData?.fw_systems : undefined}
+              theraConnections={isPro ? theraData?.connections : undefined}
+              activityData={activityData}
+              kills={kills}
+              riskData={risks.find((r) => r.systemId === selectedSystem)}
+              onClose={() => setSelectedSystem(null)}
+              onSystemClick={handleSystemSelect}
+              onSetOrigin={handleSetRouteOrigin}
+              onSetDestination={handleSetRouteDestination}
+            />
+          </Card>
+        );
+      })()}
+
       {/* Color Mode — collapsible */}
       <CollapsibleSection
         title="Color Mode"
@@ -744,31 +769,6 @@ function MapPageContent() {
           }}
         />
       </CollapsibleSection>
-
-      {/* System Detail Panel — replaces old inline info */}
-      {selectedSystem && (() => {
-        const system = systems.find((s) => s.systemId === selectedSystem);
-        if (!system) return null;
-        return (
-          <Card>
-            <SystemDetailPanel
-              system={system}
-              gates={gates}
-              systemMap={systemMap}
-              sovData={sovData}
-              fwData={isPro ? fwData?.fw_systems : undefined}
-              theraConnections={isPro ? theraData?.connections : undefined}
-              activityData={activityData}
-              kills={kills}
-              riskData={risks.find((r) => r.systemId === selectedSystem)}
-              onClose={() => setSelectedSystem(null)}
-              onSystemClick={handleSystemSelect}
-              onSetOrigin={handleSetRouteOrigin}
-              onSetDestination={handleSetRouteDestination}
-            />
-          </Card>
-        );
-      })()}
 
       {/* Legend — collapsed by default */}
       <CollapsibleSection

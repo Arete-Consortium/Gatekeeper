@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     API_KEY_ENABLED: bool = False
     API_KEY: str | None = None
     SECRET_KEY: str = "change-me-in-production"
+    ADMIN_SECRET: str | None = None
 
     # Monitoring
     SENTRY_DSN: str | None = None

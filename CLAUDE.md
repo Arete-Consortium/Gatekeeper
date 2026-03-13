@@ -7,13 +7,14 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 ## Current State
 
 - **Version**: 2.0.0 (pyproject.toml)
-- **Backend**: Python 3.12 / FastAPI — 2,592 tests passing (97 test files)
-- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 30 test files, 576 tests (Vitest)
+- **Codebase**: 641 files across 6 languages, ~166K lines
+- **Backend**: Python 3.12 / FastAPI — 2,602 tests passing
+- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 575 tests (Vitest)
 - **Rendering**: Canvas2D subway-style maps (universe, FW, Pochven, route, jump range) + SVG overlays
 - **Deployment**: Fly.io (backend) + Vercel (frontend, auto-deploy on push to main)
-- **Domains**: gatekeeper.aretedriver.dev (frontend), eve-gatekeeper.fly.dev (API)
 - **Database**: PostgreSQL on Fly.io
-- **Billing**: Stripe (Pro $3/mo), direct checkout from account page + portal + webhook lifecycle
+- **Billing**: Stripe (Pro $3/mo), direct checkout from account page + portal + webhook lifecycle + admin comp grants
+- **Domains**: edengk.com (primary), gatekeeper.aretedriver.dev (alias)
 - **Auth**: httpOnly cookie (`gk_session`) + Bearer token fallback, EVE SSO OAuth2
 - **PWA**: manifest.json, standalone mode, theme-color #0e7490, custom logo icons
 
@@ -181,6 +182,7 @@ backend/
 │   │   ├── map.py          # Route/region/constellation visualization
 │   │   ├── intel.py        # Kill aggregation, risk scoring, pilot deep-dive
 │   │   ├── billing.py      # Stripe checkout/portal/webhook
+│   │   ├── admin.py        # Admin comp Pro grants/revokes (X-Admin-Secret auth)
 │   │   ├── websocket.py    # /ws/killfeed + /ws/map real-time streams
 │   │   └── dependencies.py # Auth deps: LocationScope, WaypointScope, cookie+bearer
 │   ├── core/         # Config, security, pagination
@@ -309,8 +311,8 @@ alembic upgrade head
 | Map rendering | Canvas2D (subway-style) + SVG overlays |
 | Server state | TanStack Query 5.28.0 |
 | Icons | Lucide React 0.363.0 |
-| Testing (backend) | pytest (2010 passing) |
-| Testing (frontend) | Vitest 4.0.18 + Playwright 1.58.0 |
+| Testing (backend) | pytest (2602 passing) |
+| Testing (frontend) | Vitest + Playwright |
 | Linting | ruff (Python), ESLint (TS) |
 | CI/CD | GitHub Actions |
 | Containerization | Docker (uvicorn) |
@@ -341,3 +343,20 @@ alembic upgrade head
 - Do NOT render SVG overlay for systems with null ADM without a name-only fallback block
 - Do NOT forget `credentials: 'include'` on cross-origin fetch calls (cookie auth breaks)
 - Do NOT use `--timeout` flag with pytest (plugin not installed) — use `-x -q` for fast failure
+- Do NOT commit secrets, API keys, or credentials
+- Do NOT skip writing tests for new code
+- Do NOT return raw dicts from endpoints — use Pydantic response models
+
+## Admin Comp System
+
+- **Endpoint**: `POST /api/v1/admin/grant-pro` / `POST /api/v1/admin/revoke-pro`
+- **Auth**: `X-Admin-Secret` header checked against `ADMIN_SECRET` env var
+- **Fields**: `User.comp_expires_at` (auto-expire), `User.comp_reason`
+- **Auto-downgrade**: `_get_subscription_tier()` in dependencies checks comp expiration on every auth'd request
+- **Safety**: Revoke refuses to touch users with active Stripe subscriptions
+
+## Outstanding Notes
+
+- zKill API puts stats at top level (`data.shipsDestroyed`), NOT nested under `data.info` — see `pilot_intel.py`
+- `apps/web/next-env.d.ts` is auto-generated — do NOT edit
+- MCP server entry point: `backend.app.mcp.server:main`

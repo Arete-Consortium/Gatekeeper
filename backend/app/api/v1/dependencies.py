@@ -41,14 +41,33 @@ class AuthenticatedCharacter(BaseModel):
 async def _get_subscription_tier(character_id: int, db: AsyncSession) -> str:
     """Look up subscription tier from the users table.
 
+    Checks comp expiration — if comp has expired and there's no Stripe
+    subscription, downgrades to free automatically.
+
     Returns "free" if the user doesn't exist or the DB isn't available.
     """
     try:
         result = await db.execute(
-            select(User.subscription_tier).where(User.character_id == character_id)
+            select(User).where(User.character_id == character_id)
         )
-        tier = result.scalar_one_or_none()
-        return tier or "free"
+        user = result.scalar_one_or_none()
+        if not user:
+            return "free"
+
+        # Check comp expiration
+        if (
+            user.subscription_tier == "pro"
+            and user.comp_expires_at
+            and not user.stripe_subscription_id
+            and datetime.now(UTC) >= user.comp_expires_at
+        ):
+            user.subscription_tier = "free"
+            user.comp_expires_at = None
+            user.comp_reason = None
+            await db.commit()
+            return "free"
+
+        return user.subscription_tier or "free"
     except Exception:
         return "free"
 
