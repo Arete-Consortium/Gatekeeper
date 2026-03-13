@@ -37,6 +37,12 @@ class TestComputeThreatLevel:
         assert _compute_threat_level({"kills": 0, "danger_ratio": 85, "solo_kills": 0}) == "moderate"
 
 
+def _make_zkill_activity(hourly_counts: dict[int, int]) -> dict:
+    """Wrap flat {hour: count} into zKill nested format {month: {hour: count}}."""
+    # Put all counts into month "0" to simulate zKill structure
+    return {"max": max(hourly_counts.values(), default=0), "0": {str(h): c for h, c in hourly_counts.items()}}
+
+
 class TestInferActiveTimezone:
     """Tests for timezone inference."""
 
@@ -46,21 +52,21 @@ class TestInferActiveTimezone:
 
     def test_ustz_afternoon(self):
         # Peak at UTC 18-23 → USTZ
-        activity = {str(h): 100 if 18 <= h <= 23 else 1 for h in range(24)}
-        assert _infer_active_timezone(activity) == "USTZ"
+        counts = {h: 100 if 18 <= h <= 23 else 1 for h in range(24)}
+        assert _infer_active_timezone(_make_zkill_activity(counts)) == "USTZ"
 
     def test_eutz_morning(self):
-        # Peak at UTC 6-11 → EUTZ (center ~9 → EUTZ maps to 0-5 center or wraps)
-        activity = {str(h): 100 if 0 <= h <= 5 else 1 for h in range(24)}
-        assert _infer_active_timezone(activity) == "EUTZ"
+        # Peak at UTC 0-5 → EUTZ
+        counts = {h: 100 if 0 <= h <= 5 else 1 for h in range(24)}
+        assert _infer_active_timezone(_make_zkill_activity(counts)) == "EUTZ"
 
     def test_autz_midday(self):
         # Peak at UTC 6-11 → center ~9 → AUTZ
-        activity = {str(h): 100 if 6 <= h <= 11 else 1 for h in range(24)}
-        assert _infer_active_timezone(activity) == "AUTZ"
+        counts = {h: 100 if 6 <= h <= 11 else 1 for h in range(24)}
+        assert _infer_active_timezone(_make_zkill_activity(counts)) == "AUTZ"
 
     def test_handles_non_numeric_keys(self):
-        activity = {"abc": 100, "def": 200}
+        activity = {"abc": {"x": 100}, "def": {"y": 200}}
         assert _infer_active_timezone(activity) is None
 
 

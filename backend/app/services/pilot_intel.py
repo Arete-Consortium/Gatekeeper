@@ -267,13 +267,19 @@ def _infer_active_timezone(activity: dict) -> str | None:
     if not activity:
         return None
 
-    # activity is a dict like {"0": count, "1": count, ...} for UTC hours
-    hour_counts = {}
-    for hour_str, count in activity.items():
-        try:
-            hour_counts[int(hour_str)] = count
-        except (ValueError, TypeError):
-            continue
+    # zKill activity: {"max": N, "0": {"hour": count, ...}, "1": {...}, ...}
+    # Keys are months (0-11), values are dicts of {hour_str: kill_count}.
+    # Aggregate across all months to get total kills per hour.
+    hour_counts: dict[int, int] = {}
+    for month_key, month_data in activity.items():
+        if not isinstance(month_data, dict):
+            continue  # skip "max" and other scalar fields
+        for hour_str, count in month_data.items():
+            try:
+                hour = int(hour_str)
+                hour_counts[hour] = hour_counts.get(hour, 0) + int(count)
+            except (ValueError, TypeError):
+                continue
 
     if not hour_counts:
         return None
@@ -643,13 +649,21 @@ async def _extract_fleet_companions_from_kills(
 
 
 def _build_activity_pattern(activity: dict) -> dict:
-    """Build structured activity pattern from zKill activity hours."""
-    hourly = {}
-    for hour_str, count in activity.items():
-        try:
-            hourly[int(hour_str)] = count
-        except (ValueError, TypeError):
+    """Build structured activity pattern from zKill activity hours.
+
+    zKill format: {"max": N, "0": {"hour": count}, "1": {...}, ...}
+    Keys are months (0-11), values are dicts of {hour_str: kill_count}.
+    """
+    hourly: dict[int, int] = {}
+    for month_key, month_data in activity.items():
+        if not isinstance(month_data, dict):
             continue
+        for hour_str, count in month_data.items():
+            try:
+                hour = int(hour_str)
+                hourly[hour] = hourly.get(hour, 0) + int(count)
+            except (ValueError, TypeError):
+                continue
 
     # Day-of-week buckets (not available from zKill stats, return hourly only)
     peak_hours = sorted(hourly.keys(), key=lambda h: hourly.get(h, 0), reverse=True)[:6]
