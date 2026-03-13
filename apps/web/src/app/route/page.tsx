@@ -3,7 +3,7 @@
 import { Suspense, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMultiRoute } from '@/hooks';
-import { Card, Button, Toggle } from '@/components/ui';
+import { Card, Button, Toggle, Skeleton } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { RouteResult, WaypointList, generateWaypointId } from '@/components/route';
 import type { Waypoint } from '@/components/route';
@@ -424,6 +424,26 @@ function RoutePageContent() {
         />
       )}
 
+      {/* Route loading skeleton */}
+      {!capitalMode && isLoading && (
+        <Card className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <Skeleton variant="rectangular" className="h-8 w-32" />
+            <Skeleton variant="text" className="h-5 w-48" />
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} variant="rectangular" className="h-16" />
+            ))}
+          </div>
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} variant="text" className="h-8" />
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Gate route results */}
       {!capitalMode && route && <RouteResult route={route} />}
 
@@ -618,8 +638,13 @@ export default function RoutePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-text-secondary" />
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+          <Skeleton variant="rectangular" className="h-12 w-64" />
+          <Card className="p-4 space-y-3">
+            <Skeleton variant="text" className="h-10 w-full" />
+            <Skeleton variant="text" className="h-10 w-full" />
+            <Skeleton variant="rectangular" className="h-10 w-40" />
+          </Card>
         </div>
       }
     >

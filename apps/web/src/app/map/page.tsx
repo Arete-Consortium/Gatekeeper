@@ -185,6 +185,7 @@ export default function MapPage() {
 function MapPageContent() {
   const { isPro, user } = useAuth();
   const mapRef = useRef<UniverseMapRef>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const [linkCopied, setLinkCopied] = useState(false);
@@ -516,6 +517,34 @@ function MapPageContent() {
     }
   }, []);
 
+  // Desktop: capture wheel events on the entire page container so scrolling
+  // anywhere (toolbar, sidebar, gaps) zooms the map instead of scrolling the page.
+  // Skipped on touch devices — they use pinch-to-zoom on the canvas directly.
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    if (isTouchDevice) return;
+
+    const handlePageWheel = (e: WheelEvent) => {
+      // Don't hijack scroll inside the sidebar (it has its own overflow-y-auto)
+      const target = e.target as HTMLElement;
+      if (target.closest('aside') || target.closest('[data-scroll-container]')) return;
+
+      e.preventDefault();
+      const viewport = mapRef.current?.getViewport();
+      if (!viewport) return;
+
+      const zoomDelta = -e.deltaY * 0.001;
+      const zoomFactor = Math.pow(2, zoomDelta);
+      const newZoom = Math.max(0.1, Math.min(20, viewport.zoom * zoomFactor));
+      mapRef.current?.setViewport({ zoom: newZoom });
+    };
+
+    page.addEventListener('wheel', handlePageWheel, { passive: false });
+    return () => page.removeEventListener('wheel', handlePageWheel);
+  }, []);
+
   const handleSystemSelect = useCallback((systemId: number) => {
     setSelectedSystem(systemId);
     mapRef.current?.panTo(systemId);
@@ -826,7 +855,7 @@ function MapPageContent() {
   );
 
   return (
-    <div className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col lg:flex-row gap-4">
+    <div ref={pageRef} className="-mx-4 -mb-6 sm:mx-0 sm:mb-0 h-[calc(100vh-theme(spacing.16)-theme(spacing.6))] sm:h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] flex flex-col lg:flex-row gap-4">
       {/* Left Column: toolbar + map (aligned edges) */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {/* Single toolbar row — title, search, controls, intel */}

@@ -188,10 +188,16 @@ export function PilotThreatCard({ characterId, onClose, onPin, isPinned, onPinCo
           <span className={`text-xs font-bold uppercase tracking-wider ${threatColor}`}>
             {pilot.threat_level} threat
           </span>
-          {pilot.active_timezone && (
+          {(pilot.active_timezone || (pilot.activity_pattern?.peak_hours?.length ?? 0) > 0) && (
             <span className="text-[10px] text-text-secondary ml-auto flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {pilot.active_timezone}
+              {pilot.active_timezone && <span>{pilot.active_timezone}</span>}
+              {pilot.activity_pattern?.peak_hours && pilot.activity_pattern.peak_hours.length > 0 && (
+                <span className="text-text-secondary/80" title={`Peak hours: ${pilot.activity_pattern.peak_hours.map(h => `${h.toString().padStart(2, '0')}:00`).join(', ')}`}>
+                  ({pilot.activity_pattern.peak_hours.slice(0, 3).map(h => `${h.toString().padStart(2, '0')}:00`).join(', ')}
+                  {pilot.activity_pattern.peak_hours.length > 3 ? ' +more' : ''})
+                </span>
+              )}
             </span>
           )}
         </div>

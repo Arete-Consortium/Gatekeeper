@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GatekeeperAPI } from '@/lib/api';
-import type { RouteResponse, RouteProfile, System } from '@/lib/types';
+import type { RouteResponse, RouteProfile } from '@/lib/types';
 import type { MapRoute, MapSystem } from './types';
 
 /**
@@ -27,8 +27,6 @@ export interface RouteComparison {
 export interface UseMapRouteOptions {
   /** System lookup map for converting IDs to names */
   systems?: Map<number, MapSystem>;
-  /** System data from API for name lookups */
-  systemData?: System[];
   /** Whether to auto-compare all profiles */
   compareProfiles?: boolean;
   /** Include jump bridges in route calculation */
@@ -110,7 +108,6 @@ const PROFILE_COLORS: Record<RouteProfile, string> = {
 export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult {
   const {
     systems,
-    systemData,
     compareProfiles = false,
     bridges: defaultBridges = false,
     thera: defaultThera = false,
@@ -136,15 +133,8 @@ export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult
       });
     }
 
-    // From systemData array (API System format)
-    if (systemData) {
-      for (const sys of systemData) {
-        lookup.set(sys.system_id, sys.name);
-      }
-    }
-
     return lookup;
-  }, [systems, systemData]);
+  }, [systems]);
 
   // Get system name helper
   const getSystemName = useCallback(
@@ -265,14 +255,8 @@ export function useMapRoute(options: UseMapRouteOptions = {}): UseMapRouteResult
       });
     }
 
-    if (systemData) {
-      for (const sys of systemData) {
-        lookup.set(sys.name, sys.system_id);
-      }
-    }
-
     return lookup;
-  }, [systems, systemData]);
+  }, [systems]);
 
   // Convert route response to MapRoute format
   const routeToMapRoute = useCallback(

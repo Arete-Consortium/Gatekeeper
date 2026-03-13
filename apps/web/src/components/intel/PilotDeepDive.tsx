@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
 import type { PilotDeepDiveStats } from '@/lib/types';
 import { X, Loader2, Shield, Users, Clock, Building, Crosshair, TrendingUp, Skull, ArrowLeft } from 'lucide-react';
+import { Skeleton } from '@/components/ui';
 
 interface PilotDeepDiveProps {
   characterId: number;
@@ -99,9 +100,39 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
 
   if (loading) {
     return (
-      <div className="bg-gray-900/95 border border-gray-700 rounded-lg p-8 text-center">
-        <Loader2 className="h-6 w-6 animate-spin text-text-secondary mx-auto mb-2" />
-        <p className="text-text-secondary text-sm">Loading deep-dive intel...</p>
+      <div className="bg-gray-900/95 border border-gray-700 rounded-lg overflow-hidden">
+        {/* Header skeleton */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-700">
+          <Skeleton variant="circular" className="h-12 w-12" />
+          <div className="flex-1 space-y-2">
+            <Skeleton variant="text" className="h-5 w-40" />
+            <Skeleton variant="text" className="h-3 w-56" />
+          </div>
+        </div>
+        {/* Stats skeleton */}
+        <div className="px-4 py-3 grid grid-cols-4 gap-3 border-b border-gray-700">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="text-center space-y-1">
+              <Skeleton variant="text" className="h-3 w-12 mx-auto" />
+              <Skeleton variant="text" className="h-5 w-16 mx-auto" />
+            </div>
+          ))}
+        </div>
+        {/* Activity chart skeleton */}
+        <div className="px-4 py-3 border-b border-gray-700">
+          <Skeleton variant="text" className="h-3 w-32 mb-2" />
+          <div className="flex items-end gap-px h-16">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <Skeleton key={i} variant="rectangular" className="flex-1" height={`${20 + Math.random() * 80}%`} />
+            ))}
+          </div>
+        </div>
+        {/* Content skeleton */}
+        <div className="px-4 py-3 space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} variant="text" className="h-4" style={{ width: `${70 + Math.random() * 30}%` }} />
+          ))}
+        </div>
       </div>
     );
   }
