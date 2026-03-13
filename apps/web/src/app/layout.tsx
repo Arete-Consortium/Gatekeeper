@@ -23,21 +23,23 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Gatekeeper - Intel & Route Planning for EVE Online',
     description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
-    url: 'https://gatekeeper.aretedriver.dev',
+    url: 'https://edengk.com',
     siteName: 'Gatekeeper',
     type: 'website',
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'Gatekeeper' }],
   },
   twitter: {
     card: 'summary',
     title: 'Gatekeeper',
     description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
+    images: ['/icon-512.png'],
   },
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
-  metadataBase: new URL('https://gatekeeper.aretedriver.dev'),
+  metadataBase: new URL('https://edengk.com'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

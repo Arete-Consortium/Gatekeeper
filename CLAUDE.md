@@ -6,7 +6,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 2.0.0 (pyproject.toml)
+- **Version**: 2.1.0 (pyproject.toml)
 - **Codebase**: 641 files across 6 languages, ~166K lines
 - **Backend**: Python 3.12 / FastAPI — 2,602 tests passing
 - **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 575 tests (Vitest)

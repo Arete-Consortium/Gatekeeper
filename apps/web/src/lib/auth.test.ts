@@ -169,7 +169,8 @@ describe('auth utilities', () => {
     it('uses stored API URL', () => {
       mockGetItem.mockReturnValueOnce('https://my-api.example.com');
       const url = getLoginUrl();
-      expect(url).toBe('https://my-api.example.com/api/v1/auth/login/redirect');
+      expect(url).toContain('https://my-api.example.com/api/v1/auth/login/redirect');
+      expect(url).toContain('frontend_origin=');
     });
   });
 });
