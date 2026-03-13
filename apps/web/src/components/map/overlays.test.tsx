@@ -113,11 +113,9 @@ describe('SovereigntyOverlay', () => {
 describe('TheraOverlay', () => {
   const makeConnection = (overrides: Partial<TheraConnection> = {}): TheraConnection => ({
     id: 1,
-    source_system_id: 100,
-    source_system_name: 'Jita',
-    dest_system_id: 200,
-    dest_system_name: 'Thera',
-    dest_region_name: 'G-R00031',
+    system_id: 100,
+    system_name: 'Jita',
+    region_name: 'The Forge',
     wh_type: 'Q003',
     max_ship_size: 'medium',
     remaining_hours: 12,
@@ -144,7 +142,7 @@ describe('TheraOverlay', () => {
     expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('renders line and endpoint markers for valid connection', () => {
+  it('renders marker for valid connection', () => {
     const { container } = render(
       <TheraOverlay
         connections={[makeConnection()]}
@@ -154,14 +152,12 @@ describe('TheraOverlay', () => {
     );
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // Main line + glow line = 2 lines, 2 endpoint circles
-    const lines = svg!.querySelectorAll('line');
-    expect(lines.length).toBe(2);
+    // Pulsing ring + inner dot = 2 circles, "T" text + label text
     const circles = svg!.querySelectorAll('circle');
     expect(circles.length).toBe(2);
   });
 
-  it('shows hours label at high zoom', () => {
+  it('shows Thera label at sufficient zoom', () => {
     const { container } = render(
       <TheraOverlay
         connections={[makeConnection({ remaining_hours: 8 })]}
@@ -169,12 +165,14 @@ describe('TheraOverlay', () => {
         viewport={{ ...VIEWPORT, zoom: 2 }}
       />
     );
-    const text = container.querySelector('text');
-    expect(text).toBeTruthy();
-    expect(text!.textContent).toBe('8h');
+    const texts = container.querySelectorAll('text');
+    // "T" marker + "Thera (8h)" label
+    expect(texts.length).toBe(2);
+    expect(texts[1]!.textContent).toContain('Thera');
+    expect(texts[1]!.textContent).toContain('8h');
   });
 
-  it('hides hours label at low zoom', () => {
+  it('hides label at low zoom', () => {
     const { container } = render(
       <TheraOverlay
         connections={[makeConnection()]}
@@ -182,8 +180,9 @@ describe('TheraOverlay', () => {
         viewport={{ ...VIEWPORT, zoom: 0.5 }}
       />
     );
-    const text = container.querySelector('text');
-    expect(text).toBeNull();
+    const texts = container.querySelectorAll('text');
+    // Only "T" marker, no label
+    expect(texts.length).toBe(1);
   });
 });
 

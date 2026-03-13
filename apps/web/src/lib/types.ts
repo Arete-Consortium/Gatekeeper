@@ -202,11 +202,9 @@ export interface SovStructuresResponse {
 // EVE Scout Thera connection
 export interface TheraConnection {
   id: number;
-  source_system_id: number;
-  source_system_name: string;
-  dest_system_id: number;
-  dest_system_name: string;
-  dest_region_name: string;
+  system_id: number;
+  system_name: string;
+  region_name: string;
   wh_type: string;
   max_ship_size: string;
   remaining_hours: number;

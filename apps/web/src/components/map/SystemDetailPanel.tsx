@@ -94,7 +94,7 @@ export function SystemDetailPanel({
 
   // Thera connections
   const theraHere = theraConnections?.filter(
-    (c) => c.completed && (c.source_system_id === system.systemId || c.dest_system_id === system.systemId)
+    (c) => c.completed && c.system_id === system.systemId
   ) ?? [];
 
   // Incursions affecting this system

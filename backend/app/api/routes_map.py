@@ -213,16 +213,32 @@ async def get_thera_connections() -> dict:
             logger.exception("Failed to fetch EVE Scout data")
             raise HTTPException(503, "EVE Scout data unavailable") from None
 
+    THERA_ID = 31000005
     result = []
     for conn in connections:
+        out_id = conn.get("out_system_id")
+        in_id = conn.get("in_system_id")
+
+        # Only include connections involving Thera
+        if out_id != THERA_ID and in_id != THERA_ID:
+            continue
+
+        # Determine which end is the k-space system
+        if out_id == THERA_ID:
+            kspace_id = in_id
+            kspace_name = conn.get("in_system_name")
+            region_name = conn.get("in_region_name")
+        else:
+            kspace_id = out_id
+            kspace_name = conn.get("out_system_name")
+            region_name = conn.get("out_region_name")
+
         result.append(
             {
                 "id": conn.get("id"),
-                "source_system_id": conn.get("out_system_id"),
-                "source_system_name": conn.get("out_system_name"),
-                "dest_system_id": conn.get("in_system_id"),
-                "dest_system_name": conn.get("in_system_name"),
-                "dest_region_name": conn.get("in_region_name"),
+                "system_id": kspace_id,
+                "system_name": kspace_name,
+                "region_name": region_name,
                 "wh_type": conn.get("wh_type"),
                 "max_ship_size": conn.get("max_ship_size"),
                 "remaining_hours": conn.get("remaining_hours"),

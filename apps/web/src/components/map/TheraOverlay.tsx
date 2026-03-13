@@ -15,39 +15,37 @@ export const TheraOverlay = React.memo(function TheraOverlay({
   systems,
   viewport,
 }: TheraOverlayProps) {
-  const lines = useMemo(() => {
+  const markers = useMemo(() => {
     const result: Array<{
       id: number;
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      label: string;
+      x: number;
+      y: number;
+      systemName: string;
+      regionName: string;
+      whType: string;
+      maxShipSize: string;
       hours: number;
     }> = [];
 
     for (const conn of connections) {
-      if (!conn.completed) continue; // Only show verified connections
+      if (!conn.completed) continue;
 
-      const source = systems.get(conn.source_system_id);
-      const dest = systems.get(conn.dest_system_id);
-      if (!source || !dest) continue;
+      const system = systems.get(conn.system_id);
+      if (!system) continue;
 
-      const x1 = (source.x - viewport.x) * viewport.zoom + viewport.width / 2;
-      const y1 = (source.y - viewport.y) * viewport.zoom + viewport.height / 2;
-      const x2 = (dest.x - viewport.x) * viewport.zoom + viewport.width / 2;
-      const y2 = (dest.y - viewport.y) * viewport.zoom + viewport.height / 2;
+      const x = (system.x - viewport.x) * viewport.zoom + viewport.width / 2;
+      const y = (system.y - viewport.y) * viewport.zoom + viewport.height / 2;
 
-      // Skip if both endpoints off screen
-      if (
-        (x1 < -50 || x1 > viewport.width + 50) &&
-        (x2 < -50 || x2 > viewport.width + 50)
-      ) continue;
+      // Skip if off screen
+      if (x < -50 || x > viewport.width + 50 || y < -50 || y > viewport.height + 50) continue;
 
       result.push({
         id: conn.id,
-        x1, y1, x2, y2,
-        label: `${conn.source_system_name} → ${conn.dest_system_name}`,
+        x, y,
+        systemName: conn.system_name,
+        regionName: conn.region_name,
+        whType: conn.wh_type,
+        maxShipSize: conn.max_ship_size,
         hours: conn.remaining_hours,
       });
     }
@@ -55,7 +53,7 @@ export const TheraOverlay = React.memo(function TheraOverlay({
     return result;
   }, [connections, systems, viewport]);
 
-  if (lines.length === 0) return null;
+  if (markers.length === 0) return null;
 
   return (
     <svg
@@ -66,51 +64,70 @@ export const TheraOverlay = React.memo(function TheraOverlay({
     >
       <defs>
         <filter id="thera-glow">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feGaussianBlur stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      {lines.map((line) => (
-        <g key={line.id}>
-          {/* Glow line */}
-          <line
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            stroke="#00e5ff"
-            strokeWidth={2}
-            opacity={0.4}
-            filter="url(#thera-glow)"
-          />
-          {/* Main line */}
-          <line
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
+      {markers.map((marker) => (
+        <g key={marker.id}>
+          {/* Outer pulsing ring */}
+          <circle
+            cx={marker.x}
+            cy={marker.y}
+            r={10}
+            fill="none"
             stroke="#00e5ff"
             strokeWidth={1.5}
-            strokeDasharray="6 4"
+            opacity={0.3}
+            filter="url(#thera-glow)"
+          >
+            <animate
+              attributeName="r"
+              values="8;14;8"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="opacity"
+              values="0.4;0.1;0.4"
+              dur="2s"
+              repeatCount="indefinite"
+            />
+          </circle>
+          {/* Inner dot */}
+          <circle
+            cx={marker.x}
+            cy={marker.y}
+            r={5}
+            fill="#00e5ff"
             opacity={0.8}
+            filter="url(#thera-glow)"
           />
-          {/* Endpoint markers */}
-          <circle cx={line.x1} cy={line.y1} r={4} fill="#00e5ff" opacity={0.8} />
-          <circle cx={line.x2} cy={line.y2} r={4} fill="#00e5ff" opacity={0.8} />
-          {/* Label at midpoint */}
-          {viewport.zoom > 1 && (
+          {/* "T" marker */}
+          <text
+            x={marker.x}
+            y={marker.y + 3.5}
+            textAnchor="middle"
+            fill="#0a0e17"
+            fontSize={8}
+            fontWeight="bold"
+          >
+            T
+          </text>
+          {/* Label */}
+          {viewport.zoom > 0.8 && (
             <text
-              x={(line.x1 + line.x2) / 2}
-              y={(line.y1 + line.y2) / 2 - 8}
+              x={marker.x}
+              y={marker.y - 14}
               textAnchor="middle"
               fill="#00e5ff"
-              fontSize={10}
-              opacity={0.7}
+              fontSize={9}
+              opacity={0.8}
             >
-              {line.hours}h
+              Thera {marker.hours > 0 ? `(${Math.round(marker.hours)}h)` : ''}
             </text>
           )}
         </g>
