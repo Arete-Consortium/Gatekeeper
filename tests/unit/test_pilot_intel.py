@@ -37,37 +37,36 @@ class TestComputeThreatLevel:
         assert _compute_threat_level({"kills": 0, "danger_ratio": 85, "solo_kills": 0}) == "moderate"
 
 
-def _make_zkill_activity(hourly_counts: dict[int, int]) -> dict:
-    """Wrap flat {hour: count} into zKill nested format {month: {hour: count}}."""
-    # Put all counts into month "0" to simulate zKill structure
-    return {"max": max(hourly_counts.values(), default=0), "0": {str(h): c for h, c in hourly_counts.items()}}
+def _make_kills_at_hours(hours: list[int]) -> list[dict]:
+    """Create fake killmails with timestamps at the given UTC hours."""
+    return [{"timestamp": f"2026-03-10T{h:02d}:00:00Z"} for h in hours]
 
 
 class TestInferActiveTimezone:
     """Tests for timezone inference."""
 
-    def test_returns_none_for_empty_activity(self):
-        assert _infer_active_timezone({}) is None
+    def test_returns_none_for_empty_kills(self):
+        assert _infer_active_timezone([]) is None
         assert _infer_active_timezone(None) is None
 
     def test_ustz_afternoon(self):
         # Peak at UTC 18-23 → USTZ
-        counts = {h: 100 if 18 <= h <= 23 else 1 for h in range(24)}
-        assert _infer_active_timezone(_make_zkill_activity(counts)) == "USTZ"
+        kills = _make_kills_at_hours([18, 19, 20, 21, 22, 23] * 10 + list(range(18)))
+        assert _infer_active_timezone(kills) == "USTZ"
 
     def test_eutz_morning(self):
         # Peak at UTC 0-5 → EUTZ
-        counts = {h: 100 if 0 <= h <= 5 else 1 for h in range(24)}
-        assert _infer_active_timezone(_make_zkill_activity(counts)) == "EUTZ"
+        kills = _make_kills_at_hours([0, 1, 2, 3, 4, 5] * 10 + list(range(6, 24)))
+        assert _infer_active_timezone(kills) == "EUTZ"
 
     def test_autz_midday(self):
         # Peak at UTC 6-11 → center ~9 → AUTZ
-        counts = {h: 100 if 6 <= h <= 11 else 1 for h in range(24)}
-        assert _infer_active_timezone(_make_zkill_activity(counts)) == "AUTZ"
+        kills = _make_kills_at_hours([6, 7, 8, 9, 10, 11] * 10 + list(range(12, 24)))
+        assert _infer_active_timezone(kills) == "AUTZ"
 
-    def test_handles_non_numeric_keys(self):
-        activity = {"abc": {"x": 100}, "def": {"y": 200}}
-        assert _infer_active_timezone(activity) is None
+    def test_handles_bad_timestamps(self):
+        kills = [{"timestamp": ""}, {"timestamp": "not-a-date"}, {}]
+        assert _infer_active_timezone(kills) is None
 
 
 class TestDetectFlags:

@@ -219,9 +219,9 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     ctx.fillStyle = '#0a0e17';
     ctx.fillRect(0, 0, viewport.width, viewport.height);
 
-    // Draw gates — subway style with region-colored connections
+    // Draw gates — subway/transit style with bold region-colored lines
     if (layers.showGates) {
-      const gateLineWidth = Math.max(0.8, Math.min(1.8, viewport.zoom * 0.9));
+      const gateLineWidth = Math.max(1.5, Math.min(2.8, viewport.zoom * 1.2));
 
       // Batch intra-region gates by regionId for efficient colored drawing
       const regionBatches = new Map<number, Array<{ fx: number; fy: number; tx: number; ty: number }>>();
@@ -255,9 +255,10 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         }
       }
 
-      // Draw intra-region gates — colored by region
+      // Draw intra-region gates — bold colored lines with rounded caps
+      ctx.lineCap = 'round';
       ctx.lineWidth = gateLineWidth;
-      ctx.globalAlpha = 0.45;
+      ctx.globalAlpha = 0.6;
       for (const [regionId, paths] of regionBatches) {
         ctx.strokeStyle = getRegionColor(regionId);
         ctx.beginPath();
@@ -268,13 +269,14 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ctx.stroke();
       }
 
-      // Cross-region gates — dashed, subtle
+      // Cross-region gates — dashed interchange lines
       if (crossRegionPaths.length > 0) {
         ctx.save();
-        ctx.strokeStyle = '#334155';
-        ctx.globalAlpha = 0.2;
-        ctx.setLineDash([4, 3]);
-        ctx.lineWidth = Math.max(0.5, Math.min(1, viewport.zoom * 0.5));
+        ctx.strokeStyle = '#475569';
+        ctx.globalAlpha = 0.3;
+        ctx.setLineDash([5, 4]);
+        ctx.lineCap = 'round';
+        ctx.lineWidth = Math.max(0.8, Math.min(1.5, viewport.zoom * 0.6));
         ctx.beginPath();
         for (const p of crossRegionPaths) {
           ctx.moveTo(p.fx, p.fy);
@@ -284,6 +286,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ctx.restore();
       }
 
+      ctx.lineCap = 'butt';
       ctx.globalAlpha = 1.0;
     }
 
@@ -316,10 +319,10 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         color = getSecurityColor(system.security);
       }
 
-      // Scale radius with zoom + hub importance — subway-style nodes
+      // Scale radius with zoom + hub importance — transit station nodes
       const isHub = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 5);
-      const baseRadius = Math.max(1.5, Math.min(SYSTEM_RADIUS, SYSTEM_RADIUS * (viewport.zoom / 1.5)));
-      const hubBonus = isTradeHub ? baseRadius * 1.2 : isHub ? baseRadius * 0.5 : 0;
+      const baseRadius = Math.max(2, Math.min(4, SYSTEM_RADIUS * (viewport.zoom / 1.2)));
+      const hubBonus = isTradeHub ? baseRadius * 1.4 : isHub ? baseRadius * 0.6 : 0;
       const radius = isSelected ? (baseRadius + hubBonus) * 1.8 : baseRadius + hubBonus;
 
       // Hover glow effect — tight bloom
@@ -335,16 +338,23 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ctx.restore();
       }
 
-      // Trade hub outer glow — subtle ring
+      // Trade hub interchange marker — double ring (like subway interchange stations)
       if (isTradeHub) {
         ctx.save();
         ctx.shadowColor = '#ffd700';
-        ctx.shadowBlur = 6;
+        ctx.shadowBlur = 8;
+        // Outer gold ring
         ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 0.8;
-        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.7;
         ctx.beginPath();
-        ctx.arc(screen.x, screen.y, radius + 2.5, 0, Math.PI * 2);
+        ctx.arc(screen.x, screen.y, radius + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        // Inner gold ring
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, radius + 2, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -367,28 +377,39 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ctx.stroke();
       }
 
-      // Main dot
+      // Main dot with white outline — subway station style
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Selection ring
+      // White station outline ring (all nodes)
+      if (viewport.zoom > 1.5) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.min(1.2, viewport.zoom * 0.3);
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, radius + 1, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Selection ring — bright white
       if (isSelected) {
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(screen.x, screen.y, radius + 3, 0, Math.PI * 2);
+        ctx.arc(screen.x, screen.y, radius + 3.5, 0, Math.PI * 2);
         ctx.stroke();
       }
 
       // Hover ring
       if (isHovered && !isSelected) {
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.6;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.7;
         ctx.beginPath();
-        ctx.arc(screen.x, screen.y, radius + 2, 0, Math.PI * 2);
+        ctx.arc(screen.x, screen.y, radius + 2.5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
@@ -455,8 +476,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ctx.fill();
 
         // Label text — bright with strong shadow
-        ctx.globalAlpha = 0.75;
-        ctx.fillStyle = '#cbd5e1';
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = '#e2e8f0';
         ctx.shadowColor = '#000000';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
@@ -472,8 +493,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     // At medium zoom (2.5-5): only show labels for notable systems (hubs, selected, hovered, highlighted)
     // At high zoom (5+): show all labels
     if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
-      const labelFontSize = Math.max(9, Math.min(11, 10 * (viewport.zoom / 3)));
-      ctx.font = `${labelFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      const labelFontSize = Math.max(9, Math.min(12, 10 * (viewport.zoom / 3)));
+      ctx.font = `600 ${labelFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = 'center';
 
       const showAllLabels = viewport.zoom >= 5;
@@ -501,14 +522,18 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
           screen.y > viewport.height
         ) continue;
 
-        // Text shadow for readability
-        ctx.fillStyle = '#000000';
-        ctx.globalAlpha = 0.6;
-        ctx.fillText(system.name, screen.x + 0.5, screen.y + 11.5);
+        // Text shadow for readability — double pass for subway crispness
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 1;
         // Brighter labels for hovered/selected
-        ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#94a3b8';
-        ctx.globalAlpha = isSelected || isHovered ? 1 : 0.85;
-        ctx.fillText(system.name, screen.x, screen.y + 11);
+        ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#cbd5e1';
+        ctx.globalAlpha = isSelected || isHovered ? 1 : 0.9;
+        ctx.fillText(system.name, screen.x, screen.y + 12);
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
       }
 
       ctx.globalAlpha = 1;

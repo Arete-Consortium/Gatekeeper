@@ -26,13 +26,11 @@ export const metadata: Metadata = {
     url: 'https://edengk.com',
     siteName: 'Gatekeeper',
     type: 'website',
-    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'Gatekeeper' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Gatekeeper',
     description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
-    images: ['/icon-512.png'],
   },
   icons: {
     icon: '/favicon.ico',

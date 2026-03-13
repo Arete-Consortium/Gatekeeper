@@ -262,24 +262,21 @@ def _compute_threat_level(zkill: dict) -> str:
     return "minimal"
 
 
-def _infer_active_timezone(activity: dict) -> str | None:
-    """Infer primary timezone from zKill activity hours."""
-    if not activity:
+def _infer_active_timezone(recent_kills: list[dict]) -> str | None:
+    """Infer primary timezone from recent killmail timestamps (EVE/UTC hours)."""
+    if not recent_kills:
         return None
 
-    # zKill activity: {"max": N, "0": {"hour": count, ...}, "1": {...}, ...}
-    # Keys are months (0-11), values are dicts of {hour_str: kill_count}.
-    # Aggregate across all months to get total kills per hour.
     hour_counts: dict[int, int] = {}
-    for month_key, month_data in activity.items():
-        if not isinstance(month_data, dict):
-            continue  # skip "max" and other scalar fields
-        for hour_str, count in month_data.items():
-            try:
-                hour = int(hour_str)
-                hour_counts[hour] = hour_counts.get(hour, 0) + int(count)
-            except (ValueError, TypeError):
-                continue
+    for kill in recent_kills:
+        ts = kill.get("timestamp", "")
+        if not ts:
+            continue
+        try:
+            hour = int(ts[11:13])
+            hour_counts[hour] = hour_counts.get(hour, 0) + 1
+        except (ValueError, IndexError):
+            continue
 
     if not hour_counts:
         return None
@@ -648,28 +645,31 @@ async def _extract_fleet_companions_from_kills(
     ]
 
 
-def _build_activity_pattern(activity: dict) -> dict:
-    """Build structured activity pattern from zKill activity hours.
+def _build_activity_pattern(recent_kills: list[dict]) -> dict:
+    """Build structured activity pattern from recent killmail timestamps.
 
-    zKill format: {"max": N, "0": {"hour": count}, "1": {...}, ...}
-    Keys are months (0-11), values are dicts of {hour_str: kill_count}.
+    Derives hourly activity distribution from killmail_time ISO strings.
     """
-    hourly: dict[int, int] = {}
-    for month_key, month_data in activity.items():
-        if not isinstance(month_data, dict):
+    hourly: dict[int, int] = {h: 0 for h in range(24)}
+    for kill in recent_kills:
+        ts = kill.get("timestamp", "")
+        if not ts:
             continue
-        for hour_str, count in month_data.items():
-            try:
-                hour = int(hour_str)
-                hourly[hour] = hourly.get(hour, 0) + int(count)
-            except (ValueError, TypeError):
-                continue
+        try:
+            # ISO format: 2026-03-10T14:23:00Z
+            hour = int(ts[11:13])
+            hourly[hour] = hourly.get(hour, 0) + 1
+        except (ValueError, IndexError):
+            continue
 
-    # Day-of-week buckets (not available from zKill stats, return hourly only)
-    peak_hours = sorted(hourly.keys(), key=lambda h: hourly.get(h, 0), reverse=True)[:6]
+    peak_hours = sorted(
+        [h for h, c in hourly.items() if c > 0],
+        key=lambda h: hourly[h],
+        reverse=True,
+    )[:6]
 
     return {
-        "hourly": {str(h): hourly.get(h, 0) for h in range(24)},
+        "hourly": {str(h): hourly[h] for h in range(24)},
         "peak_hours": peak_hours,
     }
 
@@ -704,9 +704,8 @@ async def get_pilot_deep_dive(character_id: int) -> dict | None:
         recent_kills, exclude_id=character_id
     )
 
-    # Build activity pattern
-    activity = zkill_data.get("activity", {}) if zkill_data else {}
-    activity_pattern = _build_activity_pattern(activity)
+    # Build activity pattern from killmail timestamps
+    activity_pattern = _build_activity_pattern(recent_kills)
 
     # Strip attacker_ids from recent kills (internal only)
     clean_kills = [
@@ -729,10 +728,13 @@ async def get_pilot_stats(character_id: int) -> dict | None:
     Returns combined ESI + zKill data with computed threat metrics.
     Returns None if character cannot be found.
     """
-    # Fetch ESI and zKill in parallel
+    # Fetch ESI, zKill stats, and recent kills in parallel
     esi_task = _fetch_esi_character(character_id)
     zkill_task = _fetch_zkill_stats(character_id)
-    esi_data, zkill_data = await asyncio.gather(esi_task, zkill_task)
+    kills_task = _fetch_recent_killmails(character_id, limit=10)
+    esi_data, zkill_data, recent_kills = await asyncio.gather(
+        esi_task, zkill_task, kills_task
+    )
 
     if esi_data is None:
         return None
@@ -769,7 +771,6 @@ async def get_pilot_stats(character_id: int) -> dict | None:
         "gang_ratio": 0,
         "active_pvp_kills": 0,
         "active_pvp_systems": 0,
-        "activity": {},
         "top_ships": [],
         "top_systems": [],
         "isk_destroyed": 0,
@@ -777,7 +778,7 @@ async def get_pilot_stats(character_id: int) -> dict | None:
     }
 
     threat_level = _compute_threat_level(zkill)
-    active_tz = _infer_active_timezone(zkill.get("activity", {}))
+    active_tz = _infer_active_timezone(recent_kills)
     flags = _detect_flags(zkill)
 
     # Calculate K/D ratio

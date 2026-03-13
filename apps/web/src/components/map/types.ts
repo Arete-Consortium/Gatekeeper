@@ -229,5 +229,5 @@ export function getRiskColor(riskColor: 'green' | 'yellow' | 'orange' | 'red'): 
 // Golden ratio conjugate distributes hues evenly across ~68 regions
 export function getRegionColor(regionId: number): string {
   const hue = ((regionId * 137.508) % 360);
-  return `hsl(${hue}, 50%, 55%)`;
+  return `hsl(${hue}, 65%, 58%)`;
 }
