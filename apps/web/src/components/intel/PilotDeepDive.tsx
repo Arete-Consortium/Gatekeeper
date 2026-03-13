@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
 import type { PilotDeepDiveStats } from '@/lib/types';
-import { X, Loader2, Shield, Users, Clock, Building, Crosshair, TrendingUp, Skull, ArrowLeft } from 'lucide-react';
+import { X, Loader2, Shield, Users, Clock, Building, Crosshair, TrendingUp, Skull, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Skeleton } from '@/components/ui';
 
 interface PilotDeepDiveProps {
@@ -172,7 +172,12 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white text-base truncate">{data.name}</span>
+            <a
+              href={`https://zkillboard.com/character/${activeId}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold text-white text-base truncate hover:text-cyan-400 transition-colors"
+            >{data.name}</a>
             <span
               className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded"
               style={{
@@ -240,20 +245,34 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
             </h3>
             <div className="space-y-1">
               {data.fleet_companions.slice(0, 10).map((comp) => (
-                <button
+                <div
                   key={comp.character_id}
-                  onClick={() => navigateTo(comp.character_id)}
-                  className="w-full flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors cursor-pointer text-left"
-                  title={`View ${comp.name}'s deep dive`}
+                  className="flex items-center gap-2 px-2 py-1 rounded bg-gray-800/50 hover:bg-gray-700 transition-colors"
                 >
-                  <img
-                    src={`https://images.evetech.net/characters/${comp.character_id}/portrait?size=32`}
-                    alt=""
-                    className="w-5 h-5 rounded"
-                  />
-                  <span className="text-xs text-cyan-300 hover:text-cyan-200 flex-1 truncate">{comp.name}</span>
-                  <span className="text-[10px] text-gray-500 font-mono">{comp.kills} kills</span>
-                </button>
+                  <button
+                    onClick={() => navigateTo(comp.character_id)}
+                    className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer text-left"
+                    title={`View ${comp.name}'s deep dive`}
+                  >
+                    <img
+                      src={`https://images.evetech.net/characters/${comp.character_id}/portrait?size=32`}
+                      alt=""
+                      className="w-5 h-5 rounded"
+                    />
+                    <span className="text-xs text-cyan-300 hover:text-cyan-200 flex-1 truncate">{comp.name}</span>
+                  </button>
+                  <a
+                    href={`https://zkillboard.com/character/${comp.character_id}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-500 hover:text-cyan-400 transition-colors shrink-0"
+                    title={`${comp.name} on zKillboard`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <span className="text-[10px] text-gray-500 font-mono shrink-0">{comp.kills} kills</span>
+                </div>
               ))}
             </div>
           </section>
@@ -308,9 +327,13 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.top_ships.map((ship) => (
-                <div
+                <a
                   key={ship.id}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-800/50 border border-gray-700/50"
+                  href={`https://zkillboard.com/character/${activeId}/shipTypeID/${ship.id}/`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-800/50 border border-gray-700/50 hover:border-cyan-500/50 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                  title={`View ${ship.name} killmails & fittings on zKillboard`}
                 >
                   <img
                     src={`https://images.evetech.net/types/${ship.id}/icon?size=32`}
@@ -319,7 +342,7 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
                   />
                   <span className="text-[11px] text-gray-200">{ship.name}</span>
                   <span className="text-[9px] text-gray-500 font-mono">{ship.kills}</span>
-                </div>
+                </a>
               ))}
             </div>
           </section>
