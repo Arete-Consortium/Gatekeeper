@@ -299,11 +299,27 @@ def get_route(
     from_system: str = Query(..., alias="from"),
     to_system: str = Query(..., alias="to"),
     profile: str = Query("shortest"),
+    avoid: list[str] | None = Query(None, description="Systems to avoid"),
+    bridges: bool = Query(False, description="Use Ansiblex jump bridges"),
+    thera: bool = Query(False, description="Use Thera wormhole shortcuts"),
 ) -> RouteResponse:
     cfg = load_risk_config()
     if profile not in cfg.routing_profiles:
         raise HTTPException(status_code=400, detail=f"Unknown routing profile: {profile}")
+
+    avoid_set: set[str] = set()
+    if avoid:
+        for item in avoid:
+            avoid_set.update(name.strip() for name in item.split(",") if name.strip())
+
     try:
-        return compute_route(from_system, to_system, profile)
+        return compute_route(
+            from_system,
+            to_system,
+            profile,
+            avoid=avoid_set,
+            use_bridges=bridges,
+            use_thera=thera,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None

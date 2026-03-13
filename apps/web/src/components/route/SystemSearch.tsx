@@ -156,7 +156,7 @@ export function SystemSearch({
         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
           {filteredSystems.map((system, index) => (
             <button
-              key={system.system_id}
+              key={system.name}
               type="button"
               className={cn(
                 'w-full px-4 py-2 text-left flex items-center justify-between',
@@ -166,7 +166,7 @@ export function SystemSearch({
               onClick={() => handleSelect(system)}
             >
               <span className="text-text font-medium">{system.name}</span>
-              <SecurityBadge security={system.security_status} size="sm" />
+              <SecurityBadge security={system.security} size="sm" />
             </button>
           ))}
         </div>

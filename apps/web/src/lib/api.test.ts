@@ -68,7 +68,7 @@ describe('GatekeeperAPI', () => {
       await GatekeeperAPI.getRoute('Jita', 'Amarr', 'safer');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/map/route?from=Jita&to=Amarr&profile=safer'),
+        expect.stringContaining('/api/v1/route/?from=Jita&to=Amarr&profile=safer'),
         expect.any(Object)
       );
     });

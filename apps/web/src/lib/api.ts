@@ -247,7 +247,7 @@ class GatekeeperAPIService {
         params.append('avoid', system);
       }
     }
-    return this.request<RouteResponse>(`/route/?${params.toString()}`);
+    return this.request<RouteResponse>(`/api/v1/route/?${params.toString()}`);
   }
 
   /**

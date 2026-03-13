@@ -8,12 +8,12 @@ import { SystemSearch } from './SystemSearch';
 vi.mock('@/lib/api', () => ({
   GatekeeperAPI: {
     getSystems: vi.fn().mockResolvedValue([
-      { name: 'Jita', system_id: 30000142, region_id: 10000002, constellation_id: 20000020, security_status: 0.95, x: 0, y: 0 },
-      { name: 'Amarr', system_id: 30002187, region_id: 10000043, constellation_id: 20000322, security_status: 1.0, x: 1, y: 1 },
-      { name: 'Dodixie', system_id: 30002659, region_id: 10000032, constellation_id: 20000390, security_status: 0.87, x: 2, y: 2 },
-      { name: 'Rens', system_id: 30002510, region_id: 10000030, constellation_id: 20000369, security_status: 0.9, x: 3, y: 3 },
-      { name: 'Tama', system_id: 30003783, region_id: 10000016, constellation_id: 20000554, security_status: 0.3, x: 4, y: 4 },
-      { name: 'Amamake', system_id: 30002537, region_id: 10000042, constellation_id: 20000372, security_status: 0.4, x: 5, y: 5 },
+      { name: 'Jita', security: 0.95, category: 'highsec', region_id: 10000002 },
+      { name: 'Amarr', security: 1.0, category: 'highsec', region_id: 10000043 },
+      { name: 'Dodixie', security: 0.87, category: 'highsec', region_id: 10000032 },
+      { name: 'Rens', security: 0.9, category: 'highsec', region_id: 10000030 },
+      { name: 'Tama', security: 0.3, category: 'lowsec', region_id: 10000016 },
+      { name: 'Amamake', security: 0.4, category: 'lowsec', region_id: 10000042 },
     ]),
   },
 }));

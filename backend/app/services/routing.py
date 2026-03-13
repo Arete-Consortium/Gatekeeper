@@ -204,6 +204,9 @@ def compute_route(
     from_system = _resolve_system_name(from_system, universe.systems)
     to_system = _resolve_system_name(to_system, universe.systems)
 
+    # Resolve avoid names case-insensitively
+    avoid = {_resolve_system_name(name, universe.systems) for name in avoid}
+
     if from_system not in universe.systems:
         raise ValueError(f"Unknown from_system: {from_system}")
     if to_system not in universe.systems:

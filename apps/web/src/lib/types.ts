@@ -13,13 +13,12 @@ export interface Gate {
 // Solar system information
 export interface System {
   name: string;
-  system_id: number;
+  security: number;
+  category: string;
   region_id: number;
-  constellation_id: number;
-  security_status: number;
-  security_category: 'high_sec' | 'low_sec' | 'null_sec';
-  x: number;
-  y: number;
+  region_name?: string;
+  constellation_id?: number;
+  constellation_name?: string;
 }
 
 // Universe data
