@@ -148,6 +148,7 @@ export interface UniverseMapProps {
   // Display options
   layers?: Partial<MapLayers>;
   colorMode?: 'security' | 'risk' | 'star';
+  layoutMode?: 'subway' | 'dotlan';
 
   // Sizing
   className?: string;

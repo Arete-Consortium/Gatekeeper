@@ -27,6 +27,7 @@ import {
   Check,
   RefreshCw,
   Lock,
+  Grid,
 } from 'lucide-react';
 import type { UniverseMapRef, MapLayers, MapSystem, MapGate } from '@/components/map/types';
 import type { MapConfig } from '@/lib/types';
@@ -218,6 +219,10 @@ function MapPageContent() {
   const [colorMode, setColorMode] = useState<'security' | 'risk' | 'star'>(() => {
     if (typeof window === 'undefined') return 'security';
     return (localStorage.getItem('gk_map_color_mode') as 'security' | 'risk' | 'star') || 'security';
+  });
+  const [layoutMode, setLayoutMode] = useState<'subway' | 'dotlan'>(() => {
+    if (typeof window === 'undefined') return 'subway';
+    return (localStorage.getItem('gk_map_layout_mode') as 'subway' | 'dotlan') || 'subway';
   });
   const [selectedSystem, setSelectedSystem] = useState<number | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<number | null>(null);
@@ -828,6 +833,18 @@ function MapPageContent() {
         </div>
       </CollapsibleSection>
 
+      {/* Layout Mode — collapsible */}
+      <CollapsibleSection
+        title="Layout"
+        icon={<Grid className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+        defaultOpen={false}
+      >
+        <div className="flex gap-2 flex-wrap">
+          <Button variant={layoutMode === 'subway' ? 'primary' : 'secondary'} size="sm" onClick={() => { setLayoutMode('subway'); try { localStorage.setItem('gk_map_layout_mode', 'subway'); } catch {} }} className="flex-1">Subway</Button>
+          <Button variant={layoutMode === 'dotlan' ? 'primary' : 'secondary'} size="sm" onClick={() => { setLayoutMode('dotlan'); try { localStorage.setItem('gk_map_layout_mode', 'dotlan'); } catch {} }} className="flex-1">2D</Button>
+        </div>
+      </CollapsibleSection>
+
       {/* Saved Routes — collapsible */}
       <CollapsibleSection
         title="Saved Routes"
@@ -1088,6 +1105,7 @@ function MapPageContent() {
                   showWormholes: false,
                 }}
                 colorMode={colorMode}
+                layoutMode={layoutMode}
                 selectedSystem={selectedSystem}
                 onSystemClick={handleSystemSelect}
                 onSetRouteOrigin={handleSetRouteOrigin}

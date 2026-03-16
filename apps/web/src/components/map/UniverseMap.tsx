@@ -100,6 +100,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       onDeselect,
       layers: layersProp,
       colorMode = 'security',
+      layoutMode = 'subway',
       className,
     },
     ref
@@ -116,11 +117,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
     // Exclude Pochven (region 10000070) — has its own dedicated /pochven page
     const POCHVEN_REGION_ID = 10000070;
 
-    // Compress inter-region distances by pulling regions 50% closer together
-    // while preserving intra-region layout
+    // Apply layout transform based on mode
+    // 'subway': Compress inter-region distances by 50% for compact subway-style view
+    // 'dotlan': Use raw EVE coordinates for CCP/Dotlan-style 2D layout
     const compressedSystems = useMemo(() => {
       const baseSystems = systems.filter((s) => s.regionId !== POCHVEN_REGION_ID);
       if (baseSystems.length === 0) return baseSystems;
+
+      // In dotlan mode, use raw coordinates — no compression
+      if (layoutMode === 'dotlan') return baseSystems;
 
       // Calculate region centroids
       const regionSums = new Map<number, { sx: number; sy: number; count: number }>();
@@ -152,7 +157,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         const dy = (gcy - rc.cy) * (1 - factor);
         return { ...s, x: s.x + dx, y: s.y + dy };
       });
-    }, [systems]);
+    }, [systems, layoutMode]);
 
     // Filter systems by security class (highsec/nullsec toggles)
     const filteredSystems = useMemo(() => {
@@ -235,6 +240,9 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       return () => cancelAnimationFrame(frameId);
     }, [filteredSystems, viewport.width, viewport.height]);
 
+    // Re-fit viewport when layout mode changes (placeholder — effect added after animateViewport)
+    const prevLayoutRef = useRef(layoutMode);
+
     // Animate viewport to target
     const animateViewport = useCallback(
       (target: Partial<MapViewport>, duration = ANIMATION_DURATION) => {
@@ -272,6 +280,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       },
       [viewport]
     );
+
+    // Re-fit viewport when layout mode changes
+    useEffect(() => {
+      if (prevLayoutRef.current === layoutMode) return;
+      prevLayoutRef.current = layoutMode;
+      if (filteredSystems.length === 0 || viewport.width === 0) return;
+      const fit = calculateFitZoom(filteredSystems, viewport.width, viewport.height);
+      animateViewport(fit, 600);
+    }, [layoutMode, filteredSystems, viewport.width, viewport.height, animateViewport]);
 
     // Imperative handle for external control
     useImperativeHandle(
