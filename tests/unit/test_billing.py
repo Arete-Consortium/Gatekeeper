@@ -681,7 +681,8 @@ class TestRateLimitTierAwareness:
         assert "300" in limit
 
     def test_ip_identifier(self):
+        from backend.app.core.config import settings
         from backend.app.middleware.rate_limit import get_rate_limit_for_identifier
 
         limit = get_rate_limit_for_identifier("ip:1.2.3.4")
-        assert "100" in limit
+        assert limit == f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
