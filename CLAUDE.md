@@ -357,6 +357,53 @@ alembic upgrade head
 - **Auto-downgrade**: `_get_subscription_tier()` in dependencies checks comp expiration on every auth'd request
 - **Safety**: Revoke refuses to touch users with active Stripe subscriptions
 
+## Architecture
+
+Monorepo with Python backend + Next.js frontend:
+
+```
+Gatekeeper/
+├── backend/           # FastAPI (Python 3.12) — API, services, DB
+│   ├── app/api/v1/    # 36 route files
+│   ├── app/services/  # 41 service modules
+│   ├── app/db/        # SQLAlchemy + Alembic migrations
+│   └── starmap/       # SDE, ESI client, universe graph
+├── apps/web/          # Next.js 16 (TypeScript) — App Router, Canvas2D maps
+│   └── src/
+│       ├── app/       # 19 routes
+│       ├── components/# map/ (Canvas2D + 11 SVG overlays), route/, intel/, ui/
+│       ├── contexts/  # Auth, CookieConsent
+│       └── lib/       # API client, types, utils
+├── data/              # universe.json, risk_config.json
+└── tests/             # pytest (backend), vitest (frontend)
+```
+
+Data flow: ESI/zKill → backend services → FastAPI endpoints → TanStack Query → Canvas2D/SVG rendering
+
+## Dependencies
+
+**Backend** (`pyproject.toml`): FastAPI, SQLAlchemy, Alembic, httpx, pydantic, stripe, python-jose
+**Frontend** (`apps/web/package.json`): next, react, @tanstack/react-query, tailwindcss, lucide-react
+
+> Note: This is a monorepo — frontend dependencies are in `apps/web/package.json`, not the project root.
+
+## Git Conventions
+
+- Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+- Commit messages explain "why", not just "what"
+- Main branch deploys automatically (Fly.io backend, Vercel frontend)
+- Branch protection bypassed for direct pushes (CI billing blocker)
+
+## Domain Context
+
+EVE Online third-party tool for navigation, intel, and market analysis. Users are EVE players who need:
+- Route planning through dangerous space (nullsec gate camps, pirate insurgency)
+- Real-time kill intel (zKillboard feed) with threat assessment
+- Map visualization of 5400+ solar systems across ~68 regions
+- Multi-character management with ESI OAuth2
+
+Key domain terms: system (solar system), gate (stargate connection), security status (-1.0 to 1.0), gate camp (ambush at stargate), Pochven (isolated region), sovereignty (alliance-controlled space), ESI (EVE Swagger Interface API)
+
 ## Outstanding Notes
 
 - zKill API puts stats at top level (`data.shipsDestroyed`), NOT nested under `data.info` — see `pilot_intel.py`
