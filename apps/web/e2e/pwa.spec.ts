@@ -6,7 +6,7 @@ test.describe('PWA', () => {
     expect(response.status()).toBe(200);
 
     const manifest = await response.json();
-    expect(manifest.name).toBe('EVE Gatekeeper');
+    expect(manifest.name).toBe('Gatekeeper');
     expect(manifest.short_name).toBe('Gatekeeper');
     expect(manifest.display).toBe('standalone');
     expect(manifest.start_url).toBe('/map');

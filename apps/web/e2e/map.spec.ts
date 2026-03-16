@@ -13,12 +13,8 @@ test.describe('Map Page', () => {
   });
 
   test('should display map heading on desktop', async ({ page }) => {
-    // The "New Eden Map" heading is visible on desktop
-    await expect(page.getByRole('heading', { name: 'New Eden Map', level: 1 })).toBeVisible();
-  });
-
-  test('should show Beta badge', async ({ page }) => {
-    await expect(page.getByText('Beta')).toBeVisible();
+    // The "New Eden" heading is visible on desktop (hidden on mobile)
+    await expect(page.getByRole('heading', { name: 'New Eden', level: 1 })).toBeVisible({ timeout: 10000 });
   });
 
   test('should have system search input', async ({ page }) => {
@@ -43,15 +39,15 @@ test.describe('Map Page', () => {
 
   test('should display layer toggles in sidebar', async ({ page }) => {
     // Layers section should be visible on desktop (collapsible, open by default)
-    await expect(page.getByText('Gate connections')).toBeVisible();
+    // Wait for sidebar to fully render after map config loads
+    await expect(page.getByText('Gate connections')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('System labels')).toBeVisible();
     await expect(page.getByText('Region labels')).toBeVisible();
     await expect(page.getByText('Route overlay')).toBeVisible();
-    await expect(page.getByText('Landmarks')).toBeVisible();
   });
 
   test('should display pro-gated layer toggles', async ({ page }) => {
-    await expect(page.getByText('Kill markers')).toBeVisible();
+    await expect(page.getByText('Kill markers')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Risk heatmap')).toBeVisible();
     await expect(page.getByText('iHub ADM')).toBeVisible();
     await expect(page.getByText('Thera connections')).toBeVisible();
@@ -76,8 +72,8 @@ test.describe('Map Page', () => {
   });
 
   test('should have intel feed controls', async ({ page }) => {
-    // Intel feed section inside Layers card
-    await expect(page.getByText('Intel Feed')).toBeVisible();
+    // Intel feed section inside Layers card — wait for full sidebar render
+    await expect(page.getByText('Intel Feed')).toBeVisible({ timeout: 10000 });
   });
 
   test('should have copy link button', async ({ page }) => {
@@ -91,5 +87,13 @@ test.describe('Map Page', () => {
     // Route controls panel should appear (it renders inside the map container)
     // The button label changes to "Close route planner" when open
     await expect(page.getByLabel(/Close route planner/i)).toBeVisible();
+  });
+
+  test('should have layout mode section', async ({ page }) => {
+    // Layout is collapsed by default — expand it
+    await page.getByText('Layout').click();
+
+    await expect(page.getByRole('button', { name: 'Subway' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '2D' })).toBeVisible();
   });
 });

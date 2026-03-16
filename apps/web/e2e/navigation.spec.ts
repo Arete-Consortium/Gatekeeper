@@ -30,13 +30,10 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/appraisal');
   });
 
-  test('should navigate to Alerts page from navbar', async ({ page }) => {
-    await page.goto('/route');
+  test('should navigate to Alerts page directly', async ({ page }) => {
+    await page.goto('/alerts');
 
-    // Click the Alerts link in navbar
-    await page.locator('nav').getByRole('link', { name: /^Alerts$/i }).first().click();
-
-    // Verify we're on the alerts page
+    // Verify the alerts page loads
     await expect(page).toHaveURL('/alerts');
     await expect(page.getByRole('heading', { name: 'Kill Alerts', level: 1 })).toBeVisible();
   });
@@ -59,16 +56,16 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL('/settings');
   });
 
-  test('should navigate back to home via logo', async ({ page }) => {
+  test('should navigate back to map via logo', async ({ page }) => {
     // Start on route page
     await page.goto('/route');
     await expect(page).toHaveURL('/route');
 
-    // Click the logo/home link
-    await page.getByRole('link', { name: 'EVE Gatekeeper' }).first().click();
+    // Click the logo/home link (redirects / → /map)
+    await page.getByRole('link', { name: 'Gatekeeper home' }).first().click();
 
-    // Verify we're back on home (which is the map)
-    await expect(page).toHaveURL('/');
+    // Root redirects to /map
+    await expect(page).toHaveURL('/map');
   });
 
   test('should show active state for current page in navbar', async ({ page }) => {

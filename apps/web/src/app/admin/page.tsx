@@ -225,8 +225,8 @@ export default function AdminDashboard() {
   // Initial fetch + auto-refresh every 30s
   useEffect(() => {
     if (!isAuthenticated || !isAdmin(user?.character_id)) return;
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
+    void fetchData();
+    const interval = setInterval(() => void fetchData(), 30000);
     return () => clearInterval(interval);
   }, [isAuthenticated, user, fetchData]);
 
