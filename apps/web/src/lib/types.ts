@@ -62,6 +62,13 @@ export function getRiskColorFromScore(score: number): 'green' | 'yellow' | 'oran
   return 'red';
 }
 
+// Risk score breakdown components
+export interface RiskBreakdown {
+  security_component: number;
+  kills_component: number;
+  pods_component: number;
+}
+
 // Single hop in a route
 export interface RouteHop {
   system_name: string;
@@ -72,6 +79,8 @@ export interface RouteHop {
   risk_score: number;
   connection_type: string;
   pirate_suppressed?: boolean;
+  risk_breakdown?: RiskBreakdown;
+  zkill_stats?: ZKillStats;
 }
 
 // Complete route response

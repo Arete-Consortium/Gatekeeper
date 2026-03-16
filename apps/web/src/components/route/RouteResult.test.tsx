@@ -31,23 +31,32 @@ vi.mock('lucide-react', () => ({
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader2-icon" {...props} />,
   Navigation: (props: Record<string, unknown>) => <span data-testid="navigation-icon" {...props} />,
   Flame: (props: Record<string, unknown>) => <span data-testid="flame-icon" {...props} />,
+  Map: (props: Record<string, unknown>) => <span data-testid="map-icon" {...props} />,
+  ChevronDown: (props: Record<string, unknown>) => <span data-testid="chevron-down-icon" {...props} />,
+  Crosshair: (props: Record<string, unknown>) => <span data-testid="crosshair-icon" {...props} />,
+  Skull: (props: Record<string, unknown>) => <span data-testid="skull-icon" {...props} />,
+  TrendingUp: (props: Record<string, unknown>) => <span data-testid="trending-up-icon" {...props} />,
+  TrendingDown: (props: Record<string, unknown>) => <span data-testid="trending-down-icon" {...props} />,
 }));
 
 function createRoute(overrides: Partial<RouteResponse> = {}): RouteResponse {
   return {
+    from_system: 'Jita',
+    to_system: 'Urlen',
     path: [
-      { system_name: 'Jita', security_status: 0.95, risk_score: 10, distance: 0, cumulative_cost: 0 },
-      { system_name: 'Perimeter', security_status: 0.87, risk_score: 15, distance: 1, cumulative_cost: 15 },
-      { system_name: 'Urlen', security_status: 0.78, risk_score: 8, distance: 1, cumulative_cost: 23 },
+      { system_name: 'Jita', system_id: 30000142, security_status: 0.95, risk_score: 10, cumulative_jumps: 0, cumulative_cost: 0, connection_type: 'gate' },
+      { system_name: 'Perimeter', system_id: 30000144, security_status: 0.87, risk_score: 15, cumulative_jumps: 1, cumulative_cost: 15, connection_type: 'gate' },
+      { system_name: 'Urlen', system_id: 30000148, security_status: 0.78, risk_score: 8, cumulative_jumps: 2, cumulative_cost: 23, connection_type: 'gate' },
     ],
     total_jumps: 3,
-    total_distance: 2,
     total_cost: 23,
     max_risk: 15,
     avg_risk: 11,
     profile: 'safer',
     bridges_used: 0,
     thera_used: 0,
+    pochven_used: 0,
+    wormholes_used: 0,
     ...overrides,
   };
 }
@@ -210,8 +219,8 @@ describe('RouteHopRow', () => {
   it('renders risk badges for each hop', () => {
     const route = createRoute({
       path: [
-        { system_name: 'Safe', security_status: 0.95, risk_score: 10, distance: 0, cumulative_cost: 0 },
-        { system_name: 'Risky', security_status: -0.5, risk_score: 80, distance: 1, cumulative_cost: 80 },
+        { system_name: 'Safe', system_id: 30000001, security_status: 0.95, risk_score: 10, cumulative_jumps: 0, cumulative_cost: 0, connection_type: 'gate' },
+        { system_name: 'Risky', system_id: 30000002, security_status: -0.5, risk_score: 80, cumulative_jumps: 1, cumulative_cost: 80, connection_type: 'gate' },
       ],
       total_jumps: 2,
     });

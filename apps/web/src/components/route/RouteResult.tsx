@@ -8,9 +8,10 @@ import { RouteHopRow } from './RouteHopRow';
 import { RouteMap } from './RouteMap';
 import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
-import type { RouteResponse, HotzoneResponse } from '@/lib/types';
-import { Gauge, Route, Zap, MapPin, Navigation, Loader2, AlertTriangle, Flame } from 'lucide-react';
+import type { RouteResponse, HotzoneResponse, HotzoneSystemData } from '@/lib/types';
+import { Gauge, Route, Zap, MapPin, Navigation, Loader2, AlertTriangle, Flame, Map as MapIcon } from 'lucide-react';
 import { GatekeeperAPI } from '@/lib/api';
+import Link from 'next/link';
 
 interface RouteResultProps {
   route: RouteResponse;
@@ -41,6 +42,12 @@ export function RouteResult({ route }: RouteResultProps) {
   const hotzoneWarnings = (hotzoneData?.systems ?? []).filter(
     (hz) => routeSystemNames.has(hz.system_name) && (hz.kills_current + hz.pods_current) >= 3
   );
+
+  // Build hotzone lookup by system name for per-hop gate warnings
+  const hotzoneBySystem = new Map<string, HotzoneSystemData>();
+  for (const hz of hotzoneData?.systems ?? []) {
+    hotzoneBySystem.set(hz.system_name, hz);
+  }
 
   const handleSetInGameRoute = async () => {
     if (route.path.length === 0) return;
@@ -73,22 +80,34 @@ export function RouteResult({ route }: RouteResultProps) {
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <CardTitle className="flex-1">Route Summary</CardTitle>
           {route.path.length > 0 && (
-            <button
-              onClick={handleSetInGameRoute}
-              disabled={waypointStatus === 'loading'}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
-                bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
-                hover:bg-cyan-600/30 hover:border-cyan-500/50
-                disabled:opacity-50 disabled:cursor-not-allowed
-                transition-colors"
-            >
-              {waypointStatus === 'loading' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Navigation className="h-4 w-4" />
-              )}
-              Set In-Game Route
-            </button>
+            <>
+              <Link
+                href={`/map?from=${encodeURIComponent(route.from_system)}&to=${encodeURIComponent(route.to_system)}&profile=${route.profile}`}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
+                  bg-primary/20 text-primary border border-primary/30
+                  hover:bg-primary/30 hover:border-primary/50
+                  transition-colors"
+              >
+                <MapIcon className="h-4 w-4" />
+                View on Map
+              </Link>
+              <button
+                onClick={handleSetInGameRoute}
+                disabled={waypointStatus === 'loading'}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
+                  bg-cyan-600/20 text-cyan-400 border border-cyan-500/30
+                  hover:bg-cyan-600/30 hover:border-cyan-500/50
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-colors"
+              >
+                {waypointStatus === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Navigation className="h-4 w-4" />
+                )}
+                Set In-Game Route
+              </button>
+            </>
           )}
           <Badge variant="info" size="md">
             {profile.label}
@@ -244,6 +263,7 @@ export function RouteResult({ route }: RouteResultProps) {
               key={`${hop.system_name}-${index}`}
               hop={hop}
               index={index}
+              hotzone={hotzoneBySystem.get(hop.system_name)}
               isFirst={index === 0}
               isLast={index === route.path.length - 1}
             />

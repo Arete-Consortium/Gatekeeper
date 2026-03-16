@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from .risk import RiskBreakdown, ZKillStats
+
 
 class RouteHop(BaseModel):
     system_name: str
@@ -15,6 +17,14 @@ class RouteHop(BaseModel):
     pirate_suppressed: bool = Field(
         False,
         description="True if pirate insurgency suppresses this system's security to nullsec",
+    )
+    risk_breakdown: RiskBreakdown | None = Field(
+        None,
+        description="Breakdown of risk score into security, kills, and pods components",
+    )
+    zkill_stats: ZKillStats | None = Field(
+        None,
+        description="Recent zKillboard activity stats for this system",
     )
 
 

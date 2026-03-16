@@ -39,7 +39,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/', label: 'Map', icon: Globe },
+  { href: '/map', label: 'Map', icon: Globe },
   { href: '/route', label: 'Route', icon: Route },
   { href: '/appraisal', label: 'Appraisal', icon: Scale },
   { href: '/pochven', label: 'Pochven', icon: Triangle },
@@ -106,7 +106,7 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || (item.href === '/' && pathname === '/map');
+              const isActive = pathname === item.href || (item.href === '/map' && pathname === '/');
               const Icon = item.icon;
               return (
                 <Link
@@ -282,7 +282,7 @@ export function Navbar() {
           <div className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col gap-1">
               {navItems.map((item) => {
-                const isActive = pathname === item.href || (item.href === '/' && pathname === '/map');
+                const isActive = pathname === item.href || (item.href === '/map' && pathname === '/');
                 const Icon = item.icon;
                 return (
                   <Link

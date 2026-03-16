@@ -267,6 +267,8 @@ def compute_route(
                 risk_score=rr.score,
                 connection_type=connection_type,
                 pirate_suppressed=rr.pirate_suppressed,
+                risk_breakdown=rr.breakdown,
+                zkill_stats=rr.zkill_stats,
             )
         )
 

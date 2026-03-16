@@ -455,7 +455,25 @@ function MapPageContent() {
         }
       }
     }
-  }, [systems.length, systemMap, searchParams]);
+
+    // Restore route from URL params (e.g. from "View on Map" button)
+    const fromParam = searchParams.get('from');
+    const toParam = searchParams.get('to');
+    const profileParam = searchParams.get('profile');
+    if (fromParam && toParam) {
+      // Resolve system names to IDs
+      const fromId = [...systemMap.entries()].find(([, sys]) => sys.name === fromParam)?.[0];
+      const toId = [...systemMap.entries()].find(([, sys]) => sys.name === toParam)?.[0];
+      if (fromId !== undefined && toId !== undefined) {
+        setRouteOrigin(fromId);
+        setRouteDestination(toId);
+        if (profileParam && ['shortest', 'safer', 'paranoid'].includes(profileParam)) {
+          setRouteProfile(profileParam as 'shortest' | 'safer' | 'paranoid');
+        }
+        setShowRoutePanel(true);
+      }
+    }
+  }, [systems.length, systemMap, searchParams, setRouteOrigin, setRouteDestination, setRouteProfile]);
 
   // Update URL when selectedSystem changes (shallow, no reload)
   useEffect(() => {
