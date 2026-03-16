@@ -82,9 +82,7 @@ async def grant_pro(
     db: AsyncSession = Depends(get_db),
 ) -> CompStatusResponse:
     """Grant a complimentary Pro subscription to a character."""
-    result = await db.execute(
-        select(User).where(User.character_id == body.character_id)
-    )
+    result = await db.execute(select(User).where(User.character_id == body.character_id))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -133,9 +131,7 @@ async def revoke_pro(
     db: AsyncSession = Depends(get_db),
 ) -> CompStatusResponse:
     """Revoke a complimentary Pro subscription."""
-    result = await db.execute(
-        select(User).where(User.character_id == body.character_id)
-    )
+    result = await db.execute(select(User).where(User.character_id == body.character_id))
     user = result.scalar_one_or_none()
 
     if not user:

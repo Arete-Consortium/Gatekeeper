@@ -18,8 +18,13 @@ from ...services.intel_parser import (
     parse_intel_text,
     submit_intel,
 )
-from ...services.pilot_intel import search_characters, search_systems
-from ...services.pilot_intel import get_pilot_stats, get_pilot_deep_dive, resolve_character_names
+from ...services.pilot_intel import (
+    get_pilot_deep_dive,
+    get_pilot_stats,
+    resolve_character_names,
+    search_characters,
+    search_systems,
+)
 
 router = APIRouter(prefix="/intel", tags=["intel"])
 
@@ -554,7 +559,7 @@ async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLook
 
     # Fetch stats for all resolved pilots (rate-limited, sequential)
     pilots: list[PilotThreatResponse] = []
-    for name, char_id in name_to_id.items():
+    for _name, char_id in name_to_id.items():
         result = await get_pilot_stats(char_id)
         if result:
             pilots.append(PilotThreatResponse(**result))
@@ -595,7 +600,3 @@ async def fleet_pilot_lookup(request: FleetPilotLookupRequest) -> FleetPilotLook
             "total_losses": total_losses,
         },
     )
-
-
-
-

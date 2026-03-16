@@ -47,9 +47,7 @@ async def _get_subscription_tier(character_id: int, db: AsyncSession) -> str:
     Returns "free" if the user doesn't exist or the DB isn't available.
     """
     try:
-        result = await db.execute(
-            select(User).where(User.character_id == character_id)
-        )
+        result = await db.execute(select(User).where(User.character_id == character_id))
         user = result.scalar_one_or_none()
         if not user:
             return "free"

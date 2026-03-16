@@ -443,7 +443,9 @@ async def search_characters(query: str) -> list[dict]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
             resp = await client.get(
                 f"https://zkillboard.com/autocomplete/{query}/",
-                headers={"User-Agent": "EVE-Gatekeeper/2.0 github.com/Arete-Consortium/EVE_Gatekeeper"},
+                headers={
+                    "User-Agent": "EVE-Gatekeeper/2.0 github.com/Arete-Consortium/EVE_Gatekeeper"
+                },
             )
             if resp.status_code == 200:
                 results = resp.json()
@@ -602,7 +604,9 @@ async def _fetch_recent_killmails(character_id: int, limit: int = 15) -> list[di
         if e.response.status_code == 429:
             logger.warning("zKillboard rate limit hit fetching recent kills")
         else:
-            logger.warning(f"HTTP {e.response.status_code} fetching recent kills for {character_id}")
+            logger.warning(
+                f"HTTP {e.response.status_code} fetching recent kills for {character_id}"
+            )
         return []
     except Exception as e:
         logger.warning(f"Failed to fetch recent kills for {character_id}: {e}")
@@ -650,7 +654,7 @@ def _build_activity_pattern(recent_kills: list[dict]) -> dict:
 
     Derives hourly activity distribution from killmail_time ISO strings.
     """
-    hourly: dict[int, int] = {h: 0 for h in range(24)}
+    hourly: dict[int, int] = dict.fromkeys(range(24), 0)
     for kill in recent_kills:
         ts = kill.get("timestamp", "")
         if not ts:
@@ -708,10 +712,7 @@ async def get_pilot_deep_dive(character_id: int) -> dict | None:
     activity_pattern = _build_activity_pattern(recent_kills)
 
     # Strip attacker_ids from recent kills (internal only)
-    clean_kills = [
-        {k: v for k, v in kill.items() if k != "attacker_ids"}
-        for kill in recent_kills
-    ]
+    clean_kills = [{k: v for k, v in kill.items() if k != "attacker_ids"} for kill in recent_kills]
 
     return {
         **base,
@@ -732,9 +733,7 @@ async def get_pilot_stats(character_id: int) -> dict | None:
     esi_task = _fetch_esi_character(character_id)
     zkill_task = _fetch_zkill_stats(character_id)
     kills_task = _fetch_recent_killmails(character_id, limit=10)
-    esi_data, zkill_data, recent_kills = await asyncio.gather(
-        esi_task, zkill_task, kills_task
-    )
+    esi_data, zkill_data, recent_kills = await asyncio.gather(esi_task, zkill_task, kills_task)
 
     if esi_data is None:
         return None

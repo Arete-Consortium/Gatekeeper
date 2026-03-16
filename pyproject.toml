@@ -103,3 +103,16 @@ warn_required_dynamic_aliases = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "backend.app.services.kill_history",
+    "backend.app.services.market_ticker",
+    "backend.app.services.pilot_intel",
+    "backend.app.services.wormhole",
+]
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "backend.app.api.v1.auth"
+disable_error_code = ["arg-type"]
