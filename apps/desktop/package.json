@@ -1,7 +1,7 @@
 {
-  "name": "eve-gatekeeper-desktop",
+  "name": "gatekeeper-desktop",
   "version": "1.3.0",
-  "description": "EVE Gatekeeper Desktop - Intel & Route Planning for EVE Online",
+  "description": "Gatekeeper Desktop - Intel & Route Planning",
   "main": "src/main.js",
   "author": "AreteDriver",
   "license": "MIT",
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.evegatekeeper.desktop",
-    "productName": "EVE Gatekeeper",
+    "productName": "Gatekeeper",
     "directories": {
       "output": "release"
     },

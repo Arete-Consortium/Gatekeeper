@@ -16,13 +16,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Gatekeeper - Intel & Route Planning for EVE Online',
+  title: 'Gatekeeper - Intel & Route Planning',
   description:
-    'Route planning and intelligence tool for EVE Online. Find safe routes, analyze fittings, and track kill activity.',
-  keywords: ['EVE Online', 'route planner', 'intel', 'zkillboard', 'navigation', 'gatekeeper'],
+    'Route planning and intelligence tool. Find safe routes, analyze fittings, and track kill activity.',
+  keywords: ['route planner', 'intel', 'zkillboard', 'navigation', 'gatekeeper', 'new eden'],
   openGraph: {
-    title: 'Gatekeeper - Intel & Route Planning for EVE Online',
-    description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
+    title: 'Gatekeeper - Intel & Route Planning',
+    description: 'Route planning, intel, and kill tracking.',
     url: 'https://edengk.com',
     siteName: 'Gatekeeper',
     type: 'website',
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Gatekeeper',
-    description: 'Route planning, intel, and kill tracking for EVE Online pilots.',
+    description: 'Route planning, intel, and kill tracking.',
   },
   icons: {
     icon: '/favicon.ico',

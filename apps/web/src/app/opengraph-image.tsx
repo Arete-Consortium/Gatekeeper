@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Gatekeeper - Intel & Route Planning for EVE Online';
+export const alt = 'Gatekeeper - Intel & Route Planning';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -156,7 +156,7 @@ export default function OGImage() {
         >
           <span style={{ color: '#0e7490', fontWeight: 700, display: 'flex' }}>edengk.com</span>
           <span style={{ display: 'flex' }}>|</span>
-          <span style={{ display: 'flex' }}>For EVE Online Pilots</span>
+          <span style={{ display: 'flex' }}>For New Eden Pilots</span>
         </div>
       </div>
     ),

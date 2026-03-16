@@ -1,4 +1,4 @@
-# EVE Gatekeeper - Production Dockerfile
+# Gatekeeper - Production Dockerfile
 # Multi-stage build for optimal image size
 
 # =============================================================================

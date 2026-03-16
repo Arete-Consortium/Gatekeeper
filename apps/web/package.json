@@ -1,5 +1,5 @@
 {
-  "name": "eve-gatekeeper-web",
+  "name": "gatekeeper-web",
   "version": "2.0.0",
   "private": true,
   "scripts": {

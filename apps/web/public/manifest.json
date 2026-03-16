@@ -1,7 +1,7 @@
 {
   "name": "Gatekeeper",
   "short_name": "Gatekeeper",
-  "description": "Navigate New Eden safely — route planning, intel, and market data for EVE Online",
+  "description": "Navigate New Eden safely — route planning, intel, and market data",
   "start_url": "/map",
   "display": "standalone",
   "background_color": "#000000",

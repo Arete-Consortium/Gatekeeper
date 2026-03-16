@@ -1,6 +1,6 @@
-# EVE Gatekeeper
+# Gatekeeper
 
-**Comprehensive EVE Online navigation, routing, and intel visualization platform.**
+**Comprehensive navigation, routing, and intel visualization platform for New Eden.**
 
 A production-ready toolkit combining real-time map visualization, risk-aware routing, capital jump planning, and live kill feed streaming. Built with FastAPI, WebSocket support, and modern Python best practices.
 
