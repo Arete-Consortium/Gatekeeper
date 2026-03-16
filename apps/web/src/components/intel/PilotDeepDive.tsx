@@ -123,14 +123,14 @@ export function PilotDeepDive({ characterId, onClose }: PilotDeepDiveProps) {
           <Skeleton variant="text" className="h-3 w-32 mb-2" />
           <div className="flex items-end gap-px h-16">
             {Array.from({ length: 24 }).map((_, i) => (
-              <Skeleton key={i} variant="rectangular" className="flex-1" height={`${20 + Math.random() * 80}%`} />
+              <Skeleton key={i} variant="rectangular" className="flex-1" height={`${20 + ((i * 37 + 13) % 80)}%`} />
             ))}
           </div>
         </div>
         {/* Content skeleton */}
         <div className="px-4 py-3 space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} variant="text" className="h-4" style={{ width: `${70 + Math.random() * 30}%` }} />
+            <Skeleton key={i} variant="text" className="h-4" style={{ width: `${70 + ((i * 17 + 7) % 30)}%` }} />
           ))}
         </div>
       </div>
