@@ -102,9 +102,10 @@ apps/web/src/
 - **SSR safety**: `dynamic(() => import(...), { ssr: false })` for canvas/WebSocket components
 - **Barrel import pitfall**: Never import canvas components from barrel `@/components/map` — import directly from specific files to avoid SSR module evaluation
 - **Map rendering**: Canvas2D subway-style maps with region-colored intra-region gates, dashed cross-region gates, labels below nodes, text shadows
-- **Region coloring**: `getRegionColor(regionId)` in `map/types.ts` — golden ratio conjugate hash (`regionId * 137.508 % 360`) for even HSL hue distribution across ~68 regions
+- **Region coloring**: `getRegionColor(regionId)` in `apps/web/src/components/map/types.ts` — golden ratio conjugate hash (`regionId * 137.508 % 360`) for even HSL hue distribution across ~68 regions
 - **Auth**: httpOnly cookie (`gk_session`) primary, localStorage JWT fallback, `useAuth()` hook, `isPro` gate
-- **Layer persistence**: Map layer toggles + color mode saved to `localStorage` (`gk_map_layers`, `gk_map_color_mode`)
+- **Layer persistence**: Map layer toggles + color mode + layout mode saved to `localStorage` (`gk_map_layers`, `gk_map_color_mode`, `gk_map_layout_mode`)
+- **Layout modes**: `subway` (compressed, 50% region centroid attraction) or `dotlan` (raw EVE coordinates, CCP/Dotlan-style spatial). Toggle in sidebar under "Layout". UniverseMap compression is conditional on `layoutMode` prop
 - **Character tracking**: TanStack Query polls `/character/location` every 10s when authenticated
 - **SVG overlay pattern**: All map overlays are SVG elements positioned absolutely over the canvas, using viewport transform `(system.x - viewport.x) * viewport.zoom + viewport.width / 2`
 - **Canvas label suppression**: When SovStructuresOverlay renders for a system (iHub/Skyhook), SimpleMapCanvas skips its canvas label via `sovStructureSystems` Set prop
@@ -119,6 +120,7 @@ apps/web/src/
 |-----|---------|
 | `gk_consent` | GDPR cookie consent state (`{ analytics: boolean }`) |
 | `gk_map_color_mode` | Map coloring: "security" / "risk" / "star" |
+| `gk_map_layout_mode` | Map layout: "subway" / "dotlan" |
 | `gk_map_layers` | Map layer toggles (JSON object) |
 | `gk_pinned_pilots` | Pinned pilot intelligence list |
 | `gk_pinned_corps` | Pinned corporation list |
