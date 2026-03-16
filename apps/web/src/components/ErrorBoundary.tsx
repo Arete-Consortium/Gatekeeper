@@ -92,6 +92,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               >
                 Try Again
               </button>
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- class component can't use next/link */}
               <a
                 href="/"
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"

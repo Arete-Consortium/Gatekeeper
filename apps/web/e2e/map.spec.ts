@@ -72,8 +72,12 @@ test.describe('Map Page', () => {
   });
 
   test('should have intel feed controls', async ({ page }) => {
-    // Intel feed section inside Layers card — wait for full sidebar render
-    await expect(page.getByText('Intel Feed')).toBeVisible({ timeout: 10000 });
+    // Intel feed section is inside the Layers card, below Pro toggles
+    // Scroll sidebar to ensure it's in view, then check with extended timeout
+    // since it renders after map config API response
+    const intelFeed = page.getByText('Intel Feed');
+    await intelFeed.scrollIntoViewIfNeeded();
+    await expect(intelFeed).toBeVisible({ timeout: 15000 });
   });
 
   test('should have copy link button', async ({ page }) => {
