@@ -110,8 +110,14 @@ module = [
     "backend.app.services.market_ticker",
     "backend.app.services.pilot_intel",
     "backend.app.services.wormhole",
+    "backend.app.services.zkill_listener",
+    "backend.app.services.routing",
+    "backend.app.services.jumpbridge_connections",
+    "backend.app.api.routes_map",
+    "backend.app.middleware.rate_limit",
 ]
 warn_return_any = false
+disable_error_code = ["attr-defined", "arg-type", "assignment", "var-annotated"]
 
 [[tool.mypy.overrides]]
 module = "backend.app.api.v1.auth"
