@@ -121,10 +121,11 @@ export function SystemDetailPanel({
     .filter((s): s is MapSystem => s !== undefined)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Security color
-  const secColor = system.security >= 0.5
+  // Normalize -0.0 to 0.0 for display
+  const secValue = Object.is(system.security, -0) ? 0 : system.security;
+  const secColor = secValue >= 0.5
     ? 'text-green-400'
-    : system.security > 0
+    : secValue > 0
       ? 'text-yellow-400'
       : 'text-red-400';
 
@@ -144,7 +145,7 @@ export function SystemDetailPanel({
         <div className="min-w-0">
           <h3 className="text-lg font-bold text-white truncate">{system.name}</h3>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className={`font-mono text-sm ${secColor}`}>{system.security.toFixed(2)}</span>
+            <span className={`font-mono text-sm ${secColor}`}>{secValue.toFixed(2)}</span>
             {system.spectralClass && (
               <span className="text-gray-500 text-xs">Class {system.spectralClass}</span>
             )}
@@ -354,7 +355,7 @@ export function SystemDetailPanel({
               <span className={`font-mono text-xs ${
                 n.security >= 0.5 ? 'text-green-400' : n.security > 0 ? 'text-yellow-400' : 'text-red-400'
               }`}>
-                {n.security.toFixed(1)}
+                {(Object.is(n.security, -0) ? 0 : n.security).toFixed(1)}
               </span>
             </button>
           ))}

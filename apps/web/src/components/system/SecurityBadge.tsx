@@ -13,8 +13,10 @@ export function SecurityBadge({
   showValue = true,
   size = 'md',
 }: SecurityBadgeProps) {
-  // Handle undefined/null security values
+  // Handle undefined/null and negative zero
   const sec = security ?? 0;
+  // Normalize -0.0 to 0.0 for display and classification
+  const normalizedSec = Object.is(sec, -0) ? 0 : sec;
 
   const getSecurityColor = (s: number): string => {
     if (s >= 0.5) return 'text-high-sec';
@@ -34,7 +36,7 @@ export function SecurityBadge({
     lg: 'px-2.5 py-1 text-base',
   };
 
-  const displayValue = sec.toFixed(1);
+  const displayValue = normalizedSec.toFixed(1);
 
   return (
     <span
@@ -45,7 +47,7 @@ export function SecurityBadge({
         sizes[size]
       )}
     >
-      {showValue ? displayValue : sec >= 0.5 ? 'H' : sec > 0 ? 'L' : 'N'}
+      {showValue ? displayValue : normalizedSec >= 0.5 ? 'H' : normalizedSec > 0 ? 'L' : 'N'}
     </span>
   );
 }
