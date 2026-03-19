@@ -56,7 +56,6 @@ TRACKED_ITEMS: dict[int, str] = {
     16274: "Helium Isotopes",
     40520: "Small Skill Injector",
     40519: "Large Skill Injector",
-    71050: "Omega",
 }
 
 

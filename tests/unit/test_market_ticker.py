@@ -423,7 +423,7 @@ class TestConstants:
         assert len(TRADE_HUB_REGIONS) == 5
 
     def test_tracked_items_count(self):
-        assert len(TRACKED_ITEMS) == 19  # 20 listed minus PLEX duplicate
+        assert len(TRACKED_ITEMS) == 18  # Omega removed (not tradeable on market)
 
     def test_cache_ttl_is_one_hour(self):
         assert CACHE_TTL == 3600
