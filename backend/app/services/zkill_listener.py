@@ -125,7 +125,6 @@ class ZKillListener:
             try:
                 await self._fetch_kills()
                 # Successful fetch - record connection and reset retry counter
-                self._redisq_403_count = 0
                 if self._state != ConnectionState.CONNECTED:
                     self._state = ConnectionState.CONNECTED
                     self.health.record_connection()
