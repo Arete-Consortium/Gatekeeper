@@ -9,6 +9,8 @@ A production-ready toolkit combining real-time map visualization, risk-aware rou
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docs.docker.com/)
 
+![Gatekeeper Map](docs/screenshot-map.png)
+
 ## Features
 
 - **Risk-Aware Routing**: Dijkstra pathfinding with safety profiles (shortest/safer/paranoid)
@@ -374,4 +376,4 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
-**Built for the EVE Online community** | [Report Issues](https://github.com/Arete-Consortium/EVE_Gatekeeper/issues)
+**Built for the EVE Online community** | [Report Issues](https://github.com/Arete-Consortium/EVE_Gatekeeper/issues) | [Discord](https://discord.gg/fdzQkrt8)
