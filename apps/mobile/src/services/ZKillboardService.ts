@@ -9,7 +9,7 @@ class ZKillboardService {
     this.client = axios.create({
       baseURL: API_CONFIG.ZKILLBOARD_BASE_URL,
       headers: {
-        "User-Agent": "Eve-Nexus-App/1.0",
+        "User-Agent": "EVE_Gatekeeper/2.1.0 (https://edengk.com, AreteDriver)",
       },
     });
   }
