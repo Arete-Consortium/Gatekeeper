@@ -1,10 +1,12 @@
-"""zKillboard RedisQ listener for real-time kill feed.
+"""zKillboard kill feed listener with RedisQ + WebSocket fallback.
 
-Uses HTTP long-polling (not WebSocket) but benefits from the same
-reconnection patterns and health monitoring.
+Primary: HTTP long-polling via RedisQ (zkillredisq.stream).
+Fallback: WebSocket (wss://zkillboard.com/websocket/) when RedisQ 403s,
+which happens on shared cloud IPs (e.g. Fly.io).
 """
 
 import asyncio
+import json
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -51,6 +53,8 @@ class ZKillListener:
         self.queue_id = queue_id or "eve-gatekeeper"
         self.on_kill = on_kill
         self._running = False
+        self._use_websocket = False  # Fallback: True = zKill WebSocket mode
+        self._redisq_403_count = 0
         self._task: asyncio.Task | None = None
         self._client: httpx.AsyncClient | None = None
 
@@ -109,11 +113,19 @@ class ZKillListener:
         logger.info("ZKill listener stopped")
 
     async def _listen_loop(self) -> None:
-        """Main listening loop with reconnection logic."""
+        """Main listening loop with reconnection logic.
+
+        Tries RedisQ first. On repeated 403s (IP blocked on shared cloud),
+        falls back to zKillboard WebSocket (wss://zkillboard.com/websocket/).
+        """
         while self._running:
+            if self._use_websocket:
+                await self._websocket_loop()
+                return
             try:
                 await self._fetch_kills()
                 # Successful fetch - record connection and reset retry counter
+                self._redisq_403_count = 0
                 if self._state != ConnectionState.CONNECTED:
                     self._state = ConnectionState.CONNECTED
                     self.health.record_connection()
@@ -124,13 +136,22 @@ class ZKillListener:
                 break
             except httpx.TimeoutException:
                 # Timeout is normal - RedisQ returns after 30s with no data
-                # Still counts as healthy connection
                 if self._state != ConnectionState.CONNECTED:
                     self._state = ConnectionState.CONNECTED
                     self.health.record_connection()
                 self.health.reset_retry_counter()
                 logger.debug("RedisQ timeout (normal), continuing...")
             except httpx.HTTPStatusError as e:
+                if e.response.status_code == 403:
+                    self._redisq_403_count += 1
+                    if self._redisq_403_count >= 3:
+                        logger.warning(
+                            "RedisQ returned 403 %d times — IP likely blocked. "
+                            "Switching to zKillboard WebSocket fallback.",
+                            self._redisq_403_count,
+                        )
+                        self._use_websocket = True
+                        continue
                 logger.error(f"HTTP error from zKillboard: {e.response.status_code}")
                 self.health.record_disconnection()
                 self._state = ConnectionState.RECONNECTING
@@ -139,6 +160,60 @@ class ZKillListener:
                     break
             except Exception as e:
                 logger.exception(f"Error in ZKill listener: {e}")
+                self.health.record_disconnection()
+                self._state = ConnectionState.RECONNECTING
+                should_continue = await self._handle_reconnect()
+                if not should_continue:
+                    break
+
+    async def _websocket_loop(self) -> None:
+        """Listen to zKillboard via WebSocket (fallback when RedisQ is blocked).
+
+        zKill WebSocket sends {"killID": N, "hash": "..."} messages.
+        We fetch the full killmail from ESI, then process normally.
+        """
+        import websockets
+
+        ws_url = "wss://zkillboard.com/websocket/"
+        subscribe_msg = json.dumps({"action": "sub", "channel": "killstream"})
+
+        while self._running:
+            try:
+                async with websockets.connect(
+                    ws_url,
+                    additional_headers={"User-Agent": settings.ZKILL_USER_AGENT},
+                ) as ws:
+                    await ws.send(subscribe_msg)
+                    self._state = ConnectionState.CONNECTED
+                    self.health.record_connection()
+                    self.health.reset_retry_counter()
+                    self._redisq_403_count = 0
+                    logger.info("ZKill listener connected via WebSocket fallback")
+
+                    async for message in ws:
+                        if not self._running:
+                            break
+                        try:
+                            data = json.loads(message)
+                            # WebSocket sends full killmail + zkb data inline
+                            kill_id = data.get("killmail_id") or data.get("killID")
+                            if kill_id:
+                                package = {
+                                    "killID": kill_id,
+                                    "killmail": data,
+                                    "zkb": data.get("zkb", {}),
+                                }
+                                await self._process_kill(package)
+                                self.health.record_message()
+                        except json.JSONDecodeError:
+                            logger.debug("Non-JSON WebSocket message, skipping")
+                        except Exception as e:
+                            logger.warning(f"Error processing WebSocket kill: {e}")
+
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"WebSocket connection error: {e}")
                 self.health.record_disconnection()
                 self._state = ConnectionState.RECONNECTING
                 should_continue = await self._handle_reconnect()
@@ -372,6 +447,7 @@ class ZKillListener:
             "state": self._state.value,
             "is_connected": self.is_connected,
             "is_running": self.is_running,
+            "mode": "websocket" if self._use_websocket else "redisq",
             "queue_id": self.queue_id,
             "config": {
                 "initial_delay": self.config.initial_delay,
