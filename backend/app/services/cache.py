@@ -284,3 +284,13 @@ def build_risk_key(system_name: str) -> str:
 def build_esi_key(endpoint: str) -> str:
     """Build cache key for ESI responses."""
     return f"esi:{endpoint}"
+
+
+def build_map_config_key() -> str:
+    """Build cache key for the full /map/config response."""
+    return "map:config"
+
+
+def build_hotzone_key(hours: int, limit: int, sec_filter: str | None) -> str:
+    """Build cache key for hotzone results."""
+    return f"hotzone:{hours}:{limit}:{sec_filter or 'all'}"

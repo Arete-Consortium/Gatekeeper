@@ -1,9 +1,12 @@
 """Hotzone detection service.
 
 Computes top active systems from real-time kill history with trend prediction.
+Results are cached in-module for 60 seconds to avoid recomputing aggregations
+on every request (kill data is real-time, short TTL balances freshness with CPU).
 """
 
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -16,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 # Trend decay factor for prediction
 TREND_DECAY = 0.7
+
+# In-module cache (follows fw_cache.py pattern)
+_HOTZONE_CACHE_TTL = 60  # seconds
+_hotzone_cache: dict[tuple, tuple[float, list]] = {}  # (params) -> (timestamp, results)
 
 
 class HotzoneSystem(BaseModel):
@@ -80,6 +87,12 @@ def get_hotzone_systems(
     Returns:
         List of HotzoneSystem sorted by current kills descending.
     """
+    # Check in-module cache
+    cache_key = (hours, limit, sec_filter)
+    cached = _hotzone_cache.get(cache_key)
+    if cached and (time.monotonic() - cached[0]) < _HOTZONE_CACHE_TTL:
+        return cached[1]
+
     history = get_kill_history()
     universe = load_universe()
 
@@ -168,4 +181,9 @@ def get_hotzone_systems(
 
     # Sort by current kills descending
     results.sort(key=lambda s: s.kills_current + s.pods_current, reverse=True)
-    return results[:limit]
+    final = results[:limit]
+
+    # Store in module cache
+    _hotzone_cache[cache_key] = (time.monotonic(), final)
+
+    return final

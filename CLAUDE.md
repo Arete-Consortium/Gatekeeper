@@ -9,7 +9,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 - **Version**: 2.1.0 (pyproject.toml)
 - **Codebase**: 641 files across 6 languages, ~166K lines
 - **Backend**: Python 3.12 / FastAPI — 2,602 tests passing
-- **Frontend**: TypeScript / Next.js 16.1.6 / React 18.2.0 / TailwindCSS 3.4 — 575 tests (Vitest)
+- **Frontend**: TypeScript / Next.js 16.2.0 / React 18.2.0 / TailwindCSS 3.4 — 575 tests (Vitest)
 - **Rendering**: Canvas2D subway-style maps (universe, FW, Pochven, route, jump range) + SVG overlays
 - **Deployment**: Fly.io (backend) + Vercel (frontend, auto-deploy on push to main)
 - **Database**: PostgreSQL on Fly.io
@@ -308,7 +308,7 @@ alembic upgrade head
 | Layer | Technology |
 |-------|-----------|
 | Backend framework | FastAPI |
-| Frontend framework | Next.js 16.1.6 (App Router) |
+| Frontend framework | Next.js 16.2.0 (App Router) |
 | UI library | React 18.2.0 + TailwindCSS 3.4 |
 | Map rendering | Canvas2D (subway-style) + SVG overlays |
 | Server state | TanStack Query 5.28.0 |
@@ -382,7 +382,7 @@ Data flow: ESI/zKill → backend services → FastAPI endpoints → TanStack Que
 
 ## Dependencies
 
-**Backend** (`pyproject.toml`): FastAPI, SQLAlchemy, Alembic, httpx, pydantic, stripe, python-jose
+**Backend** (`pyproject.toml`): FastAPI, SQLAlchemy, Alembic, httpx, pydantic, stripe, structlog, sentry-sdk
 **Frontend** (`apps/web/package.json`): next, react, @tanstack/react-query, tailwindcss, lucide-react
 
 > Note: This is a monorepo — frontend dependencies are in `apps/web/package.json`, not the project root.

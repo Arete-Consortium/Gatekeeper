@@ -6,6 +6,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 
 from ..models.route import RouteResponse
+from ..services.cache import build_esi_key, build_map_config_key, get_cache
 from ..services.data_loader import load_risk_config, load_universe
 from ..services.risk_engine import compute_risk, risk_to_color
 from ..services.routing import compute_route
@@ -17,9 +18,22 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data"
 ESI_BASE = "https://esi.evetech.net/latest"
 EVE_SCOUT_API = "https://api.eve-scout.com/v2/public/signatures"
 
+# Cache TTLs (seconds)
+MAP_CONFIG_TTL = 300  # 5 min — risk updates flow via WebSocket in real-time
+SOV_TTL = 300  # 5 min — ESI sov data updates hourly
+FW_TTL = 300  # 5 min — matches fw_cache.py
+THERA_TTL = 120  # 2 min — wormhole connections change frequently
+ACTIVITY_TTL = 300  # 5 min — ESI system_kills/jumps update hourly
+
 
 @router.get("/config")
 async def map_config() -> dict:
+    cache = await get_cache()
+    cache_key = build_map_config_key()
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
+
     universe = load_universe()
     cfg = load_risk_config()
 
@@ -65,7 +79,7 @@ async def map_config() -> dict:
         with factions_file.open() as f:
             factions = json.load(f)
 
-    return {
+    result = {
         "metadata": universe.metadata.dict(),
         "systems": systems_payload,
         "gates": gates_payload,
@@ -73,11 +87,19 @@ async def map_config() -> dict:
         "landmarks": landmarks,
         "factions": factions,
     }
+    await cache.set_json(cache_key, result, ttl=MAP_CONFIG_TTL)
+    return result
 
 
 @router.get("/sovereignty")
 async def get_sovereignty() -> dict:
     """Fetch current sovereignty map from ESI."""
+    cache = await get_cache()
+    cache_key = build_esi_key("sovereignty_map")
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
+
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(f"{ESI_BASE}/sovereignty/map/")
@@ -118,10 +140,12 @@ async def get_sovereignty() -> dict:
         except Exception:
             logger.warning("Failed to resolve alliance names")
 
-    return {
+    result = {
         "sovereignty": sov_map,
         "alliances": alliance_names,
     }
+    await cache.set_json(cache_key, result, ttl=SOV_TTL)
+    return result
 
 
 async def client_post_ids(ids: list[int]) -> list[dict]:
@@ -140,8 +164,14 @@ async def get_fw_systems() -> dict:
     """Fetch faction warfare system status from ESI."""
     from ..services.fw_cache import ensure_fw_cache
 
-    # Refresh FW cache opportunistically (keeps pirate suppression data fresh)
+    # Refresh FW pirate suppression data (separate concern from response cache)
     await ensure_fw_cache()
+
+    cache = await get_cache()
+    cache_key = build_esi_key("fw_systems")
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
 
     async with httpx.AsyncClient(timeout=15) as client:
         try:
@@ -165,12 +195,20 @@ async def get_fw_systems() -> dict:
             "victory_points_threshold": entry.get("victory_points_threshold", 0),
         }
 
-    return {"fw_systems": fw_systems}
+    result = {"fw_systems": fw_systems}
+    await cache.set_json(cache_key, result, ttl=FW_TTL)
+    return result
 
 
 @router.get("/sovereignty/structures")
 async def get_sov_structures() -> dict:
     """Fetch sovereignty structures (iHubs, ADM levels) from ESI."""
+    cache = await get_cache()
+    cache_key = build_esi_key("sovereignty_structures")
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
+
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(f"{ESI_BASE}/sovereignty/structures/")
@@ -198,12 +236,20 @@ async def get_sov_structures() -> dict:
             }
         )
 
-    return {"structures": system_structures}
+    result = {"structures": system_structures}
+    await cache.set_json(cache_key, result, ttl=SOV_TTL)
+    return result
 
 
 @router.get("/thera")
 async def get_thera_connections() -> dict:
     """Fetch current Thera/Turnur/Zarzakh connections from EVE Scout."""
+    cache = await get_cache()
+    cache_key = build_esi_key("thera_connections")
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
+
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(EVE_SCOUT_API)
@@ -214,7 +260,7 @@ async def get_thera_connections() -> dict:
             raise HTTPException(503, "EVE Scout data unavailable") from None
 
     THERA_ID = 31000005
-    result = []
+    thera_connections = []
     for conn in connections:
         out_id = conn.get("out_system_id")
         in_id = conn.get("in_system_id")
@@ -233,7 +279,7 @@ async def get_thera_connections() -> dict:
             kspace_name = conn.get("out_system_name")
             region_name = conn.get("out_region_name")
 
-        result.append(
+        thera_connections.append(
             {
                 "id": conn.get("id"),
                 "system_id": kspace_id,
@@ -247,12 +293,20 @@ async def get_thera_connections() -> dict:
             }
         )
 
-    return {"connections": result}
+    result = {"connections": thera_connections}
+    await cache.set_json(cache_key, result, ttl=THERA_TTL)
+    return result
 
 
 @router.get("/activity")
 async def get_system_activity() -> dict:
     """Fetch system jumps + kills from ESI (Dotlan-style activity data)."""
+    cache = await get_cache()
+    cache_key = build_esi_key("activity")
+    cached = await cache.get_json(cache_key)
+    if cached:
+        return cached
+
     async with httpx.AsyncClient(timeout=15) as client:
         jumps_data = {}
         kills_data = {}
@@ -303,11 +357,13 @@ async def get_system_activity() -> dict:
         except httpx.HTTPError:
             logger.warning("Failed to fetch incursions from ESI")
 
-    return {
+    result = {
         "jumps": jumps_data,
         "kills": kills_data,
         "incursions": incursions_data,
     }
+    await cache.set_json(cache_key, result, ttl=ACTIVITY_TTL)
+    return result
 
 
 @router.get("/route", response_model=RouteResponse)
