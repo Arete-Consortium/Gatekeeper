@@ -292,11 +292,11 @@ cd apps/web && npx vitest run
 cd apps/web && npx next dev
 
 # Deploy
-/home/arete/.fly/bin/flyctl deploy --remote-only --wait-timeout 600 --app eve-gatekeeper
+flyctl deploy --remote-only --wait-timeout 600 --app eve-gatekeeper
 git push origin main  # triggers Vercel auto-deploy
 
 # Fly secrets
-/home/arete/.fly/bin/flyctl secrets set KEY=VALUE --app eve-gatekeeper
+flyctl secrets set KEY=VALUE --app eve-gatekeeper
 
 # Database migrations
 cd backend && source ../.venv/bin/activate && alembic revision --autogenerate -m "description"
