@@ -89,7 +89,6 @@ EVE_Gatekeeper/
 │   │   └── main.py              # Application entry
 │   └── starmap/                 # Universe data management
 ├── apps/
-│   ├── desktop/                 # Electron desktop app
 │   └── mobile/                  # React Native mobile app
 ├── tests/                       # pytest test suite (1500+ tests)
 ├── .github/workflows/           # CI/CD pipelines
