@@ -74,6 +74,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
   const systemMapRef = useRef<Map<number, MapSystem>>(new Map());
   const quadtreeRef = useRef<Quadtree | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -547,24 +549,28 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
 
+      const vp = viewportRef.current;
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
-      const worldBefore = screenToWorld(mouseX, mouseY);
+
+      // Screen to world using current viewport ref
+      const worldBeforeX = (mouseX - vp.width / 2) / vp.zoom + vp.x;
+      const worldBeforeY = (mouseY - vp.height / 2) / vp.zoom + vp.y;
 
       // Normalise across browsers/trackpads: clamp raw delta to ±150
       // so trackpad flings don't catapult the zoom
       const clampedDelta = Math.max(-150, Math.min(150, e.deltaY));
       const zoomDelta = -clampedDelta * 0.0015;
       const zoomFactor = Math.pow(2, zoomDelta);
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewport.zoom * zoomFactor));
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, vp.zoom * zoomFactor));
 
       // Adjust position to zoom towards mouse
-      const newX = worldBefore.x - (mouseX - viewport.width / 2) / newZoom;
-      const newY = worldBefore.y - (mouseY - viewport.height / 2) / newZoom;
+      const newX = worldBeforeX - (mouseX - vp.width / 2) / newZoom;
+      const newY = worldBeforeY - (mouseY - vp.height / 2) / newZoom;
 
-      onViewportChange({ ...viewport, x: newX, y: newY, zoom: newZoom });
+      onViewportChange({ ...vp, x: newX, y: newY, zoom: newZoom });
     },
-    [viewport, onViewportChange, screenToWorld]
+    [onViewportChange]
   );
 
   // Helper: update cursor directly on the canvas element (avoids re-render)
@@ -588,16 +594,17 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       if (isDraggingRef.current) {
         const rawDx = e.clientX - dragStartRef.current.x;
         const rawDy = e.clientY - dragStartRef.current.y;
+        dragStartRef.current = { x: e.clientX, y: e.clientY };
         // Clamp pixel delta to prevent pan jumps from large mouse movements
         const maxPx = 200;
-        const dx = Math.max(-maxPx, Math.min(maxPx, rawDx)) / viewport.zoom;
-        const dy = Math.max(-maxPx, Math.min(maxPx, rawDy)) / viewport.zoom;
+        const vp = viewportRef.current;
+        const dx = Math.max(-maxPx, Math.min(maxPx, rawDx)) / vp.zoom;
+        const dy = Math.max(-maxPx, Math.min(maxPx, rawDy)) / vp.zoom;
         onViewportChange({
-          ...viewport,
-          x: viewport.x - dx,
-          y: viewport.y - dy,
+          ...vp,
+          x: vp.x - dx,
+          y: vp.y - dy,
         });
-        dragStartRef.current = { x: e.clientX, y: e.clientY };
       } else {
         // Hover detection using quadtree (#6)
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -608,7 +615,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         }
       }
     },
-    [viewport, onViewportChange, findSystemAt, onSystemHover, setCursor]
+    [onViewportChange, findSystemAt, onSystemHover, setCursor]
   );
 
   // Mouse up - end drag or click
@@ -693,6 +700,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   }, [viewport.zoom, getTouchDistance, findSystemAt]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const vp = viewportRef.current;
+
     if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
       // Pinch zoom
       e.preventDefault();
@@ -706,10 +715,11 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         const center = getTouchCenter(e.touches[0], e.touches[1]);
         const cx = center.x - rect.left;
         const cy = center.y - rect.top;
-        const worldBefore = screenToWorld(cx, cy);
-        const newX = worldBefore.x - (cx - viewport.width / 2) / newZoom;
-        const newY = worldBefore.y - (cy - viewport.height / 2) / newZoom;
-        onViewportChange({ ...viewport, x: newX, y: newY, zoom: newZoom });
+        const wxBefore = (cx - vp.width / 2) / vp.zoom + vp.x;
+        const wyBefore = (cy - vp.height / 2) / vp.zoom + vp.y;
+        const newX = wxBefore - (cx - vp.width / 2) / newZoom;
+        const newY = wyBefore - (cy - vp.height / 2) / newZoom;
+        onViewportChange({ ...vp, x: newX, y: newY, zoom: newZoom });
       }
       return;
     }
@@ -731,14 +741,14 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       if (isTouchDraggingRef.current) {
         e.preventDefault();
         onViewportChange({
-          ...viewport,
-          x: viewport.x - dx / viewport.zoom,
-          y: viewport.y - dy / viewport.zoom,
+          ...vp,
+          x: vp.x - dx / vp.zoom,
+          y: vp.y - dy / vp.zoom,
         });
         dragStartRef.current = { x: touch.clientX, y: touch.clientY };
       }
     }
-  }, [viewport, onViewportChange, getTouchDistance, getTouchCenter, screenToWorld]);
+  }, [onViewportChange, getTouchDistance, getTouchCenter]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (longPressTimerRef.current) {
