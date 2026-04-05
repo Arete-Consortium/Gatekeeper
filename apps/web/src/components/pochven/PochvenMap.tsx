@@ -332,11 +332,11 @@ export function PochvenMap({ killCounts = {} }: PochvenMapProps) {
     ctx.fillStyle = KRAI_COLORS.veles + '20';
     ctx.fillText('KRAI VELES', velesLabel.x, velesLabel.y);
 
-    const svarogLabel = toCanvas(0.15, 0.65);
+    const svarogLabel = toCanvas(0.36, 0.72);
     ctx.fillStyle = KRAI_COLORS.svarog + '20';
     ctx.fillText('KRAI SVAROG', svarogLabel.x, svarogLabel.y);
 
-    const perunLabel = toCanvas(0.85, 0.65);
+    const perunLabel = toCanvas(0.64, 0.72);
     ctx.fillStyle = KRAI_COLORS.perun + '20';
     ctx.fillText('KRAI PERUN', perunLabel.x, perunLabel.y);
 
