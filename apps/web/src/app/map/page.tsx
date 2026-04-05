@@ -211,6 +211,7 @@ function MapPageContent() {
       showWormholes: false,
       showJumpBridges: false,
       showMarketHubs: false,
+      showPirateInsurgency: false,
     };
     if (typeof window === 'undefined') return defaults;
     try {
@@ -315,6 +316,13 @@ function MapPageContent() {
     queryFn: () => GatekeeperAPI.getMarketHubs(),
     staleTime: 30 * 60 * 1000, // 30 min — static data
     enabled: !!mapConfig && layers.showMarketHubs === true,
+  });
+
+  const { data: pirateInsurgencyData } = useQuery({
+    queryKey: ['pirateInsurgency'],
+    queryFn: () => GatekeeperAPI.getPirateInsurgency(),
+    staleTime: 5 * 60 * 1000, // 5 min — matches FW cache TTL
+    enabled: !!mapConfig && isPro && layers.showPirateInsurgency === true,
   });
 
   const { data: characterLocation } = useQuery({
@@ -755,6 +763,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
           <ProToggle checked={layers.showActivity === true} onChange={(v) => updateLayer('showActivity', v)} label="System activity" isPro={isPro} />
           <ProToggle checked={layers.showIncursions === true} onChange={(v) => updateLayer('showIncursions', v)} label="Incursions" isPro={isPro} />
+          <ProToggle checked={layers.showPirateInsurgency === true} onChange={(v) => updateLayer('showPirateInsurgency', v)} label="Pirate insurgency" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <ProToggle checked={layers.showSovereignty === true} onChange={(v) => updateLayer('showSovereignty', v)} label="Alliance sovereignty" isPro={isPro} />
@@ -1145,6 +1154,7 @@ function MapPageContent() {
                 wormholeConnections={isPro ? wormholeData?.connections : undefined}
                 jumpBridgeConnections={isPro ? jumpBridgeData?.bridges : undefined}
                 marketHubs={marketHubData?.hubs}
+                pirateInsurgency={isPro ? pirateInsurgencyData?.systems : undefined}
                 characterSystemId={characterLocation?.solar_system_id}
                 characterName={user?.character_name}
                 fleetMembers={fleetData?.members}
@@ -1162,6 +1172,7 @@ function MapPageContent() {
                   showSkyhooks: false,
                   showWormholes: false,
                   showJumpBridges: false,
+                  showPirateInsurgency: false,
                 }}
                 colorMode={colorMode}
                 layoutMode={layoutMode}

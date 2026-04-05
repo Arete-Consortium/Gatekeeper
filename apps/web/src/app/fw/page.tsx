@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, Badge, Button } from '@/components/ui';
 import { GatekeeperAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProGate } from '@/components/ProGate';
 import {
   Swords,
   ShieldAlert,
@@ -132,7 +133,7 @@ const LP_ITEMS = [
 
 export default function FWPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isPro } = useAuth();
   const [activeFaction, setActiveFaction] = useState<string>('Caldari');
   const [settingDestination, setSettingDestination] = useState<string | null>(null);
 
@@ -165,6 +166,7 @@ export default function FWPage() {
         </p>
       </div>
 
+      <ProGate feature="Faction Warfare Map">
       <FWMap />
 
       {/* Reference panels — Pochven style */}
@@ -310,6 +312,7 @@ export default function FWPage() {
           <ExternalLink className="h-2.5 w-2.5" />
         </a>
       </p>
+      </ProGate>
     </div>
   );
 }

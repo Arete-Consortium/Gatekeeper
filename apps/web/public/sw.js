@@ -1,5 +1,5 @@
 // EVE Gatekeeper Service Worker — offline caching for static assets and API data
-const CACHE_VERSION = 'gk-v3';
+const CACHE_VERSION = 'gk-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -8,6 +8,10 @@ const PRECACHE_URLS = [
   '/',
   '/map',
   '/route',
+  '/intel',
+  '/fw',
+  '/pochven',
+  '/arbitrage',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
@@ -18,6 +22,7 @@ const PRECACHE_URLS = [
 const CACHEABLE_API_PATTERNS = [
   /\/api\/v1\/map\/config/,
   /\/api\/v1\/map\/market-hubs/,
+  /\/api\/v1\/route\//,
 ];
 
 self.addEventListener('install', (event) => {

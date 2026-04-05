@@ -96,6 +96,7 @@ export interface MapLayers {
   showWormholes?: boolean;
   showJumpBridges?: boolean;
   showMarketHubs?: boolean;
+  showPirateInsurgency?: boolean;
   showHighsec?: boolean;
   showNullsec?: boolean;
 }
@@ -132,6 +133,7 @@ export interface UniverseMapProps {
   wormholeConnections?: import('@/lib/types').WormholeConnection[];
   jumpBridgeConnections?: import('@/lib/types').JumpBridgeConnection[];
   marketHubs?: import('@/lib/types').MarketHub[];
+  pirateInsurgency?: import('@/lib/types').PirateOccupiedSystem[];
   characterSystemId?: number | null;
   characterName?: string | null;
   fleetMembers?: import('@/lib/types').FleetMember[];

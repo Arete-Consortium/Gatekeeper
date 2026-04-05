@@ -1,6 +1,6 @@
 {
   "name": "EVE Gatekeeper",
-  "version": "1.4.0",
+  "version": "2.2.0",
   "tagline": "EVE Online navigation, routing, and intel visualization platform",
   "description": "A comprehensive toolkit for EVE Online pilots featuring real-time map visualization, risk-aware routing, capital jump planning, and live kill feed streaming.",
   "author": "AreteDriver",
@@ -9,7 +9,7 @@
   "components": {
     "api": {
       "name": "EVE Gatekeeper API",
-      "version": "1.4.0",
+      "version": "2.2.0",
       "framework": "FastAPI",
       "python": ">=3.11"
     },

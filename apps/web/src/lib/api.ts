@@ -56,6 +56,7 @@ import {
   FleetJoinResponse,
   FleetMembersResponse,
   FleetLeaveResponse,
+  PirateInsurgencyResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -284,6 +285,10 @@ class GatekeeperAPIService {
 
   async getSystemActivity(): Promise<SystemActivityResponse> {
     return this.request<SystemActivityResponse>('/map/activity');
+  }
+
+  async getPirateInsurgency(): Promise<PirateInsurgencyResponse> {
+    return this.request<PirateInsurgencyResponse>('/map/pirate-insurgency');
   }
 
   /**

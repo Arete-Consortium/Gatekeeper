@@ -200,6 +200,48 @@ async def get_fw_systems() -> dict:
     return result
 
 
+# Pirate faction ID → name mapping
+PIRATE_FACTIONS: dict[int, str] = {
+    500010: "Guristas Pirates",
+    500011: "Angel Cartel",
+}
+
+
+@router.get("/pirate-insurgency")
+async def get_pirate_insurgency() -> dict:
+    """Return systems with pirate faction occupation (security suppressed).
+
+    Uses the FW cache to identify systems occupied by Guristas (500010)
+    or Angel Cartel (500011), then enriches with system names from
+    universe data.
+    """
+    from ..services.fw_cache import _cache as fw_cache_data
+    from ..services.fw_cache import ensure_fw_cache
+
+    await ensure_fw_cache()
+
+    universe = load_universe()
+    # Build system_id → system_name lookup
+    id_to_name: dict[int, str] = {}
+    for name, sys in universe.systems.items():
+        id_to_name[sys.id] = name
+
+    systems = []
+    for system_id, occupier_faction_id in fw_cache_data.occupier_by_system.items():
+        if occupier_faction_id not in PIRATE_FACTIONS:
+            continue
+        systems.append(
+            {
+                "system_id": system_id,
+                "system_name": id_to_name.get(system_id, f"Unknown-{system_id}"),
+                "occupier_faction_id": occupier_faction_id,
+                "faction_name": PIRATE_FACTIONS[occupier_faction_id],
+            }
+        )
+
+    return {"systems": systems}
+
+
 @router.get("/sovereignty/structures")
 async def get_sov_structures() -> dict:
     """Fetch sovereignty structures (iHubs, ADM levels) from ESI."""

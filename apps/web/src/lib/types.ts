@@ -546,6 +546,18 @@ export interface CharacterLocation {
   structure_id: number | null;
 }
 
+// Pirate insurgency — systems with security suppressed by pirate occupation
+export interface PirateOccupiedSystem {
+  system_id: number;
+  system_name: string;
+  occupier_faction_id: number;
+  faction_name: string;
+}
+
+export interface PirateInsurgencyResponse {
+  systems: PirateOccupiedSystem[];
+}
+
 // Market hub data
 export interface MarketHub {
   system_id: number;

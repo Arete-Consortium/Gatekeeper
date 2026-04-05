@@ -40,6 +40,7 @@ import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
 import { JumpBridgeOverlay } from './JumpBridgeOverlay';
 import { IncursionOverlay } from './IncursionOverlay';
+import { PirateInsurgencyOverlay } from './PirateInsurgencyOverlay';
 // MarketHubsOverlay removed — low ROI toggle
 import { CharacterMarker } from './CharacterMarker';
 import { FleetOverlay } from './FleetOverlay';
@@ -63,6 +64,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showWormholes: false,
   showJumpBridges: false,
   showMarketHubs: false,
+  showPirateInsurgency: false,
   showHighsec: true,
   showNullsec: true,
 };
@@ -93,6 +95,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       wormholeConnections = [],
       jumpBridgeConnections = [],
       marketHubs = [],
+      pirateInsurgency = [],
       characterSystemId,
       characterName,
       fleetMembers,
@@ -446,6 +449,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         {layers.showIncursions && activityData?.incursions && activityData.incursions.length > 0 && (
           <IncursionOverlay
             incursions={activityData.incursions}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Pirate Insurgency Overlay (security suppressed systems) */}
+        {layers.showPirateInsurgency && pirateInsurgency && pirateInsurgency.length > 0 && (
+          <PirateInsurgencyOverlay
+            pirateOccupied={pirateInsurgency}
             systems={systemMap}
             viewport={viewport}
           />

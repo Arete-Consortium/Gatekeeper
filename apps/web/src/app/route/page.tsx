@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useMemo, useCallback } from 'react';
+import { Suspense, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useMultiRoute } from '@/hooks';
 import { Card, Button, Toggle, Skeleton } from '@/components/ui';
@@ -10,7 +10,7 @@ import type { Waypoint } from '@/components/route';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse } from '@/lib/types';
 import { GatekeeperAPI } from '@/lib/api';
-import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
+import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2, Share2, Check } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { JumpStrip } from '@/components/route/JumpStrip';
 import dynamic from 'next/dynamic';
@@ -165,32 +165,61 @@ function RoutePageContent() {
   const [waypoints, setWaypoints] = useState<Waypoint[]>(() => {
     const from = searchParams.get('from') ?? '';
     const to = searchParams.get('to') ?? '';
+    const via = searchParams.get('via');
+    const intermediates = via ? via.split(',').filter(Boolean) : [];
     return [
       { id: generateWaypointId(), system: from },
+      ...intermediates.map((s) => ({ id: generateWaypointId(), system: s })),
       { id: generateWaypointId(), system: to },
     ];
   });
 
-  const [avoidSystems, setAvoidSystems] = useState<string[]>([]);
+  const [avoidSystems, setAvoidSystems] = useState<string[]>(() => {
+    const avoid = searchParams.get('avoid');
+    return avoid ? avoid.split(',').filter(Boolean) : [];
+  });
   const [profile, setProfile] = useState<RouteProfile>(() => {
     const p = searchParams.get('profile') as RouteProfile | null;
     return p && p in ROUTE_PROFILES ? p : 'safer';
   });
-  const [includeBridges, setIncludeBridges] = useState(false);
-  const [includeThera, setIncludeThera] = useState(false);
+  const [includeBridges, setIncludeBridges] = useState(
+    () => searchParams.get('bridges') === '1'
+  );
+  const [includeThera, setIncludeThera] = useState(
+    () => searchParams.get('thera') === '1'
+  );
   const [shouldFetch, setShouldFetch] = useState(
     () => !!(searchParams.get('from') && searchParams.get('to'))
   );
 
   // Capital jump drive state
-  const [capitalMode, setCapitalMode] = useState(false);
-  const [selectedHull, setSelectedHull] = useState('Rhea');
+  const [capitalMode, setCapitalMode] = useState(
+    () => searchParams.get('capital') === '1'
+  );
+  const [selectedHull, setSelectedHull] = useState(() => {
+    const hull = searchParams.get('hull');
+    return hull && hull in HULLS ? hull : 'Rhea';
+  });
   // Fuel type is auto-determined by hull — no manual override needed
-  const [jdc, setJdc] = useState(5);
-  const [jfc, setJfc] = useState(5);
+  const [jdc, setJdc] = useState(() => {
+    const v = searchParams.get('jdc');
+    const n = v ? Number(v) : NaN;
+    return n >= 0 && n <= 5 ? n : 5;
+  });
+  const [jfc, setJfc] = useState(() => {
+    const v = searchParams.get('jfc');
+    const n = v ? Number(v) : NaN;
+    return n >= 0 && n <= 5 ? n : 5;
+  });
   const [preferStations, setPreferStations] = useState(true);
-  const [includePochven, setIncludePochven] = useState(false);
+  const [includePochven, setIncludePochven] = useState(
+    () => searchParams.get('pochven') === '1'
+  );
   const [optionsOpen, setOptionsOpen] = useState(false);
+
+  // Share route state
+  const [copied, setCopied] = useState(false);
+  const autoTriggered = useRef(false);
   const [jumpResult, setJumpResult] = useState<JumpRouteResponse | null>(null);
   const [jumpLoading, setJumpLoading] = useState(false);
   const [jumpError, setJumpError] = useState<Error | null>(null);
@@ -215,6 +244,60 @@ function RoutePageContent() {
     });
     setShouldFetch(false);
   }, []);
+
+  // Build shareable URL from current route state
+  const buildShareUrl = useCallback(() => {
+    const url = new URL(window.location.origin + '/route');
+    const from = waypoints[0]?.system;
+    const to = waypoints[waypoints.length - 1]?.system;
+    if (from) url.searchParams.set('from', from);
+    if (to) url.searchParams.set('to', to);
+
+    // Intermediate waypoints
+    if (waypoints.length > 2) {
+      const via = waypoints.slice(1, -1).map((wp) => wp.system).filter(Boolean);
+      if (via.length > 0) url.searchParams.set('via', via.join(','));
+    }
+
+    if (capitalMode) {
+      url.searchParams.set('capital', '1');
+      url.searchParams.set('hull', selectedHull);
+      if (jdc !== 5) url.searchParams.set('jdc', jdc.toString());
+      if (jfc !== 5) url.searchParams.set('jfc', jfc.toString());
+    } else {
+      if (profile !== 'safer') url.searchParams.set('profile', profile);
+      if (includeBridges) url.searchParams.set('bridges', '1');
+      if (includeThera) url.searchParams.set('thera', '1');
+      if (includePochven) url.searchParams.set('pochven', '1');
+    }
+
+    if (avoidSystems.length > 0) {
+      url.searchParams.set('avoid', avoidSystems.join(','));
+    }
+
+    return url.toString();
+  }, [waypoints, capitalMode, selectedHull, jdc, jfc, profile, includeBridges, includeThera, includePochven, avoidSystems]);
+
+  const handleShareRoute = useCallback(async () => {
+    const url = buildShareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for non-HTTPS or denied permission
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [buildShareUrl]);
 
   const systems = useMemo(
     () => waypoints.map((wp) => wp.system),
@@ -275,6 +358,21 @@ function RoutePageContent() {
       setJumpLoading(false);
     }
   }, [allFilled, waypoints, hullInfo.category, jdc, jfc, fuelType, preferStations]);
+
+  // Auto-trigger calculation when loaded from a shared URL
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    const hasFrom = searchParams.get('from');
+    const hasTo = searchParams.get('to');
+    if (!hasFrom || !hasTo) return;
+    autoTriggered.current = true;
+    // Capital mode auto-trigger needs a tick for state to settle
+    if (searchParams.get('capital') === '1') {
+      const timer = setTimeout(() => handleJumpCalculate(), 0);
+      return () => clearTimeout(timer);
+    }
+    // Gate mode: shouldFetch is already true from init
+  }, [searchParams, handleJumpCalculate]);
 
   const handleSearch = useCallback(() => {
     if (allFilled) {
@@ -417,20 +515,44 @@ function RoutePageContent() {
             </div>
           </div>
 
-          {/* Search Button */}
-          <Button
-            onClick={handleSearch}
-            disabled={!allFilled || (capitalMode ? jumpLoading : isLoading)}
-            loading={capitalMode ? jumpLoading : isLoading}
-            className="w-full sm:w-auto"
-          >
-            {capitalMode ? (
-              <Rocket className="mr-2 h-4 w-4" />
-            ) : (
-              <Route className="mr-2 h-4 w-4" />
+          {/* Search + Share Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleSearch}
+              disabled={!allFilled || (capitalMode ? jumpLoading : isLoading)}
+              loading={capitalMode ? jumpLoading : isLoading}
+              className="w-full sm:w-auto"
+            >
+              {capitalMode ? (
+                <Rocket className="mr-2 h-4 w-4" />
+              ) : (
+                <Route className="mr-2 h-4 w-4" />
+              )}
+              {capitalMode ? 'Calculate Jump Route' : 'Calculate Route'}
+            </Button>
+
+            {/* Share Route — visible after results load */}
+            {((!capitalMode && route) || (capitalMode && jumpResult)) && (
+              <button
+                type="button"
+                onClick={handleShareRoute}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-border text-text-secondary hover:text-text hover:bg-card-hover transition-colors"
+                title="Copy shareable route URL"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-green-400" />
+                    <span className="text-green-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4" />
+                    <span>Share Route</span>
+                  </>
+                )}
+              </button>
             )}
-            {capitalMode ? 'Calculate Jump Route' : 'Calculate Route'}
-          </Button>
+          </div>
         </div>
       </Card>
 
