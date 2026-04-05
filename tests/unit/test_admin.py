@@ -4,7 +4,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from backend.app.core.config import settings
-from backend.app.db.database import close_db, get_engine, init_db
+from backend.app.db.database import close_db, init_db
 
 
 @pytest.fixture(autouse=True)

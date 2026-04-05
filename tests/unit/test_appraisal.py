@@ -142,9 +142,7 @@ class TestResolveNames:
     @pytest.mark.asyncio
     async def test_resolve_single_name(self):
         """Resolves a single item name via ESI."""
-        esi_response = {
-            "inventory_types": [{"id": 34, "name": "Tritanium"}]
-        }
+        esi_response = {"inventory_types": [{"id": 34, "name": "Tritanium"}]}
 
         with patch("backend.app.services.appraisal.httpx.AsyncClient") as mock_cls:
             client = AsyncMock()
@@ -222,9 +220,7 @@ class TestResolveNames:
     @pytest.mark.asyncio
     async def test_resolve_case_insensitive(self):
         """Name resolution is case-insensitive."""
-        esi_response = {
-            "inventory_types": [{"id": 34, "name": "Tritanium"}]
-        }
+        esi_response = {"inventory_types": [{"id": 34, "name": "Tritanium"}]}
 
         with patch("backend.app.services.appraisal.httpx.AsyncClient") as mock_cls:
             client = AsyncMock()
@@ -395,9 +391,7 @@ class TestAppraise:
     @pytest.mark.asyncio
     async def test_full_appraisal_flow(self):
         """Full flow: parse -> resolve -> price -> response."""
-        esi_response = {
-            "inventory_types": [{"id": 34, "name": "Tritanium"}]
-        }
+        esi_response = {"inventory_types": [{"id": 34, "name": "Tritanium"}]}
         fuzz_response = {
             "34": {
                 "buy": {"max": 5.0},
@@ -462,9 +456,7 @@ class TestAppraise:
     @pytest.mark.asyncio
     async def test_duplicate_items_aggregated(self):
         """Duplicate item names have quantities summed."""
-        esi_response = {
-            "inventory_types": [{"id": 34, "name": "Tritanium"}]
-        }
+        esi_response = {"inventory_types": [{"id": 34, "name": "Tritanium"}]}
         fuzz_response = {
             "34": {
                 "buy": {"max": 5.0},
@@ -536,9 +528,7 @@ class TestAppraise:
     @pytest.mark.asyncio
     async def test_zero_price_items(self):
         """Items not found in Fuzzwork get zero prices."""
-        esi_response = {
-            "inventory_types": [{"id": 34, "name": "Tritanium"}]
-        }
+        esi_response = {"inventory_types": [{"id": 34, "name": "Tritanium"}]}
         fuzz_response = {}  # no price data
 
         with patch("backend.app.services.appraisal.httpx.AsyncClient") as mock_cls:

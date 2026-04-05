@@ -8,17 +8,16 @@ import pytest
 from backend.app.api.v1.characters import (
     LinkCharacterResponse,
     UnlinkCharacterResponse,
-    link_character,
-    unlink_character,
-    set_active_character,
-    list_characters,
-    switch_character,
     get_active_character,
+    link_character,
+    list_characters,
+    set_active_character,
+    switch_character,
+    unlink_character,
 )
 from backend.app.models.character_preferences import (
     ActiveCharacterResponse,
     CharacterListResponse,
-    CharacterPreferences,
     CharacterSwitchRequest,
 )
 from backend.app.services.character_preferences import MemoryPreferencesStore
@@ -284,9 +283,7 @@ class TestSwitchCharacter:
         active_manager.set_active.assert_called_once_with("test-session", 12345)
 
     @pytest.mark.asyncio
-    async def test_switch_character_not_found(
-        self, token_store, prefs_store, active_manager
-    ):
+    async def test_switch_character_not_found(self, token_store, prefs_store, active_manager):
         """Switching to a non-existent character raises 404."""
         request = CharacterSwitchRequest(character_id=99999)
 

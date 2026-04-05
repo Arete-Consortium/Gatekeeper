@@ -1,6 +1,5 @@
 """Tests for collaborative routing sessions."""
 
-
 import pytest
 from app.models.session import (
     AddRouteRequest,
@@ -58,10 +57,7 @@ class TestSessionCreation:
     def test_session_id_is_unique(self, manager):
         """Test that session IDs are unique."""
         request = CreateSessionRequest()
-        sessions = [
-            manager.create_session(request, 12345, "Pilot")
-            for _ in range(10)
-        ]
+        sessions = [manager.create_session(request, 12345, "Pilot") for _ in range(10)]
 
         ids = {s.id for s in sessions}
         assert len(ids) == 10  # All unique
@@ -102,9 +98,7 @@ class TestSessionJoining:
         """Test joining a session."""
         mgr, session = manager
 
-        result, pending, error = await mgr.join_session(
-            session.id, 67890, "Joiner"
-        )
+        result, pending, error = await mgr.join_session(session.id, 67890, "Joiner")
 
         assert result is not None
         assert pending is False
@@ -116,9 +110,7 @@ class TestSessionJoining:
         """Test joining non-existent session fails."""
         mgr, _ = manager
 
-        result, pending, error = await mgr.join_session(
-            "INVALID", 67890, "Joiner"
-        )
+        result, pending, error = await mgr.join_session("INVALID", 67890, "Joiner")
 
         assert result is None
         assert error == "Session not found"
@@ -377,9 +369,7 @@ class TestMessaging:
         """Test sending a message."""
         mgr, session = manager
 
-        msg = await mgr.send_message(
-            session.id, 12345, "Owner", "Hello, world!"
-        )
+        msg = await mgr.send_message(session.id, 12345, "Owner", "Hello, world!")
 
         assert msg is not None
         assert msg.message == "Hello, world!"
@@ -402,9 +392,7 @@ class TestMessaging:
         """Test that non-participants cannot send messages."""
         mgr, session = manager
 
-        msg = await mgr.send_message(
-            session.id, 99999, "Outsider", "Should fail"
-        )
+        msg = await mgr.send_message(session.id, 99999, "Outsider", "Should fail")
 
         assert msg is None
 
@@ -509,15 +497,9 @@ class TestListSessions:
     def manager(self):
         """Create a manager with sessions."""
         mgr = SessionManager()
-        mgr.create_session(
-            CreateSessionRequest(name="Public1", public=True), 1, "P1"
-        )
-        mgr.create_session(
-            CreateSessionRequest(name="Public2", public=True), 2, "P2"
-        )
-        mgr.create_session(
-            CreateSessionRequest(name="Private", public=False), 3, "P3"
-        )
+        mgr.create_session(CreateSessionRequest(name="Public1", public=True), 1, "P1")
+        mgr.create_session(CreateSessionRequest(name="Public2", public=True), 2, "P2")
+        mgr.create_session(CreateSessionRequest(name="Private", public=False), 3, "P3")
         return mgr
 
     def test_list_public_sessions(self, manager):

@@ -79,9 +79,7 @@ class TestFetchSystemStats:
     async def test_timeout_returns_empty(self):
         """Timeout returns empty stats gracefully."""
         with patch("backend.app.services.zkill_client.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_client(
-                side_effect=httpx.TimeoutException("timed out")
-            )
+            mock_cls.return_value = _mock_client(side_effect=httpx.TimeoutException("timed out"))
             result = await fetch_system_stats(30000142)
 
         assert result == ZKillStats()
@@ -170,9 +168,7 @@ class TestFetchSystemStatsNetworkErrors:
     async def test_read_timeout_returns_empty(self):
         """Read timeout returns empty stats."""
         with patch("backend.app.services.zkill_client.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_client(
-                side_effect=httpx.ReadTimeout("read timed out")
-            )
+            mock_cls.return_value = _mock_client(side_effect=httpx.ReadTimeout("read timed out"))
             result = await fetch_system_stats(30000142)
 
         assert result == ZKillStats()
@@ -192,9 +188,7 @@ class TestFetchSystemStatsNetworkErrors:
     async def test_generic_exception_returns_empty(self):
         """Any unexpected exception returns empty stats."""
         with patch("backend.app.services.zkill_client.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_client(
-                side_effect=RuntimeError("something unexpected")
-            )
+            mock_cls.return_value = _mock_client(side_effect=RuntimeError("something unexpected"))
             result = await fetch_system_stats(30000142)
 
         assert result == ZKillStats()
@@ -207,9 +201,7 @@ class TestFetchSystemStatsMalformedResponses:
     async def test_non_list_response_returns_empty(self):
         """Non-list JSON response (dict) returns empty stats."""
         with patch("backend.app.services.zkill_client.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_client(
-                response=_ok_response({"error": "not a list"})
-            )
+            mock_cls.return_value = _mock_client(response=_ok_response({"error": "not a list"}))
             result = await fetch_system_stats(30000142)
 
         assert result == ZKillStats()
@@ -227,9 +219,7 @@ class TestFetchSystemStatsMalformedResponses:
     async def test_string_response_returns_empty(self):
         """String JSON response returns empty stats."""
         with patch("backend.app.services.zkill_client.httpx.AsyncClient") as mock_cls:
-            mock_cls.return_value = _mock_client(
-                response=_ok_response("not a list")
-            )
+            mock_cls.return_value = _mock_client(response=_ok_response("not a list"))
             result = await fetch_system_stats(30000142)
 
         assert result == ZKillStats()
@@ -331,9 +321,9 @@ class TestFetchSystemStatsLargePayloads:
     async def test_mixed_ship_types(self):
         """Various ship type IDs are categorized correctly."""
         payload = [
-            _make_kill(587),    # Rifter (kill)
+            _make_kill(587),  # Rifter (kill)
             _make_kill(24690),  # Raven Navy Issue (kill)
-            _make_kill(670),    # Capsule (pod)
+            _make_kill(670),  # Capsule (pod)
             _make_kill(33328),  # Capsule - Genolution (pod)
             _make_kill(11393),  # Maelstrom (kill)
             _make_kill(17740),  # Zealot (kill)

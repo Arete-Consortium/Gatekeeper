@@ -1,6 +1,5 @@
 """Tests for multi-character support."""
 
-
 import pytest
 from app.models.character_preferences import (
     AlertPreferences,

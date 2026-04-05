@@ -140,7 +140,13 @@ class TestFetchMarketHistory:
     @pytest.mark.asyncio
     async def test_successful_fetch(self):
         mock_data = [
-            {"date": "2026-03-10", "average": 5.50, "highest": 6.0, "lowest": 5.0, "volume": 1000000}
+            {
+                "date": "2026-03-10",
+                "average": 5.50,
+                "highest": 6.0,
+                "lowest": 5.0,
+                "volume": 1000000,
+            }
         ]
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
@@ -172,8 +178,20 @@ class TestFetchTickerData:
     @pytest.mark.asyncio
     async def test_fetches_and_caches_data(self):
         mock_history = [
-            {"date": "2026-03-09", "average": 5.00, "highest": 5.50, "lowest": 4.50, "volume": 900000},
-            {"date": "2026-03-10", "average": 5.50, "highest": 6.00, "lowest": 5.00, "volume": 1000000},
+            {
+                "date": "2026-03-09",
+                "average": 5.00,
+                "highest": 5.50,
+                "lowest": 4.50,
+                "volume": 900000,
+            },
+            {
+                "date": "2026-03-10",
+                "average": 5.50,
+                "highest": 6.00,
+                "lowest": 5.00,
+                "volume": 1000000,
+            },
         ]
 
         with patch(
@@ -197,8 +215,20 @@ class TestFetchTickerData:
     @pytest.mark.asyncio
     async def test_uses_cache_on_second_call(self):
         mock_history = [
-            {"date": "2026-03-09", "average": 5.00, "highest": 5.50, "lowest": 4.50, "volume": 900000},
-            {"date": "2026-03-10", "average": 5.50, "highest": 6.00, "lowest": 5.00, "volume": 1000000},
+            {
+                "date": "2026-03-09",
+                "average": 5.00,
+                "highest": 5.50,
+                "lowest": 4.50,
+                "volume": 900000,
+            },
+            {
+                "date": "2026-03-10",
+                "average": 5.50,
+                "highest": 6.00,
+                "lowest": 5.00,
+                "volume": 1000000,
+            },
         ]
 
         with patch(
@@ -379,9 +409,7 @@ class TestMarketTickerAPI:
 
     @pytest.mark.asyncio
     async def test_get_item_ticker_not_tracked(self, app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/v1/market/ticker/99999")
 
         assert resp.status_code == 404

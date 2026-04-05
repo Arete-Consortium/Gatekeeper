@@ -300,7 +300,9 @@ class TestEnsureFwCache:
     @pytest.mark.asyncio
     async def test_refreshes_when_stale(self):
         """Calls refresh when cache is stale."""
-        with patch("backend.app.services.fw_cache.refresh_fw_cache", new_callable=AsyncMock) as mock_refresh:
+        with patch(
+            "backend.app.services.fw_cache.refresh_fw_cache", new_callable=AsyncMock
+        ) as mock_refresh:
             await ensure_fw_cache()
             mock_refresh.assert_called_once()
 
@@ -309,7 +311,9 @@ class TestEnsureFwCache:
         """Does not refresh when cache is fresh."""
         _cache.last_fetched = time.monotonic()
 
-        with patch("backend.app.services.fw_cache.refresh_fw_cache", new_callable=AsyncMock) as mock_refresh:
+        with patch(
+            "backend.app.services.fw_cache.refresh_fw_cache", new_callable=AsyncMock
+        ) as mock_refresh:
             await ensure_fw_cache()
             mock_refresh.assert_not_called()
 

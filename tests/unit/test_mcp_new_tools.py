@@ -13,7 +13,6 @@ import pytest
 
 from backend.app.mcp.server import MCPServer
 from backend.app.mcp.tools import (
-    ValidationError,
     calculate_fatigue,
     get_external_links,
     get_hot_systems,
@@ -195,9 +194,7 @@ class TestGetKillStats:
         mock_stats.recent_pods = 2
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_system_kills",
                 new_callable=AsyncMock,
@@ -214,9 +211,7 @@ class TestGetKillStats:
         mock_universe = MagicMock()
         mock_universe.systems = {}
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             result = await get_kill_stats(system_name="FakeSystem")
             assert "error" in result
             assert "Unknown system" in result["error"]
@@ -234,9 +229,7 @@ class TestGetKillStats:
         mock_stats.recent_pods = 3
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_system_kills",
                 new_callable=AsyncMock,
@@ -261,9 +254,7 @@ class TestGetKillStats:
         mock_universe.systems = {"Jita": mock_system}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_system_kills",
                 new_callable=AsyncMock,
@@ -287,9 +278,7 @@ class TestGetKillStats:
         mock_stats.recent_pods = 1
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_system_kills",
                 new_callable=AsyncMock,
@@ -349,9 +338,7 @@ class TestGetHotSystems:
         mock_stats_tama.recent_pods = 10
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_bulk_system_stats",
                 new_callable=AsyncMock,
@@ -380,9 +367,7 @@ class TestGetHotSystems:
         mock_stats.recent_pods = 2
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_bulk_system_stats",
                 new_callable=AsyncMock,
@@ -399,9 +384,7 @@ class TestGetHotSystems:
         mock_universe.systems = {}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_bulk_system_stats",
                 new_callable=AsyncMock,
@@ -418,9 +401,7 @@ class TestGetHotSystems:
         mock_universe.systems = {}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_bulk_system_stats",
                 new_callable=AsyncMock,
@@ -454,9 +435,7 @@ class TestGetSystemNeighbors:
         mock_universe = MagicMock()
         mock_universe.systems = {}
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             result = get_system_neighbors(system_name="FakeSystem")
             assert "error" in result
             assert "Unknown system" in result["error"]
@@ -494,9 +473,7 @@ class TestGetSystemNeighbors:
         mock_gate2.to_system = "New Caldari"
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.get_neighbors",
                 return_value=[mock_gate1, mock_gate2],
@@ -528,9 +505,7 @@ class TestGetSystemNeighbors:
         mock_universe.systems = {"Jita": mock_jita}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.get_neighbors",
                 return_value=[],
@@ -547,9 +522,7 @@ class TestGetSystemNeighbors:
                     "arguments": {"system_name": "Jita"},
                 },
             }
-            response = asyncio.get_event_loop().run_until_complete(
-                server.handle_request(request)
-            )
+            response = asyncio.get_event_loop().run_until_complete(server.handle_request(request))
 
             assert response["id"] == 2
             assert "result" in response
@@ -583,9 +556,7 @@ class TestGetExternalLinks:
         mock_system.region_id = 10000002
         mock_universe.systems = {"Jita": mock_system}
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             result = get_external_links(system_name="Jita")
 
             assert result["system_name"] == "Jita"
@@ -604,9 +575,7 @@ class TestGetExternalLinks:
         mock_system.region_id = 10000002
         mock_universe.systems = {"Jita": mock_system}
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             result = get_external_links(system_name="Jita")
 
             for link_name, url in result["links"].items():
@@ -619,9 +588,7 @@ class TestGetExternalLinks:
         mock_universe.systems.get.return_value = None
         mock_universe.systems.__contains__ = lambda self, key: False
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             result = get_external_links(system_name="UnknownSystem")
 
             assert result["system_name"] == "UnknownSystem"
@@ -666,9 +633,7 @@ class TestSubmitIntel:
         mock_report.direction = None
         mock_report.raw_text = "Tama +3"
 
-        with patch(
-            "backend.app.mcp.tools._submit_intel", return_value=[mock_report]
-        ):
+        with patch("backend.app.mcp.tools._submit_intel", return_value=[mock_report]):
             result = submit_intel(text="Tama +3")
 
             assert result["reports_parsed"] == 1
@@ -690,9 +655,7 @@ class TestSubmitIntel:
         mock_report.direction = None
         mock_report.raw_text = "Jita clear"
 
-        with patch(
-            "backend.app.mcp.tools._submit_intel", return_value=[mock_report]
-        ):
+        with patch("backend.app.mcp.tools._submit_intel", return_value=[mock_report]):
             result = submit_intel(text="Jita clear")
 
             assert result["reports_parsed"] == 1
@@ -853,9 +816,7 @@ class TestCalculateFatigue:
                 "arguments": {"light_years": 5.0},
             },
         }
-        response = asyncio.get_event_loop().run_until_complete(
-            server.handle_request(request)
-        )
+        response = asyncio.get_event_loop().run_until_complete(server.handle_request(request))
 
         assert response["id"] == 3
         assert "result" in response
@@ -886,9 +847,7 @@ class TestServerToolCallRouting:
         mock_stats.recent_pods = 2
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_system_kills",
                 new_callable=AsyncMock,
@@ -918,9 +877,7 @@ class TestServerToolCallRouting:
         mock_universe.systems = {}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.fetch_bulk_system_stats",
                 new_callable=AsyncMock,
@@ -992,9 +949,7 @@ class TestServerToolCallRouting:
         mock_universe = MagicMock()
         mock_universe.systems = mock_systems_dict
 
-        with patch(
-            "backend.app.mcp.tools.load_universe", return_value=mock_universe
-        ):
+        with patch("backend.app.mcp.tools.load_universe", return_value=mock_universe):
             request = {
                 "jsonrpc": "2.0",
                 "id": 13,
@@ -1022,9 +977,7 @@ class TestServerToolCallRouting:
         mock_universe.systems = {"Jita": mock_jita}
 
         with (
-            patch(
-                "backend.app.mcp.tools.load_universe", return_value=mock_universe
-            ),
+            patch("backend.app.mcp.tools.load_universe", return_value=mock_universe),
             patch(
                 "backend.app.mcp.tools.get_neighbors",
                 return_value=[],

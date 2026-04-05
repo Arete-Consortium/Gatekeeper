@@ -165,7 +165,12 @@ export function SystemSearch({
               )}
               onClick={() => handleSelect(system)}
             >
-              <span className="text-text font-medium">{system.name}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-text font-medium truncate">{system.name}</span>
+                {system.region_name && (
+                  <span className="text-xs text-text-secondary truncate">{system.region_name}</span>
+                )}
+              </div>
               <SecurityBadge security={system.security} size="sm" />
             </button>
           ))}

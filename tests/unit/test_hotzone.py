@@ -1,9 +1,6 @@
 """Unit tests for hotzone detection service."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from backend.app.services.hotzone import (
     HotzoneSystem,
@@ -63,8 +60,14 @@ class TestCountKillsInWindow:
         now = datetime.now(UTC)
         start = now - timedelta(hours=1)
         kills = [
-            {"received_at": (now - timedelta(hours=2)).isoformat(), "is_pod": False},  # Before window
-            {"received_at": (now - timedelta(minutes=30)).isoformat(), "is_pod": False},  # In window
+            {
+                "received_at": (now - timedelta(hours=2)).isoformat(),
+                "is_pod": False,
+            },  # Before window
+            {
+                "received_at": (now - timedelta(minutes=30)).isoformat(),
+                "is_pod": False,
+            },  # In window
         ]
         ship, pod = _count_kills_in_window(kills, start, now)
         assert ship == 1

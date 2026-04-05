@@ -1,9 +1,7 @@
 """Unit tests for per-endpoint rate limiting configuration."""
 
-import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 
@@ -268,9 +266,7 @@ class TestEndpointRateLimitPatterns:
         for _, attr_name in ENDPOINT_RATE_LIMIT_PATTERNS:
             if attr_name == "WEBSOCKET":
                 continue
-            assert hasattr(
-                type(MagicMock()), attr_name
-            ) or attr_name.startswith("RATE_LIMIT_"), (
+            assert hasattr(type(MagicMock()), attr_name) or attr_name.startswith("RATE_LIMIT_"), (
                 f"Unexpected attr_name format: {attr_name}"
             )
 
