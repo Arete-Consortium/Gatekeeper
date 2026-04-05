@@ -131,6 +131,8 @@ export interface UniverseMapProps {
   marketHubs?: import('@/lib/types').MarketHub[];
   characterSystemId?: number | null;
   characterName?: string | null;
+  fleetMembers?: import('@/lib/types').FleetMember[];
+  currentCharacterId?: number;
 
   // Interaction
   selectedSystem?: number | null;

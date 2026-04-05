@@ -739,3 +739,82 @@ export interface SetWaypointsResponse {
   waypoints_set: number;
   systems: string[];
 }
+
+// Arbitrage
+export interface HubPriceData {
+  system_id: number;
+  system_name: string;
+  region_id: number;
+  best_buy: number;
+  best_sell: number;
+  spread: number;
+  buy_volume: number;
+  sell_volume: number;
+}
+
+export interface ArbitrageOpportunity {
+  buy_hub: string;
+  buy_hub_id: number;
+  buy_price: number;
+  sell_hub: string;
+  sell_hub_id: number;
+  sell_price: number;
+  profit_per_unit: number;
+  margin_pct: number;
+}
+
+export interface ArbitrageCompareResponse {
+  type_id: number;
+  type_name: string;
+  hubs: HubPriceData[];
+  opportunities: ArbitrageOpportunity[];
+}
+
+export interface PopularItem {
+  type_id: number;
+  name: string;
+  category: string;
+}
+
+export interface PopularItemsResponse {
+  items: PopularItem[];
+  count: number;
+}
+
+// Fleet Tracker — real-time fleet member locations
+export interface FleetCreateResponse {
+  code: string;
+  created_at: string;
+  expires_at: string;
+  owner_character_id: number;
+}
+
+export interface FleetJoinResponse {
+  code: string;
+  character_id: number;
+  character_name: string;
+  member_count: number;
+}
+
+export interface FleetMember {
+  character_id: number;
+  character_name: string;
+  system_id: number | null;
+  system_name: string | null;
+  ship_type_id: number | null;
+  ship_type_name: string | null;
+  online: boolean;
+  last_updated: string | null;
+}
+
+export interface FleetMembersResponse {
+  code: string;
+  member_count: number;
+  members: FleetMember[];
+}
+
+export interface FleetLeaveResponse {
+  code: string;
+  character_id: number;
+  remaining_members: number;
+}

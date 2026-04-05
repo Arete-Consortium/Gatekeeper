@@ -174,12 +174,17 @@ function getAdjacent(name: string): string[] {
 const NODE_RADIUS = 8;
 const DIAMOND_SIZE = 10;
 
-export function PochvenMap() {
+interface PochvenMapProps {
+  killCounts?: Record<string, number>;
+}
+
+export function PochvenMap({ killCounts = {} }: PochvenMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 900, h: 700 });
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pulsePhase, setPulsePhase] = useState(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -260,6 +265,15 @@ export function PochvenMap() {
   );
 
   // ── Canvas draw ───────────────────────────────────────────────────────────
+
+  const hasKills = Object.values(killCounts).some((c) => c > 0);
+
+  // Pulse animation for kill glow rings (~30fps)
+  useEffect(() => {
+    if (!hasKills) return;
+    const id = setInterval(() => setPulsePhase((p) => p + 0.1), 33);
+    return () => clearInterval(id);
+  }, [hasKills]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -422,6 +436,47 @@ export function PochvenMap() {
 
       ctx.restore();
 
+      // ── Kill indicators ──
+      const sysKills = killCounts[sys.name] || 0;
+      if (sysKills > 0) {
+        const killPulse = (Math.sin(pulsePhase * 1.5) + 1) / 2;
+        const intensity = Math.min(sysKills / 20, 1);
+        const baseR = isBorder ? d : r;
+
+        // Pulsing red glow ring
+        ctx.save();
+        const glowR = baseR + 6 + killPulse * 4 * intensity;
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, glowR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 69, 58, ${0.06 + killPulse * 0.10 * intensity})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 69, 58, ${0.15 + killPulse * 0.25 * intensity})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+
+        // Red pill badge above-right of node
+        const bx = pos.x + baseR + 3;
+        const by = pos.y - baseR - 3;
+        const badgeText = sysKills > 99 ? '99+' : String(sysKills);
+        ctx.save();
+        ctx.font = 'bold 8px system-ui, -apple-system, sans-serif';
+        const tw = ctx.measureText(badgeText).width;
+        const bw = Math.max(tw + 6, 14);
+        const bh = 11;
+        // Pill background
+        ctx.beginPath();
+        ctx.roundRect(bx - bw / 2, by - bh / 2, bw, bh, bh / 2);
+        ctx.fillStyle = '#dc2626';
+        ctx.fill();
+        // Badge text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, bx, by);
+        ctx.restore();
+      }
+
       // Label below node — subway style with text shadow
       ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'center';
@@ -438,7 +493,7 @@ export function PochvenMap() {
       ctx.globalAlpha = 1;
     }
 
-  }, [size, hovered, selected, toCanvas]);
+  }, [size, hovered, selected, toCanvas, killCounts, pulsePhase]);
 
   // ── Info panel data ─────────────────────────────────────────────────────────
 

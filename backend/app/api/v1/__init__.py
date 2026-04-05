@@ -7,6 +7,7 @@ from .ai import router as ai_router
 from .alerts import router as alerts_router
 from .analytics import router as analytics_router
 from .appraisal import router as appraisal_router
+from .arbitrage import router as arbitrage_router
 from .auth import router as auth_router
 from .avoidance import router as avoidance_router
 from .billing import router as billing_router
@@ -18,6 +19,7 @@ from .errors import router as errors_router
 from .fatigue import router as fatigue_router
 from .fitting import router as fitting_router
 from .fleet import router as fleet_router
+from .fleet_tracker import router as fleet_tracker_router
 from .intel import router as intel_router
 from .intel_parse import router as intel_parse_router
 from .jump import router as jump_router
@@ -63,6 +65,7 @@ router.include_router(fatigue_router)
 router.include_router(map_router)
 router.include_router(fitting_router)
 router.include_router(fleet_router)
+router.include_router(fleet_tracker_router)
 router.include_router(bridges_router, prefix="/bridges", tags=["bridges"])
 router.include_router(thera_router, prefix="/thera", tags=["thera"])
 router.include_router(pochven_router, prefix="/pochven", tags=["pochven"])
@@ -74,4 +77,5 @@ router.include_router(links_router)
 router.include_router(errors_router, prefix="/errors", tags=["errors"])
 router.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
 router.include_router(appraisal_router)
+router.include_router(arbitrage_router)
 router.include_router(market_ticker_router)

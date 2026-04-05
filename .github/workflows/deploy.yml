@@ -67,7 +67,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Notify Discord
-        if: always()
+        if: always() && secrets.DISCORD_WEBHOOK_CICD != ''
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
         run: |

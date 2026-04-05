@@ -41,6 +41,8 @@ import {
   MarketHubsResponse,
   MarketTickerResponse,
   MarketTickerHistoryResponse,
+  ArbitrageCompareResponse,
+  PopularItemsResponse,
   IntelParseResponse,
   PilotThreatStats,
   FleetPilotLookupResponse,
@@ -50,6 +52,10 @@ import {
   LinkCharacterResponse,
   UnlinkCharacterResponse,
   LinkedCharacter,
+  FleetCreateResponse,
+  FleetJoinResponse,
+  FleetMembersResponse,
+  FleetLeaveResponse,
 } from './types';
 import { getStoredToken, BillingStatus } from './auth';
 
@@ -693,6 +699,26 @@ class GatekeeperAPIService {
     return this.request<MarketHubsResponse>('/map/market-hubs');
   }
 
+  // ==================== Market Arbitrage ====================
+
+  /**
+   * Compare market prices across trade hubs for an item
+   */
+  async getArbitrageCompare(typeId: number, hubs?: number[]): Promise<ArbitrageCompareResponse> {
+    const params = new URLSearchParams({ type_id: typeId.toString() });
+    if (hubs && hubs.length > 0) {
+      params.set('hubs', hubs.join(','));
+    }
+    return this.request<ArbitrageCompareResponse>(`/api/v1/arbitrage/compare?${params.toString()}`);
+  }
+
+  /**
+   * Get list of popular items for arbitrage
+   */
+  async getArbitragePopular(): Promise<PopularItemsResponse> {
+    return this.request<PopularItemsResponse>('/api/v1/arbitrage/popular');
+  }
+
   // ==================== Market Ticker ====================
 
   /**
@@ -707,6 +733,30 @@ class GatekeeperAPIService {
    */
   async getMarketTickerItem(typeId: number): Promise<MarketTickerHistoryResponse> {
     return this.request<MarketTickerHistoryResponse>(`/api/v1/market/ticker/${typeId}`);
+  }
+
+  // ==================== Fleet Tracker ====================
+
+  async createFleetSession(): Promise<FleetCreateResponse> {
+    return this.request<FleetCreateResponse>('/api/v1/fleet-tracker/create', {
+      method: 'POST',
+    });
+  }
+
+  async joinFleetSession(code: string): Promise<FleetJoinResponse> {
+    return this.request<FleetJoinResponse>(`/api/v1/fleet-tracker/join/${code}`, {
+      method: 'POST',
+    });
+  }
+
+  async getFleetMembers(code: string): Promise<FleetMembersResponse> {
+    return this.request<FleetMembersResponse>(`/api/v1/fleet-tracker/${code}/members`);
+  }
+
+  async leaveFleetSession(code: string): Promise<FleetLeaveResponse> {
+    return this.request<FleetLeaveResponse>(`/api/v1/fleet-tracker/${code}/leave`, {
+      method: 'DELETE',
+    });
   }
 
   // ==================== Utility ====================

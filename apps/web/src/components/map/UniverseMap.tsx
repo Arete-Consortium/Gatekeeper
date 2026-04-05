@@ -40,6 +40,7 @@ import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
 // MarketHubsOverlay removed — low ROI toggle
 import { CharacterMarker } from './CharacterMarker';
+import { FleetOverlay } from './FleetOverlay';
 
 // Default layer visibility
 const DEFAULT_LAYERS: MapLayers = {
@@ -89,6 +90,8 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       marketHubs = [],
       characterSystemId,
       characterName,
+      fleetMembers,
+      currentCharacterId,
       selectedSystem,
       highlightedSystems = [],
       onSystemClick,
@@ -509,6 +512,16 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         )}
 
         {/* Landmarks and Market Hubs removed — low ROI */}
+
+        {/* Fleet member markers */}
+        {fleetMembers && fleetMembers.length > 0 && (
+          <FleetOverlay
+            members={fleetMembers}
+            systems={systemMap}
+            viewport={viewport}
+            currentCharacterId={currentCharacterId}
+          />
+        )}
 
         {/* Character location marker */}
         {characterSystemId && characterName && (

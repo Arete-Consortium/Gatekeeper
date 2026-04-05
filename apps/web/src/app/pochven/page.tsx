@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useKillStream } from '@/components/map/useKillStream';
 
 const PochvenMap = dynamic(
   () => import('@/components/pochven/PochvenMap').then((m) => m.PochvenMap),
@@ -115,7 +116,23 @@ const KRAI_BADGE: Record<string, string> = {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const POCHVEN_REGION_FILTER = [POCHVEN_REGION_ID];
+
 export default function PochvenPage() {
+  const { kills } = useKillStream({ regionFilter: POCHVEN_REGION_FILTER });
+
+  // Aggregate kills by system name
+  const killCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const kill of kills) {
+      const name = kill.systemName;
+      if (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [kills]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -126,7 +143,7 @@ export default function PochvenPage() {
         </p>
       </div>
 
-      <PochvenMap />
+      <PochvenMap killCounts={killCounts} />
 
       {/* Pochven Kill Feed */}
       <Card className="p-4">

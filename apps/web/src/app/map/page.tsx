@@ -39,7 +39,8 @@ import { SystemDetailPanel } from '@/components/map/SystemDetailPanel';
 import { SystemSearch } from '@/components/map/SystemSearch';
 import { useAuth } from '@/contexts/AuthContext';
 import { SavedRoutes } from '@/components/map/SavedRoutes';
-import { Bookmark } from 'lucide-react';
+import { FleetPanel } from '@/components/map/FleetPanel';
+import { Bookmark, Users } from 'lucide-react';
 
 // Dynamically import the UniverseMap to avoid SSR issues with PixiJS
 const UniverseMap = dynamic(
@@ -229,6 +230,20 @@ function MapPageContent() {
   const [flipRegion, setFlipRegion] = useState(false);
   const [showRoutePanel, setShowRoutePanel] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [fleetCode, setFleetCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('gk_fleet_code');
+  });
+
+  // Persist fleet code to localStorage
+  const handleFleetChange = useCallback((code: string | null) => {
+    setFleetCode(code);
+    if (code) {
+      localStorage.setItem('gk_fleet_code', code);
+    } else {
+      localStorage.removeItem('gk_fleet_code');
+    }
+  }, []);
 
   // === Data Fetching ===
 
@@ -298,6 +313,15 @@ function MapPageContent() {
     queryFn: () => GatekeeperAPI.getCharacterLocation(),
     refetchInterval: 10_000, // Poll every 10s
     enabled: !!user && !!mapConfig,
+  });
+
+  // Fleet member locations — poll every 15s when in a fleet
+  const { data: fleetData } = useQuery({
+    queryKey: ['fleetMembers', fleetCode],
+    queryFn: () => GatekeeperAPI.getFleetMembers(fleetCode!),
+    refetchInterval: 15_000,
+    enabled: !!fleetCode && !!user && !!mapConfig,
+    retry: 1,
   });
 
   // === Transform ===
@@ -867,6 +891,21 @@ function MapPageContent() {
         />
       </CollapsibleSection>
 
+      {/* Fleet Tracker */}
+      {user && (
+        <CollapsibleSection
+          title="Fleet Tracker"
+          icon={<Users className="h-4 w-4 text-text-secondary" aria-hidden="true" />}
+          defaultOpen={!!fleetCode}
+        >
+          <FleetPanel
+            fleetCode={fleetCode}
+            onFleetChange={handleFleetChange}
+            currentCharacterId={user.character_id}
+          />
+        </CollapsibleSection>
+      )}
+
       {/* Legend — collapsed by default */}
       <CollapsibleSection
         title="Legend"
@@ -1092,6 +1131,8 @@ function MapPageContent() {
                 marketHubs={marketHubData?.hubs}
                 characterSystemId={characterLocation?.solar_system_id}
                 characterName={user?.character_name}
+                fleetMembers={fleetData?.members}
+                currentCharacterId={user?.character_id}
                 layers={isPro ? layers : {
                   ...layers,
                   showKills: false,

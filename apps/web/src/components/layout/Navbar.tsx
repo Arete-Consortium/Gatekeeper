@@ -20,6 +20,7 @@ import {
   Triangle,
   Swords,
   Shield,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { GatekeeperAPI } from '@/lib/api';
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { href: '/pochven', label: 'Pochven', icon: Triangle },
   { href: '/fw', label: 'FW Map', icon: Swords },
   { href: '/intel', label: 'Intel', icon: Radar },
+  { href: '/arbitrage', label: 'Arbitrage', icon: ArrowLeftRight },
 ];
 
 export function Navbar() {
