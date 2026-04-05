@@ -46,10 +46,12 @@ test.describe('Route Planner', () => {
   });
 
   test('should have jump bridges toggle', async ({ page }) => {
+    await page.getByText('Route Options').click();
     await expect(page.getByText('Jump Bridges')).toBeVisible();
   });
 
   test('should have Thera toggle', async ({ page }) => {
+    await page.getByText('Route Options').click();
     await expect(page.getByText('Thera')).toBeVisible();
   });
 
