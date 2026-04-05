@@ -148,7 +148,9 @@ export function FWMap() {
   const [routeEndpoints, setRouteEndpoints] = useState<[number | null, number | null]>([null, null]);
 
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
-  const dragRef = useRef<{ startX: number; startY: number; vpX: number; vpY: number } | null>(null);
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+  const dragRef = useRef<{ lastClientX: number; lastClientY: number } | null>(null);
 
   const [warzoneFilter, setWarzoneFilter] = useState<WarzoneFilter>(null);
   const [intelHours, setIntelHours] = useState(24);
@@ -458,32 +460,32 @@ export function FWMap() {
   const handleMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
 
     if (dragRef.current) {
-      const dx = (x - dragRef.current.startX) / viewport.zoom;
-      const dy = (y - dragRef.current.startY) / viewport.zoom;
-      setViewport((v) => ({ ...v, x: dragRef.current!.vpX - dx, y: dragRef.current!.vpY - dy }));
+      // Incremental delta from last mouse position — no stale closure issues
+      const dx = (e.clientX - dragRef.current.lastClientX) / viewportRef.current.zoom;
+      const dy = (e.clientY - dragRef.current.lastClientY) / viewportRef.current.zoom;
+      dragRef.current.lastClientX = e.clientX;
+      dragRef.current.lastClientY = e.clientY;
+      setViewport((v) => ({ ...v, x: v.x - dx, y: v.y - dy }));
       return;
     }
-    const hit = hitTest(x, y);
+
+    const rect = canvas.getBoundingClientRect();
+    const hit = hitTest(e.clientX - rect.left, e.clientY - rect.top);
     setHovered(hit);
     canvas.style.cursor = hit ? 'pointer' : 'grab';
-  }, [hitTest, viewport.zoom]);
+  }, [hitTest]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    if (!hitTest(x, y)) {
-      dragRef.current = { startX: x, startY: y, vpX: viewport.x, vpY: viewport.y };
+    if (!hitTest(e.clientX - rect.left, e.clientY - rect.top)) {
+      dragRef.current = { lastClientX: e.clientX, lastClientY: e.clientY };
       canvas.style.cursor = 'grabbing';
     }
-  }, [hitTest, viewport]);
+  }, [hitTest]);
 
   const handleMouseUp = useCallback(() => {
     dragRef.current = null;
