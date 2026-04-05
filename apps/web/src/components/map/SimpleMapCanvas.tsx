@@ -15,8 +15,8 @@ const MAX_ZOOM = 20;
 const SYSTEM_RADIUS = 3;
 
 // Zoom thresholds for showing different label types
-const REGION_LABEL_MAX_ZOOM = 2.5;
-const SYSTEM_LABEL_MIN_ZOOM = 2.5;
+const REGION_LABEL_MAX_ZOOM = 3;
+const SYSTEM_LABEL_MIN_ZOOM = 3;
 
 // Well-known trade hubs
 const TRADE_HUBS = new Set([30000142, 30002187, 30002659, 30002510, 30002053]); // Jita, Amarr, Dodixie, Rens, Hek
@@ -260,7 +260,8 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       // Draw intra-region gates — bold colored lines with rounded caps
       ctx.lineCap = 'round';
       ctx.lineWidth = gateLineWidth;
-      ctx.globalAlpha = 0.6;
+      // Fade gates at medium zoom to reduce visual clutter when labels appear
+      ctx.globalAlpha = viewport.zoom < 5 ? 0.35 : 0.6;
       for (const [regionId, paths] of regionBatches) {
         ctx.strokeStyle = getRegionColor(regionId);
         ctx.beginPath();
@@ -491,19 +492,25 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       ctx.restore();
     }
 
-    // Draw system labels at zoom — progressive density
-    // At medium zoom (2.5-5): only show labels for notable systems (hubs, selected, hovered, highlighted)
-    // At high zoom (5+): show all labels
+    // Draw system labels at zoom — progressive density with collision detection
+    // At medium zoom (3-7): only notable systems, with collision culling
+    // At high zoom (7+): all labels, still collision culled
     if (layers.showLabels && viewport.zoom > SYSTEM_LABEL_MIN_ZOOM) {
-      const labelFontSize = Math.max(9, Math.min(12, 10 * (viewport.zoom / 3)));
+      const labelFontSize = Math.max(9, Math.min(12, 10 * (viewport.zoom / 4)));
       ctx.font = `600 ${labelFontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
       ctx.textAlign = 'center';
 
-      const showAllLabels = viewport.zoom >= 5;
+      const showAllLabels = viewport.zoom >= 7;
 
       // Skip labels for systems that have sov structure overlays (rendered by SVG)
       const skipLabelSet = layers.showSovStructures && viewport.zoom >= 1.5 ? sovStructureSystems : undefined;
 
+      // Collision detection: track placed label bounding boxes
+      const placedLabels: { x: number; y: number; hw: number; hh: number }[] = [];
+      const PAD = 2; // padding between labels
+
+      // Priority sort: selected/hovered first, then hubs, then highlighted, then rest
+      const labelCandidates: { system: typeof systems[0]; priority: number }[] = [];
       for (const system of systems) {
         if (skipLabelSet?.has(system.systemId)) continue;
 
@@ -513,26 +520,55 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         const isTradeHub = TRADE_HUBS.has(system.systemId);
         const isNotable = isTradeHub || system.hub || (system.npcStations && system.npcStations >= 3);
 
-        // At medium zoom, only show labels for notable/interacted systems
         if (!showAllLabels && !isSelected && !isHovered && !isHighlighted && !isNotable) continue;
 
-        const screen = worldToScreen(system.x, system.y);
-        if (
-          screen.x < 0 ||
-          screen.x > viewport.width ||
-          screen.y < 0 ||
-          screen.y > viewport.height
-        ) continue;
+        // Higher priority = drawn first = guaranteed visible
+        let priority = 0;
+        if (isSelected || isHovered) priority = 4;
+        else if (isTradeHub) priority = 3;
+        else if (isHighlighted) priority = 2;
+        else if (isNotable) priority = 1;
 
-        // Text shadow for readability — double pass for subway crispness
+        labelCandidates.push({ system, priority });
+      }
+
+      // Sort by priority descending so important labels claim space first
+      labelCandidates.sort((a, b) => b.priority - a.priority);
+
+      for (const { system, priority } of labelCandidates) {
+        const screen = worldToScreen(system.x, system.y);
+        if (screen.x < -20 || screen.x > viewport.width + 20 ||
+            screen.y < -20 || screen.y > viewport.height + 20) continue;
+
+        const textWidth = ctx.measureText(system.name).width;
+        const lx = screen.x;
+        const ly = screen.y + 12;
+        const hw = textWidth / 2 + PAD;
+        const hh = labelFontSize / 2 + PAD;
+
+        // Check collision with already placed labels (skip for highest priority)
+        if (priority < 4) {
+          let collides = false;
+          for (const placed of placedLabels) {
+            if (Math.abs(lx - placed.x) < hw + placed.hw &&
+                Math.abs(ly - placed.y) < hh + placed.hh) {
+              collides = true;
+              break;
+            }
+          }
+          if (collides) continue;
+        }
+
+        placedLabels.push({ x: lx, y: ly, hw, hh });
+
+        const isInteractive = priority >= 2;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
         ctx.shadowBlur = 3;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 1;
-        // Brighter labels for hovered/selected
-        ctx.fillStyle = isSelected || isHovered ? '#ffffff' : '#cbd5e1';
-        ctx.globalAlpha = isSelected || isHovered ? 1 : 0.9;
-        ctx.fillText(system.name, screen.x, screen.y + 12);
+        ctx.fillStyle = isInteractive ? '#ffffff' : '#cbd5e1';
+        ctx.globalAlpha = isInteractive ? 1 : 0.85;
+        ctx.fillText(system.name, lx, ly);
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
