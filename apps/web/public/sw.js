@@ -1,5 +1,5 @@
 // EVE Gatekeeper Service Worker — offline caching for static assets and API data
-const CACHE_VERSION = 'gk-v2';
+const CACHE_VERSION = 'gk-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
@@ -51,8 +51,8 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip WebSocket upgrades
-  if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
+  // Skip non-HTTP(S) schemes (chrome-extension://, etc.)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // API requests: network-first with cache fallback
   if (CACHEABLE_API_PATTERNS.some((pattern) => pattern.test(url.pathname))) {

@@ -540,7 +540,7 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     }
   }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, risks, crossRegionGates, hoveredSystemId, sovStructureSystems]);
 
-  // Mouse wheel zoom — exponential curve (#2)
+  // Mouse wheel zoom — exponential curve with normalised delta (#2)
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
@@ -551,8 +551,10 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
       const mouseY = e.clientY - rect.top;
       const worldBefore = screenToWorld(mouseX, mouseY);
 
-      // Exponential zoom: feels smooth at all scales
-      const zoomDelta = -e.deltaY * 0.001;
+      // Normalise across browsers/trackpads: clamp raw delta to ±150
+      // so trackpad flings don't catapult the zoom
+      const clampedDelta = Math.max(-150, Math.min(150, e.deltaY));
+      const zoomDelta = -clampedDelta * 0.0015;
       const zoomFactor = Math.pow(2, zoomDelta);
       const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, viewport.zoom * zoomFactor));
 
@@ -584,8 +586,12 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (isDraggingRef.current) {
-        const dx = (e.clientX - dragStartRef.current.x) / viewport.zoom;
-        const dy = (e.clientY - dragStartRef.current.y) / viewport.zoom;
+        const rawDx = e.clientX - dragStartRef.current.x;
+        const rawDy = e.clientY - dragStartRef.current.y;
+        // Clamp pixel delta to prevent pan jumps from large mouse movements
+        const maxPx = 200;
+        const dx = Math.max(-maxPx, Math.min(maxPx, rawDx)) / viewport.zoom;
+        const dy = Math.max(-maxPx, Math.min(maxPx, rawDy)) / viewport.zoom;
         onViewportChange({
           ...viewport,
           x: viewport.x - dx,
