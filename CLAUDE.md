@@ -6,10 +6,10 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 
 ## Current State
 
-- **Version**: 2.1.0 (pyproject.toml)
-- **Codebase**: 641 files across 6 languages, ~166K lines
-- **Backend**: Python 3.12 / FastAPI — 2,602 tests passing
-- **Frontend**: TypeScript / Next.js 16.2.0 / React 18.2.0 / TailwindCSS 3.4 — 575 tests (Vitest)
+- **Version**: 2.2.0 (version.json)
+- **Codebase**: 579+ files across 6 languages
+- **Backend**: Python 3.12 / FastAPI — 2,700+ tests passing
+- **Frontend**: TypeScript / Next.js 16.2.0 / React 18.2.0 / TailwindCSS 3.4 — 618 tests (Vitest)
 - **Rendering**: Canvas2D subway-style maps (universe, FW, Pochven, route, jump range) + SVG overlays
 - **Deployment**: Fly.io (backend) + Vercel (frontend, auto-deploy on push to main)
 - **Database**: PostgreSQL on Fly.io
@@ -18,20 +18,21 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 - **Auth**: httpOnly cookie (`gk_session`) + Bearer token fallback, EVE SSO OAuth2
 - **PWA**: manifest.json, standalone mode, theme-color #0e7490, custom logo icons
 
-## Frontend Pages (19 routes)
+## Frontend Pages (21 routes)
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Landing → map (re-exports `/map`) |
-| `/map` | Interactive New Eden map — 5400+ systems, kill stream, intel overlays, route planning |
-| `/route` | Multi-stop route planner — gate routing + jump drive mode (toggle) |
+| `/` | Conversion landing page — hero, feature grid, pricing CTA (auth-aware) |
+| `/map` | Interactive New Eden map — 5400+ systems, kill stream, 15+ SVG overlays, fleet tracker |
+| `/route` | Multi-stop route planner — gate routing + jump drive mode, shareable URLs, Pochven toggle |
 | `/appraisal` | Bulk item appraisal — paste items, get buy/sell prices |
-| `/pochven` | Pochven subway map — 27 systems, 3 Krais, BFS pathfinding |
-| `/fw` | Faction warfare map — Canvas2D, faction-colored gates/systems |
-| `/intel` | Live kill feed — hot systems table, sortable columns, pilot deep-dive |
+| `/pochven` | Pochven subway map — 27 systems, 3 Krais, BFS pathfinding, live kill overlay |
+| `/fw` | Faction warfare influence map — territory clouds, faction labels, kill activity (Pro) |
+| `/intel` | Live kill feed + hot systems — streaming kills with system/region filters, pilot deep-dive |
 | `/intel-parse` | Intel chat parser — paste local/intel → hostile highlights on map |
 | `/fleet` | Fleet composition analyzer — paste fleet comp → threat assessment |
 | `/market` | Market price ticker — ESI history, sortable table, green/red price changes |
+| `/arbitrage` | Market arbitrage — cross-hub price comparison, profit opportunities |
 | `/characters` | Multi-character dashboard — alt switching, location tracking, SSO linking |
 | `/fitting` | Fitting analyzer — EFT paste → travel advice |
 | `/alerts` | Alert subscriptions — Discord/Slack webhooks |
@@ -40,7 +41,7 @@ EVE Online navigation, routing, intel, and market visualization SaaS platform.
 | `/login` | EVE SSO OAuth2 trigger |
 | `/auth/callback` | OAuth2 callback handler |
 | `/account` | Account management — direct subscribe button (non-Pro) or Stripe portal (Pro) |
-| `/admin` | Hidden admin dashboard — system health metrics |
+| `/admin` | Admin dashboard — system health + business analytics (MRR, DAU, feature usage) |
 
 ## Frontend Architecture
 
@@ -148,6 +149,10 @@ apps/web/src/
 | Wormholes | WormholeOverlay | `showWormholes` | Yes | /api/v1/wormholes/ |
 | System activity | ActivityOverlay | `showActivity` | Yes | /map/activity |
 | Trade hubs | MarketHubsOverlay | `showMarketHubs` | No | /map/market-hubs |
+| Jump bridges | JumpBridgeOverlay | `showJumpBridges` | Yes | /api/v1/bridges |
+| Incursions | IncursionOverlay | `showIncursions` | Yes | /map/activity |
+| Pirate insurgency | PirateInsurgencyOverlay | `showPirateInsurgency` | Yes | /map/pirate-insurgency |
+| Fleet members | FleetOverlay | (fleet active) | No | /api/v1/fleet-tracker |
 
 ### Sov Structures Overlay Details
 
