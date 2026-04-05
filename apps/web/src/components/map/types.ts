@@ -93,6 +93,7 @@ export interface MapLayers {
   showSovereignty?: boolean;
   showActivity?: boolean;
   showWormholes?: boolean;
+  showJumpBridges?: boolean;
   showMarketHubs?: boolean;
   showHighsec?: boolean;
   showNullsec?: boolean;
@@ -128,6 +129,7 @@ export interface UniverseMapProps {
   allianceData?: Record<string, { name: string }>;
   activityData?: import('@/lib/types').SystemActivityResponse;
   wormholeConnections?: import('@/lib/types').WormholeConnection[];
+  jumpBridgeConnections?: import('@/lib/types').JumpBridgeConnection[];
   marketHubs?: import('@/lib/types').MarketHub[];
   characterSystemId?: number | null;
   characterName?: string | null;

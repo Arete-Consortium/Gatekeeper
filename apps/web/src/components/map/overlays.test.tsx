@@ -6,8 +6,9 @@ import { FWOverlay } from './FWOverlay';
 import { LandmarksOverlay } from './LandmarksOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { MarketHubsOverlay } from './MarketHubsOverlay';
+import { JumpBridgeOverlay } from './JumpBridgeOverlay';
 import type { MapSystem, MapViewport } from './types';
-import type { TheraConnection, FWSystem, SovStructure, Landmark, MarketHub } from '@/lib/types';
+import type { TheraConnection, FWSystem, SovStructure, Landmark, MarketHub, JumpBridgeConnection } from '@/lib/types';
 
 // === Shared Fixtures ===
 
@@ -644,5 +645,178 @@ describe('MarketHubsOverlay', () => {
       />
     );
     expect(screen.getByText('50T ISK/day')).toBeInTheDocument();
+  });
+});
+
+// === JumpBridgeOverlay ===
+
+describe('JumpBridgeOverlay', () => {
+  const makeBridge = (overrides: Partial<JumpBridgeConnection> = {}): JumpBridgeConnection => ({
+    id: 'jb-1',
+    from_system: 'System-100',
+    from_system_id: 100,
+    to_system: 'System-200',
+    to_system_id: 200,
+    owner_alliance: 'Test Alliance',
+    status: 'online',
+    created_at: '2026-01-01T00:00:00Z',
+    created_by: null,
+    notes: '',
+    ...overrides,
+  });
+
+  it('renders nothing with empty connections', () => {
+    const { container } = render(
+      <JumpBridgeOverlay connections={[]} systems={SYSTEMS} viewport={VIEWPORT} />
+    );
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('renders dashed line for valid bridge connection', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge()]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const svg = container.querySelector('svg');
+    expect(svg).toBeTruthy();
+    // Glow path + main dashed path = 2 paths
+    const paths = svg!.querySelectorAll('path');
+    expect(paths.length).toBe(2);
+    // Main path should be dashed
+    expect(paths[1]).toHaveAttribute('stroke-dasharray', '8 4');
+  });
+
+  it('renders diamond endpoint markers', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge()]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const svg = container.querySelector('svg');
+    const rects = svg!.querySelectorAll('rect');
+    // 2 endpoint diamonds
+    expect(rects.length).toBe(2);
+  });
+
+  it('uses orange color for online bridges', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge({ status: 'online' })]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const paths = container.querySelectorAll('path');
+    expect(paths[1]).toHaveAttribute('stroke', '#f97316');
+  });
+
+  it('uses gray color for offline bridges', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge({ status: 'offline' })]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const paths = container.querySelectorAll('path');
+    expect(paths[1]).toHaveAttribute('stroke', '#6b7280');
+  });
+
+  it('uses cyan color for unknown status bridges', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge({ status: 'unknown' })]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    const paths = container.querySelectorAll('path');
+    expect(paths[1]).toHaveAttribute('stroke', '#06b6d4');
+  });
+
+  it('shows JB label at sufficient zoom', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge()]}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 2 }}
+      />
+    );
+    const texts = container.querySelectorAll('text');
+    expect(texts.length).toBeGreaterThanOrEqual(1);
+    expect(texts[0]!.textContent).toBe('JB');
+  });
+
+  it('hides JB label at low zoom', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge()]}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 0.5 }}
+      />
+    );
+    const texts = container.querySelectorAll('text');
+    expect(texts.length).toBe(0);
+  });
+
+  it('shows owner label at deep zoom', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge({ owner_alliance: 'Goonswarm' })]}
+        systems={SYSTEMS}
+        viewport={{ ...VIEWPORT, zoom: 3 }}
+      />
+    );
+    const texts = container.querySelectorAll('text');
+    // JB label + owner label
+    expect(texts.length).toBe(2);
+    expect(texts[1]!.textContent).toBe('Goonswarm');
+  });
+
+  it('skips connections with missing systems', () => {
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge({ from_system_id: 999 })]}
+        systems={SYSTEMS}
+        viewport={VIEWPORT}
+      />
+    );
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('skips connections outside viewport', () => {
+    const farSystemA = makeSystem({ systemId: 100, x: 5000, y: 5000 });
+    const farSystemB = makeSystem({ systemId: 200, x: 6000, y: 6000 });
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[makeBridge()]}
+        systems={makeSystemMap(farSystemA, farSystemB)}
+        viewport={VIEWPORT}
+      />
+    );
+    expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('renders multiple bridge connections', () => {
+    const systemC = makeSystem({ systemId: 300, x: 30, y: 30 });
+    const { container } = render(
+      <JumpBridgeOverlay
+        connections={[
+          makeBridge(),
+          makeBridge({ id: 'jb-2', from_system_id: 100, to_system_id: 300 }),
+        ]}
+        systems={makeSystemMap(SYSTEM_A, SYSTEM_B, systemC)}
+        viewport={VIEWPORT}
+      />
+    );
+    const svg = container.querySelector('svg');
+    // 2 bridges * (2 paths each) = 4 paths
+    const paths = svg!.querySelectorAll('path');
+    expect(paths.length).toBe(4);
   });
 });

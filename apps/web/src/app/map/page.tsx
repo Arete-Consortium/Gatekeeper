@@ -208,6 +208,7 @@ function MapPageContent() {
       showSovereignty: false,
       showActivity: false,
       showWormholes: false,
+      showJumpBridges: false,
       showMarketHubs: false,
     };
     if (typeof window === 'undefined') return defaults;
@@ -299,6 +300,13 @@ function MapPageContent() {
     queryFn: () => GatekeeperAPI.getWormholes(),
     staleTime: 2 * 60 * 1000,
     enabled: !!mapConfig && isPro && layers.showWormholes === true,
+  });
+
+  const { data: jumpBridgeData } = useQuery({
+    queryKey: ['jumpBridges'],
+    queryFn: () => GatekeeperAPI.getJumpBridges(),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!mapConfig && isPro && layers.showJumpBridges === true,
   });
 
   const { data: marketHubData } = useQuery({
@@ -754,6 +762,7 @@ function MapPageContent() {
             <span className="text-[10px] text-text-secondary italic">No public ESI endpoint</span>
           </div>
           <ProToggle checked={layers.showWormholes === true} onChange={(v) => updateLayer('showWormholes', v)} label="Wormhole connections" isPro={isPro} />
+          <ProToggle checked={layers.showJumpBridges === true} onChange={(v) => updateLayer('showJumpBridges', v)} label="Jump bridges" isPro={isPro} />
         </div>
 
         {/* Security filters */}
@@ -942,6 +951,10 @@ function MapPageContent() {
             <span className="text-text-secondary">Wormhole</span>
           </div>
           <div className="flex items-center gap-2">
+            <div className="h-2 w-4 border border-orange-400 rounded-sm" style={{ borderStyle: 'dashed' }} aria-hidden="true" />
+            <span className="text-text-secondary">Jump Bridge</span>
+          </div>
+          <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-cyan-400" aria-hidden="true" />
             <span className="text-text-secondary">Your Location</span>
           </div>
@@ -1128,6 +1141,7 @@ function MapPageContent() {
                 allianceData={isPro ? sovData?.alliances : undefined}
                 activityData={isPro ? activityData : undefined}
                 wormholeConnections={isPro ? wormholeData?.connections : undefined}
+                jumpBridgeConnections={isPro ? jumpBridgeData?.bridges : undefined}
                 marketHubs={marketHubData?.hubs}
                 characterSystemId={characterLocation?.solar_system_id}
                 characterName={user?.character_name}
@@ -1144,6 +1158,7 @@ function MapPageContent() {
                   showSovStructures: false,
                   showSkyhooks: false,
                   showWormholes: false,
+                  showJumpBridges: false,
                 }}
                 colorMode={colorMode}
                 layoutMode={layoutMode}

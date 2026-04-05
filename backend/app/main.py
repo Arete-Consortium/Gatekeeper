@@ -21,6 +21,7 @@ from .middleware import (
     setup_rate_limiting,
 )
 from .middleware.security import RequestSizeLimitMiddleware
+from .middleware.usage import UsageTrackingMiddleware
 
 # Configure structured logging
 configure_logging()
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
             "X-Request-ID",
             "X-Requested-With",
             "X-Session-ID",
+            "X-Admin-Secret",
         ],
         expose_headers=["X-Request-ID", "X-Response-Time"],
     )
@@ -96,6 +98,9 @@ def create_app() -> FastAPI:
 
     # Rate limiting
     setup_rate_limiting(app)
+
+    # Usage tracking (endpoint hits + DAU estimation)
+    app.add_middleware(UsageTrackingMiddleware)
 
     # Logging context middleware
     app.add_middleware(LoggingMiddleware)

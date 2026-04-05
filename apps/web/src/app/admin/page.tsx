@@ -20,6 +20,13 @@ import {
   Server,
   Users,
   Eye,
+  DollarSign,
+  TrendingUp,
+  Lock,
+  Map,
+  Navigation,
+  Search,
+  Radio,
 } from 'lucide-react';
 
 // ── Admin Gate ──────────────────────────────────────────────────────────────
@@ -113,6 +120,22 @@ interface AnalyticsSummary {
   paths?: Array<{ path: string; views: number }>;
 }
 
+// Matches GET /api/v1/admin/analytics
+interface AdminAnalytics {
+  active_subscribers: number;
+  mrr: number;
+  comp_users: number;
+  total_users: number;
+  dau_estimate: number;
+  popular_endpoints: Array<{ endpoint: string; count: number }>;
+  feature_usage: {
+    map_views: number;
+    route_calculations: number;
+    intel_lookups: number;
+    kill_feed_connections: number;
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatUptime(seconds: number): string {
@@ -172,6 +195,9 @@ export default function AdminDashboard() {
   const [universeStatus, setUniverseStatus] = useState<UniverseStatus | null>(null);
   const [killStats, setKillStats] = useState<KillStats | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [adminAnalytics, setAdminAnalytics] = useState<AdminAnalytics | null>(null);
+  const [adminSecret, setAdminSecret] = useState('');
+  const [adminError, setAdminError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -222,6 +248,32 @@ export default function AdminDashboard() {
     setRefreshing(false);
   }, [apiUrl]);
 
+  const fetchAdminAnalytics = useCallback(async () => {
+    if (!apiUrl || !adminSecret) return;
+    setAdminError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/admin/analytics`, {
+        headers: { 'X-Admin-Secret': adminSecret },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.status === 403) {
+        setAdminError('Invalid admin secret');
+        setAdminAnalytics(null);
+        return;
+      }
+      if (!res.ok) {
+        setAdminError(`Error: ${res.status}`);
+        setAdminAnalytics(null);
+        return;
+      }
+      const data = await res.json();
+      setAdminAnalytics(data);
+    } catch {
+      setAdminError('Failed to fetch analytics');
+      setAdminAnalytics(null);
+    }
+  }, [apiUrl, adminSecret]);
+
   // Initial fetch + auto-refresh every 30s
   useEffect(() => {
     if (!isAuthenticated || !isAdmin(user?.character_id)) return;
@@ -229,6 +281,14 @@ export default function AdminDashboard() {
     const interval = setInterval(() => void fetchData(), 30000);
     return () => clearInterval(interval);
   }, [isAuthenticated, user, fetchData]);
+
+  // Auto-fetch admin analytics when secret changes
+  useEffect(() => {
+    if (!adminSecret) return;
+    void fetchAdminAnalytics();
+    const interval = setInterval(() => void fetchAdminAnalytics(), 30000);
+    return () => clearInterval(interval);
+  }, [adminSecret, fetchAdminAnalytics]);
 
   // Gate render
   if (isLoading) {
@@ -304,6 +364,155 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* Admin Analytics */}
+      <section>
+        <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4" /> Business Analytics
+        </h2>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <Lock className="h-4 w-4 text-text-secondary" />
+            <input
+              type="password"
+              placeholder="Enter admin secret..."
+              value={adminSecret}
+              onChange={(e) => setAdminSecret(e.target.value)}
+              className="flex-1 px-3 py-2 text-sm bg-gray-900/50 border border-gray-700 rounded-lg text-text placeholder:text-text-secondary/50 focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+          {adminSecret && (
+            <button
+              onClick={fetchAdminAnalytics}
+              className="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text hover:bg-card-hover rounded-lg transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {adminError && (
+          <div className="flex items-center gap-2 px-4 py-3 mb-4 rounded-lg border bg-red-500/5 border-red-500/20">
+            <XCircle className="h-4 w-4 text-red-400" />
+            <span className="text-sm text-red-400">{adminError}</span>
+          </div>
+        )}
+
+        {adminAnalytics && (
+          <>
+            {/* Revenue & Users */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+              <MetricCard
+                icon={DollarSign}
+                label="MRR"
+                value={`$${adminAnalytics.mrr.toFixed(0)}`}
+                sub={`${adminAnalytics.active_subscribers} paying subs`}
+                color="text-green-400"
+              />
+              <MetricCard
+                icon={Users}
+                label="Active Subscribers"
+                value={adminAnalytics.active_subscribers}
+                sub="Stripe subscriptions"
+                color="text-cyan-400"
+              />
+              <MetricCard
+                icon={Eye}
+                label="DAU (est.)"
+                value={adminAnalytics.dau_estimate}
+                sub="Unique IPs, 24h"
+                color="text-amber-400"
+              />
+              <MetricCard
+                icon={Users}
+                label="Total Users"
+                value={adminAnalytics.total_users}
+                sub={`${adminAnalytics.comp_users} comp`}
+                color="text-blue-400"
+              />
+              <MetricCard
+                icon={Shield}
+                label="Comp Users"
+                value={adminAnalytics.comp_users}
+                sub="Active comp grants"
+                color="text-purple-400"
+              />
+            </div>
+
+            {/* Feature Usage */}
+            <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5" /> Feature Usage (since restart)
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <MetricCard
+                icon={Map}
+                label="Map Views"
+                value={adminAnalytics.feature_usage.map_views.toLocaleString()}
+                color="text-cyan-400"
+              />
+              <MetricCard
+                icon={Navigation}
+                label="Route Calcs"
+                value={adminAnalytics.feature_usage.route_calculations.toLocaleString()}
+                color="text-green-400"
+              />
+              <MetricCard
+                icon={Search}
+                label="Intel Lookups"
+                value={adminAnalytics.feature_usage.intel_lookups.toLocaleString()}
+                color="text-amber-400"
+              />
+              <MetricCard
+                icon={Radio}
+                label="Kill Feed Conns"
+                value={adminAnalytics.feature_usage.kill_feed_connections.toLocaleString()}
+                color="text-red-400"
+              />
+            </div>
+
+            {/* Popular Endpoints */}
+            {adminAnalytics.popular_endpoints.length > 0 && (
+              <>
+                <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <BarChart3 className="h-3.5 w-3.5" /> Top Endpoints (since restart)
+                </h3>
+                <Card className="p-3 mb-4">
+                  <div className="space-y-2">
+                    {adminAnalytics.popular_endpoints.map((ep) => {
+                      const maxCount = adminAnalytics.popular_endpoints[0]?.count || 1;
+                      const pct = (ep.count / maxCount) * 100;
+                      return (
+                        <div key={ep.endpoint} className="flex items-center gap-3 text-xs">
+                          <span className="w-48 text-text-secondary font-mono truncate" title={ep.endpoint}>
+                            {ep.endpoint}
+                          </span>
+                          <div className="flex-1">
+                            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-cyan-500 rounded-full transition-all"
+                                style={{ width: `${Math.max(pct, 1)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <span className="w-16 text-right text-text font-medium">
+                            {ep.count.toLocaleString()}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </Card>
+              </>
+            )}
+          </>
+        )}
+
+        {!adminSecret && (
+          <div className="text-xs text-text-secondary italic">
+            Enter admin secret to view business analytics (MRR, subscribers, DAU, feature usage).
+          </div>
+        )}
+      </section>
 
       {/* System Health */}
       <section>

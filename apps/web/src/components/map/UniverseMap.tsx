@@ -38,6 +38,7 @@ import { ActivityOverlay } from './ActivityOverlay';
 import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
+import { JumpBridgeOverlay } from './JumpBridgeOverlay';
 // MarketHubsOverlay removed — low ROI toggle
 import { CharacterMarker } from './CharacterMarker';
 import { FleetOverlay } from './FleetOverlay';
@@ -58,6 +59,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showSovereignty: false,
   showActivity: false,
   showWormholes: false,
+  showJumpBridges: false,
   showMarketHubs: false,
   showHighsec: true,
   showNullsec: true,
@@ -87,6 +89,7 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
       allianceData,
       activityData,
       wormholeConnections = [],
+      jumpBridgeConnections = [],
       marketHubs = [],
       characterSystemId,
       characterName,
@@ -506,6 +509,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         {layers.showWormholes && wormholeConnections && wormholeConnections.length > 0 && (
           <WormholeOverlay
             connections={wormholeConnections}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Jump Bridge Connections */}
+        {layers.showJumpBridges && jumpBridgeConnections && jumpBridgeConnections.length > 0 && (
+          <JumpBridgeOverlay
+            connections={jumpBridgeConnections}
             systems={systemMap}
             viewport={viewport}
           />

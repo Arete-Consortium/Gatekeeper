@@ -1,10 +1,11 @@
-"""Tests for admin comp Pro endpoints."""
+"""Tests for admin comp Pro and analytics endpoints."""
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from backend.app.core.config import settings
 from backend.app.db.database import close_db, init_db
+from backend.app.services import usage_tracker
 
 
 @pytest.fixture(autouse=True)
@@ -164,3 +165,97 @@ async def test_grant_pro_default_duration(app):
     data = resp.json()
     assert data["subscription_tier"] == "pro"
     assert data["comp_reason"] == "Bug testing reward"  # default reason
+
+
+# ---------------------------------------------------------------------------
+# Analytics endpoint tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_analytics_returns_data(app):
+    """Analytics endpoint returns expected fields with valid admin secret."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/api/v1/admin/analytics",
+            headers=ADMIN_HEADERS,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "active_subscribers" in data
+    assert "mrr" in data
+    assert "comp_users" in data
+    assert "total_users" in data
+    assert "dau_estimate" in data
+    assert "popular_endpoints" in data
+    assert "feature_usage" in data
+    assert isinstance(data["mrr"], (int, float))
+    assert isinstance(data["popular_endpoints"], list)
+    assert "map_views" in data["feature_usage"]
+    assert "route_calculations" in data["feature_usage"]
+    assert "intel_lookups" in data["feature_usage"]
+    assert "kill_feed_connections" in data["feature_usage"]
+
+
+@pytest.mark.asyncio()
+async def test_analytics_rejects_bad_secret(app):
+    """Analytics rejects requests with wrong admin secret."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/api/v1/admin/analytics",
+            headers={"X-Admin-Secret": "wrong-secret"},
+        )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio()
+async def test_analytics_reflects_comp_users(app):
+    """Analytics counts comp users after granting Pro."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Grant a comp user
+        await client.post(
+            "/api/v1/admin/grant-pro",
+            json={
+                "character_name": "AnalyticsTestPilot",
+                "character_id": 88888888,
+                "duration_days": 30,
+                "reason": "Analytics test",
+            },
+            headers=ADMIN_HEADERS,
+        )
+
+        # Check analytics
+        resp = await client.get(
+            "/api/v1/admin/analytics",
+            headers=ADMIN_HEADERS,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["comp_users"] >= 1
+    assert data["total_users"] >= 1
+
+
+@pytest.mark.asyncio()
+async def test_analytics_feature_usage_tracking(app):
+    """Feature usage counters are reflected in analytics response."""
+    # Track some features
+    usage_tracker.track_feature("map_views")
+    usage_tracker.track_feature("map_views")
+    usage_tracker.track_feature("route_calculations")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/api/v1/admin/analytics",
+            headers=ADMIN_HEADERS,
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["feature_usage"]["map_views"] >= 2
+    assert data["feature_usage"]["route_calculations"] >= 1
