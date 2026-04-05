@@ -492,8 +492,9 @@ export function FWMap() {
     if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
   }, []);
 
-  // Smooth exponential zoom toward mouse position
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+  // Non-passive wheel listener to prevent page scroll when zooming the map
+  const handleWheelRef = useRef<(e: WheelEvent) => void>(() => {});
+  handleWheelRef.current = (e: WheelEvent) => {
     e.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -505,14 +506,21 @@ export function FWMap() {
 
     setViewport((v) => {
       const newZoom = Math.max(0.3, Math.min(5, v.zoom * factor));
-      // Zoom toward mouse position
       const wx = (mouseX - size.w / 2) / v.zoom + v.x;
       const wy = (mouseY - size.h / 2) / v.zoom + v.y;
       const newX = wx - (mouseX - size.w / 2) / newZoom;
       const newY = wy - (mouseY - size.h / 2) / newZoom;
       return { x: newX, y: newY, zoom: newZoom };
     });
-  }, [size]);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: WheelEvent) => handleWheelRef.current(e);
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
+  }, []);
 
   // ── Canvas draw via rAF ───────────────────────────────────────────────────
 
@@ -1099,7 +1107,6 @@ export function FWMap() {
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => { setHovered(null); handleMouseUp(); }}
-            onWheel={handleWheel}
             className="w-full"
             style={{ touchAction: 'none', cursor: 'grab' }}
           />

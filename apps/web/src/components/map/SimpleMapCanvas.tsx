@@ -542,36 +542,39 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
     }
   }, [systems, gates, viewport, layers, selectedSystem, highlightedSet, regions, worldToScreen, colorMode, risks, crossRegionGates, hoveredSystemId, sovStructureSystems]);
 
-  // Mouse wheel zoom — exponential curve with normalised delta (#2)
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
+  // Mouse wheel zoom — attached as non-passive native listener so preventDefault
+  // actually stops page scroll when cursor is over the map canvas.
+  const handleWheelRef = useRef<(e: WheelEvent) => void>(() => {});
+  handleWheelRef.current = (e: WheelEvent) => {
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-      const vp = viewportRef.current;
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+    const vp = viewportRef.current;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-      // Screen to world using current viewport ref
-      const worldBeforeX = (mouseX - vp.width / 2) / vp.zoom + vp.x;
-      const worldBeforeY = (mouseY - vp.height / 2) / vp.zoom + vp.y;
+    const worldBeforeX = (mouseX - vp.width / 2) / vp.zoom + vp.x;
+    const worldBeforeY = (mouseY - vp.height / 2) / vp.zoom + vp.y;
 
-      // Normalise across browsers/trackpads: clamp raw delta to ±150
-      // so trackpad flings don't catapult the zoom
-      const clampedDelta = Math.max(-150, Math.min(150, e.deltaY));
-      const zoomDelta = -clampedDelta * 0.0015;
-      const zoomFactor = Math.pow(2, zoomDelta);
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, vp.zoom * zoomFactor));
+    const clampedDelta = Math.max(-150, Math.min(150, e.deltaY));
+    const zoomDelta = -clampedDelta * 0.0015;
+    const zoomFactor = Math.pow(2, zoomDelta);
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, vp.zoom * zoomFactor));
 
-      // Adjust position to zoom towards mouse
-      const newX = worldBeforeX - (mouseX - vp.width / 2) / newZoom;
-      const newY = worldBeforeY - (mouseY - vp.height / 2) / newZoom;
+    const newX = worldBeforeX - (mouseX - vp.width / 2) / newZoom;
+    const newY = worldBeforeY - (mouseY - vp.height / 2) / newZoom;
 
-      onViewportChange({ ...vp, x: newX, y: newY, zoom: newZoom });
-    },
-    [onViewportChange]
-  );
+    onViewportChange({ ...vp, x: newX, y: newY, zoom: newZoom });
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: WheelEvent) => handleWheelRef.current(e);
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
+  }, []);
 
   // Helper: update cursor directly on the canvas element (avoids re-render)
   const setCursor = useCallback((cursor: string) => {
@@ -812,7 +815,6 @@ export const SimpleMapCanvas = React.memo(function SimpleMapCanvas({
         ref={canvasRef}
         width={viewport.width}
         height={viewport.height}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
