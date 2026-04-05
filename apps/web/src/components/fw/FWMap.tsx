@@ -76,6 +76,48 @@ function bfsFW(from: number, to: number, gates: FWGateConnection[]): number[] {
   return [];
 }
 
+// ── Convex hull (Graham scan) ───────────────────────────────────────────────
+
+function convexHull(points: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (points.length < 3) return points;
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+
+  const cross = (o: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+  const lower: { x: number; y: number }[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+      lower.pop();
+    lower.push(p);
+  }
+
+  const upper: { x: number; y: number }[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+      upper.pop();
+    upper.push(p);
+  }
+
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+// Expand hull outward by padding (move each point away from centroid)
+function expandHull(hull: { x: number; y: number }[], padding: number): { x: number; y: number }[] {
+  if (hull.length < 2) return hull;
+  const cx = hull.reduce((s, p) => s + p.x, 0) / hull.length;
+  const cy = hull.reduce((s, p) => s + p.y, 0) / hull.length;
+  return hull.map((p) => {
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: p.x + (dx / dist) * padding, y: p.y + (dy / dist) * padding };
+  });
+}
+
 // ── Precomputed screen positions ────────────────────────────────────────────
 
 interface ScreenNode {
@@ -84,6 +126,13 @@ interface ScreenNode {
   sy: number;
   r: number;
   node: FWSystemNode;
+}
+
+interface FactionTerritory {
+  factionId: number;
+  hull: { x: number; y: number }[];
+  centroid: { x: number; y: number };
+  count: number;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -301,6 +350,48 @@ export function FWMap() {
     });
   }, [filteredSystems, toCanvas, size]);
 
+  // Precompute faction territory hulls from screen positions
+  const factionTerritories = useMemo(() => {
+    const groups = new Map<number, { x: number; y: number }[]>();
+    for (const sn of screenNodes) {
+      const fid = sn.node.fw.occupier_faction_id;
+      let pts = groups.get(fid);
+      if (!pts) { pts = []; groups.set(fid, pts); }
+      pts.push({ x: sn.sx, y: sn.sy });
+    }
+
+    const territories: FactionTerritory[] = [];
+    for (const [factionId, points] of groups) {
+      if (points.length < 3) continue;
+      const hull = convexHull(points);
+      const expanded = expandHull(hull, 40 * viewport.zoom);
+      const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
+      const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
+      territories.push({ factionId, hull: expanded, centroid: { x: cx, y: cy }, count: points.length });
+    }
+    return territories;
+  }, [screenNodes, viewport.zoom]);
+
+  // Precompute region label positions from screen nodes
+  const regionLabels = useMemo(() => {
+    const regions = new Map<string, { sx: number; sy: number; count: number }>();
+    for (const sn of screenNodes) {
+      const region = sn.node.regionName;
+      if (!region) continue;
+      const existing = regions.get(region);
+      if (existing) {
+        existing.sx += sn.sx;
+        existing.sy += sn.sy;
+        existing.count++;
+      } else {
+        regions.set(region, { sx: sn.sx, sy: sn.sy, count: 1 });
+      }
+    }
+    return [...regions.entries()]
+      .filter(([, v]) => v.count >= 3)
+      .map(([name, v]) => ({ name, x: v.sx / v.count, y: v.sy / v.count }));
+  }, [screenNodes]);
+
   // ── Hit test using precomputed positions ──────────────────────────────────
 
   const hitTest = useCallback(
@@ -445,6 +536,101 @@ export function FWMap() {
     const visibleIds = new Set(filteredSystems.map((s) => s.systemId));
     const pulse = (Math.sin(pulseRef.current) + 1) / 2;
     const killPulse = (Math.sin(pulseRef.current * 1.5) + 1) / 2;
+
+    // ── Territory influence clouds ──────────────────────────────────────
+
+    for (const territory of factionTerritories) {
+      const faction = FACTION_COLORS[territory.factionId];
+      if (!faction || territory.hull.length < 3) continue;
+
+      // Draw filled territory blob with radial gradient
+      ctx.save();
+      const cx = territory.centroid.x;
+      const cy = territory.centroid.y;
+
+      // Compute max radius for gradient
+      let maxDist = 0;
+      for (const p of territory.hull) {
+        const d = Math.sqrt((p.x - cx) ** 2 + (p.y - cy) ** 2);
+        if (d > maxDist) maxDist = d;
+      }
+
+      // Radial gradient from centroid
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxDist * 1.1);
+      grad.addColorStop(0, faction.fill + '30'); // 19% center
+      grad.addColorStop(0.6, faction.fill + '18'); // 9% mid
+      grad.addColorStop(1, faction.fill + '05'); // 2% edge
+
+      // Draw smooth hull path
+      ctx.beginPath();
+      const h = territory.hull;
+      ctx.moveTo(h[0].x, h[0].y);
+      for (let i = 1; i < h.length; i++) {
+        // Smooth corners with quadratic curves
+        const prev = h[i - 1];
+        const curr = h[i];
+        const midX = (prev.x + curr.x) / 2;
+        const midY = (prev.y + curr.y) / 2;
+        ctx.quadraticCurveTo(prev.x, prev.y, midX, midY);
+      }
+      // Close with smooth curve
+      const last = h[h.length - 1];
+      const first = h[0];
+      const midX = (last.x + first.x) / 2;
+      const midY = (last.y + first.y) / 2;
+      ctx.quadraticCurveTo(last.x, last.y, midX, midY);
+      ctx.closePath();
+
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Subtle border
+      ctx.strokeStyle = faction.fill + '25';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // ── Faction territory labels ────────────────────────────────────────
+
+    for (const territory of factionTerritories) {
+      const faction = FACTION_COLORS[territory.factionId];
+      if (!faction || territory.count < 5) continue;
+
+      const { x: cx, y: cy } = territory.centroid;
+      // Only draw if centroid is on screen
+      if (cx < -100 || cx > size.w + 100 || cy < -100 || cy > size.h + 100) continue;
+
+      const fontSize = Math.max(16, Math.min(28, 20 * viewport.zoom));
+      ctx.save();
+      ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Text shadow
+      ctx.fillStyle = '#000000';
+      ctx.globalAlpha = 0.4;
+      ctx.fillText(faction.name, cx + 1, cy + 1);
+      // Label
+      ctx.fillStyle = faction.fill;
+      ctx.globalAlpha = 0.5;
+      ctx.fillText(faction.name, cx, cy);
+      ctx.restore();
+    }
+
+    // ── Region labels (smaller, dimmer) ─────────────────────────────────
+
+    if (viewport.zoom >= 0.6) {
+      const rFontSize = Math.max(9, Math.min(14, 11 * viewport.zoom));
+      ctx.font = `${rFontSize}px system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      for (const rl of regionLabels) {
+        if (rl.x < -50 || rl.x > size.w + 50 || rl.y < -50 || rl.y > size.h + 50) continue;
+        ctx.fillText(rl.name, rl.x, rl.y - 20);
+      }
+    }
 
     // ── Batch gates by type ─────────────────────────────────────────────
 
@@ -720,7 +906,7 @@ export function FWMap() {
     }
   }, [size, fwSystems, filteredSystems, fwGates, systemMap, hovered, selected,
       screenNodes, viewport, hotSystemMap, warzoneFilter, routeEdgeSet,
-      routeNodeSet, routeEndpoints]);
+      routeNodeSet, routeEndpoints, factionTerritories, regionLabels]);
 
   // ── Animation loop (rAF instead of setInterval + setState) ────────────
 
