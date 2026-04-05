@@ -11,6 +11,7 @@ interface UseMultiRouteOptions {
   profile?: RouteProfile;
   bridges?: boolean;
   thera?: boolean;
+  pochven?: boolean;
   avoid?: string[];
   enabled?: boolean;
 }
@@ -39,6 +40,7 @@ export function useMultiRoute({
   profile = 'safer',
   bridges = false,
   thera = false,
+  pochven = false,
   avoid = [],
   enabled = true,
 }: UseMultiRouteOptions): MultiRouteResult {
@@ -58,8 +60,8 @@ export function useMultiRoute({
 
   const queries = useQueries({
     queries: pairs.map(([from, to]) => ({
-      queryKey: ['route', from, to, profile, bridges, thera, avoidKey],
-      queryFn: () => GatekeeperAPI.getRoute(from, to, profile, { bridges, thera, avoid }),
+      queryKey: ['route', from, to, profile, bridges, thera, pochven, avoidKey],
+      queryFn: () => GatekeeperAPI.getRoute(from, to, profile, { bridges, thera, pochven, avoid }),
       enabled: enabled && from.length > 0 && to.length > 0,
       staleTime: 60 * 1000,
       retry: false,

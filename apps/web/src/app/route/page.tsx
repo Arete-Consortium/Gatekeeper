@@ -10,13 +10,18 @@ import type { Waypoint } from '@/components/route';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse } from '@/lib/types';
 import { GatekeeperAPI } from '@/lib/api';
-import { Route, Loader2, Rocket, Fuel, Clock } from 'lucide-react';
+import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2 } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { JumpStrip } from '@/components/route/JumpStrip';
 import dynamic from 'next/dynamic';
 
 const JumpRangeMap = dynamic(
   () => import('@/components/route/JumpRangeMap').then((m) => m.JumpRangeMap),
+  { ssr: false, loading: () => <div className="w-full h-80 bg-card border border-border rounded-lg animate-pulse" /> }
+);
+
+const RouteMap = dynamic(
+  () => import('@/components/route/RouteMap').then((m) => m.RouteMap),
   { ssr: false, loading: () => <div className="w-full h-80 bg-card border border-border rounded-lg animate-pulse" /> }
 );
 
@@ -184,6 +189,8 @@ function RoutePageContent() {
   const [jdc, setJdc] = useState(5);
   const [jfc, setJfc] = useState(5);
   const [preferStations, setPreferStations] = useState(true);
+  const [includePochven, setIncludePochven] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [jumpResult, setJumpResult] = useState<JumpRouteResponse | null>(null);
   const [jumpLoading, setJumpLoading] = useState(false);
   const [jumpError, setJumpError] = useState<Error | null>(null);
@@ -230,6 +237,7 @@ function RoutePageContent() {
     profile,
     bridges: includeBridges,
     thera: includeThera,
+    pochven: includePochven,
     avoid: avoidSystems,
     enabled: shouldFetch && allFilled,
   });
@@ -312,8 +320,8 @@ function RoutePageContent() {
           />
 
           {/* Options row */}
-          <div className="space-y-4 pt-2 border-t border-border">
-            {/* Toggles — consistent horizontal row */}
+          <div className="space-y-3 pt-2 border-t border-border">
+            {/* Main mode toggles — always visible */}
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <Toggle
                 checked={capitalMode}
@@ -325,70 +333,88 @@ function RoutePageContent() {
                 label="Jump Drive"
               />
               {!capitalMode && (
-                <>
-                  <Toggle
-                    checked={includeBridges}
-                    onChange={setIncludeBridges}
-                    label="Jump Bridges"
+                <div className="max-w-xs flex-1 min-w-[160px]">
+                  <Select
+                    value={profile}
+                    onChange={(e) => setProfile(e.target.value as RouteProfile)}
+                    options={profileOptions}
                   />
-                  <Toggle
-                    checked={includeThera}
-                    onChange={setIncludeThera}
-                    label="Thera"
-                  />
-                </>
-              )}
-              {capitalMode && (
-                <Toggle
-                  checked={preferStations}
-                  onChange={setPreferStations}
-                  label="Prefer Stations"
-                />
+                </div>
               )}
             </div>
 
-            {/* Gate route profile */}
-            {!capitalMode && (
-              <div className="max-w-xs">
-                <Select
-                  label="Route Profile"
-                  value={profile}
-                  onChange={(e) => setProfile(e.target.value as RouteProfile)}
-                  options={profileOptions}
-                />
-              </div>
-            )}
+            {/* Collapsible options dropdown */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setOptionsOpen(!optionsOpen)}
+                className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text transition-colors"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                <span>Route Options</span>
+                {optionsOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
 
-            {/* Jump drive options */}
-            {capitalMode && (
-              <div className="space-y-3">
-                <div className="max-w-sm">
-                  <Select
-                    label="Ship"
-                    options={SHIP_OPTIONS}
-                    value={selectedHull}
-                    onChange={(e) => handleHullChange(e.target.value)}
-                  />
+              {optionsOpen && (
+                <div className="mt-3 space-y-3 pl-1">
+                  {!capitalMode && (
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <Toggle
+                        checked={includeBridges}
+                        onChange={setIncludeBridges}
+                        label="Jump Bridges"
+                      />
+                      <Toggle
+                        checked={includeThera}
+                        onChange={setIncludeThera}
+                        label="Thera"
+                      />
+                      <Toggle
+                        checked={includePochven}
+                        onChange={setIncludePochven}
+                        label="Pochven"
+                      />
+                    </div>
+                  )}
+                  {capitalMode && (
+                    <>
+                      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                        <Toggle
+                          checked={preferStations}
+                          onChange={setPreferStations}
+                          label="Prefer Stations"
+                        />
+                      </div>
+                      <div className="max-w-sm">
+                        <Select
+                          label="Ship"
+                          options={SHIP_OPTIONS}
+                          value={selectedHull}
+                          onChange={(e) => handleHullChange(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 max-w-sm gap-3">
+                        <Select
+                          label="JDC Level"
+                          options={SKILL_OPTIONS}
+                          value={jdc.toString()}
+                          onChange={(e) => setJdc(Number(e.target.value))}
+                        />
+                        <Select
+                          label="JFC Level"
+                          options={SKILL_OPTIONS}
+                          value={jfc.toString()}
+                          onChange={(e) => setJfc(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="text-xs text-text-secondary">
+                        Fuel: {FUEL_LABELS[fuelType]} · Max range: {maxRangeLy.toFixed(1)} LY
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 max-w-sm gap-3">
-                  <Select
-                    label="JDC Level"
-                    options={SKILL_OPTIONS}
-                    value={jdc.toString()}
-                    onChange={(e) => setJdc(Number(e.target.value))}
-                  />
-                  <Select
-                    label="JFC Level"
-                    options={SKILL_OPTIONS}
-                    value={jfc.toString()}
-                    onChange={(e) => setJfc(Number(e.target.value))}
-                  />
-                </div>
-                <div className="text-xs text-text-secondary">
-                  Fuel: {FUEL_LABELS[fuelType]} · Max range: {maxRangeLy.toFixed(1)} LY
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Search Button */}
@@ -443,6 +469,9 @@ function RoutePageContent() {
           </div>
         </Card>
       )}
+
+      {/* Route map — always visible in gate mode */}
+      {!capitalMode && route && <RouteMap route={route} />}
 
       {/* Gate route results */}
       {!capitalMode && route && <RouteResult route={route} />}

@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardTitle, Badge } from '@/components/ui';
 import { RiskBadge } from '@/components/system';
 import { RouteHopRow } from './RouteHopRow';
-import { RouteMap } from './RouteMap';
 import { RouteStrip } from './RouteStrip';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteResponse, HotzoneResponse, HotzoneSystemData } from '@/lib/types';
@@ -248,9 +247,6 @@ export function RouteResult({ route }: RouteResultProps) {
 
       {/* Route Strip — subway-line visualization */}
       <RouteStrip hops={route.path} />
-
-      {/* Route Map */}
-      <RouteMap route={route} />
 
       {/* Route Path */}
       <div>
