@@ -92,6 +92,7 @@ export interface MapLayers {
   showSkyhooks: boolean;
   showSovereignty?: boolean;
   showActivity?: boolean;
+  showIncursions?: boolean;
   showWormholes?: boolean;
   showJumpBridges?: boolean;
   showMarketHubs?: boolean;

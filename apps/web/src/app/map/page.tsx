@@ -207,6 +207,7 @@ function MapPageContent() {
       showSkyhooks: false,
       showSovereignty: false,
       showActivity: false,
+      showIncursions: false,
       showWormholes: false,
       showJumpBridges: false,
       showMarketHubs: false,
@@ -753,6 +754,7 @@ function MapPageContent() {
           <ProToggle checked={layers.showKills} onChange={(v) => updateLayer('showKills', v)} label="Kill markers" isPro={isPro} />
           <ProToggle checked={layers.showHeatmap} onChange={(v) => updateLayer('showHeatmap', v)} label="Risk heatmap" isPro={isPro} />
           <ProToggle checked={layers.showActivity === true} onChange={(v) => updateLayer('showActivity', v)} label="System activity" isPro={isPro} />
+          <ProToggle checked={layers.showIncursions === true} onChange={(v) => updateLayer('showIncursions', v)} label="Incursions" isPro={isPro} />
           <ProToggle checked={layers.showThera} onChange={(v) => updateLayer('showThera', v)} label="Thera connections" isPro={isPro} />
           <ProToggle checked={layers.showFW} onChange={(v) => updateLayer('showFW', v)} label="Faction warfare" isPro={isPro} />
           <ProToggle checked={layers.showSovereignty === true} onChange={(v) => updateLayer('showSovereignty', v)} label="Alliance sovereignty" isPro={isPro} />
@@ -1155,6 +1157,7 @@ function MapPageContent() {
                   showFW: false,
                   showSovereignty: false,
                   showActivity: false,
+                  showIncursions: false,
                   showSovStructures: false,
                   showSkyhooks: false,
                   showWormholes: false,

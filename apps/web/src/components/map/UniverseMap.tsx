@@ -39,6 +39,7 @@ import { SovStructuresOverlay } from './SovStructuresOverlay';
 import { SkyhookHaloOverlay } from './SkyhookHaloOverlay';
 import { WormholeOverlay } from './WormholeOverlay';
 import { JumpBridgeOverlay } from './JumpBridgeOverlay';
+import { IncursionOverlay } from './IncursionOverlay';
 // MarketHubsOverlay removed — low ROI toggle
 import { CharacterMarker } from './CharacterMarker';
 import { FleetOverlay } from './FleetOverlay';
@@ -58,6 +59,7 @@ const DEFAULT_LAYERS: MapLayers = {
   showSkyhooks: false,
   showSovereignty: false,
   showActivity: false,
+  showIncursions: false,
   showWormholes: false,
   showJumpBridges: false,
   showMarketHubs: false,
@@ -435,6 +437,15 @@ export const UniverseMap = forwardRef<UniverseMapRef, UniverseMapProps>(
         {layers.showActivity && activityData && (
           <ActivityOverlay
             activityData={activityData}
+            systems={systemMap}
+            viewport={viewport}
+          />
+        )}
+
+        {/* Incursion Overlay (Sansha staging + infested systems) */}
+        {layers.showIncursions && activityData?.incursions && activityData.incursions.length > 0 && (
+          <IncursionOverlay
+            incursions={activityData.incursions}
             systems={systemMap}
             viewport={viewport}
           />
