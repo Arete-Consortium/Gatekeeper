@@ -12,6 +12,7 @@ export interface Gate {
 
 // Solar system information
 export interface System {
+  id: number;
   name: string;
   security: number;
   category: string;

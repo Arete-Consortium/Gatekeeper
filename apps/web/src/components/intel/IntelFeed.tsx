@@ -1,11 +1,14 @@
 'use client';
 
-import { memo, useState, useMemo, useCallback, useEffect } from 'react';
+import { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useHotSystems } from '@/hooks';
-import { Card, Select, Badge } from '@/components/ui';
+import { GatekeeperAPI } from '@/lib/api';
+import { Card, Select, Badge, Input } from '@/components/ui';
 import { SecurityBadge } from '@/components/system';
 import { Radar, Skull, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Pin, X, MapPin, Building2, Shield } from 'lucide-react';
 import { ErrorMessage, SkeletonTable, getUserFriendlyError } from '@/components/ui';
+import { StreamingKillFeed } from './StreamingKillFeed';
 import { PilotThreatCard } from './PilotThreatCard';
 import { PilotDeepDive } from './PilotDeepDive';
 import { SystemSummaryCard } from './SystemSummaryCard';
@@ -15,7 +18,7 @@ import {
   loadPinnedCorps, savePinnedCorps, type PinnedCorp,
   loadPinnedAlliances, savePinnedAlliances, type PinnedAlliance,
 } from '@/lib/pinnedItems';
-import type { HotSystem } from '@/lib/types';
+import type { HotSystem, System } from '@/lib/types';
 
 const timeOptions = [
   { value: '1', label: 'Last 1 hour' },
@@ -148,6 +151,66 @@ export default function IntelFeed() {
   const [pinnedSystems, setPinnedSystems] = useState<PinnedSystem[]>([]);
   const [pinnedCorps, setPinnedCorps] = useState<PinnedCorp[]>([]);
   const [pinnedAlliances, setPinnedAlliances] = useState<PinnedAlliance[]>([]);
+
+  // Kill feed filters
+  const [selectedRegionId, setSelectedRegionId] = useState<string>('');
+  const [systemQuery, setSystemQuery] = useState('');
+  const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
+  const [systemDropdownOpen, setSystemDropdownOpen] = useState(false);
+  const systemSearchRef = useRef<HTMLDivElement>(null);
+
+  // Close system dropdown on click outside
+  useEffect(() => {
+    if (!systemDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (systemSearchRef.current && !systemSearchRef.current.contains(e.target as Node)) {
+        setSystemDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [systemDropdownOpen]);
+
+  const { data: allSystems } = useQuery<System[]>({
+    queryKey: ['systems'],
+    queryFn: () => GatekeeperAPI.getSystems(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Build region options from loaded systems
+  const regionOptions = useMemo(() => {
+    if (!allSystems) return [{ value: '', label: 'All Regions' }];
+    const regionMap = new Map<number, string>();
+    for (const sys of allSystems) {
+      if (sys.region_id && sys.region_name) {
+        regionMap.set(sys.region_id, sys.region_name);
+      }
+    }
+    const sorted = [...regionMap.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    return [
+      { value: '', label: 'All Regions' },
+      ...sorted.map(([id, name]) => ({ value: id.toString(), label: name })),
+    ];
+  }, [allSystems]);
+
+  // System search results
+  const systemResults = useMemo(() => {
+    if (!allSystems || systemQuery.length < 2) return [];
+    const q = systemQuery.toLowerCase();
+    return allSystems
+      .filter((s) => s.name.toLowerCase().startsWith(q))
+      .slice(0, 8);
+  }, [allSystems, systemQuery]);
+
+  // Compute feed filters
+  const feedRegionFilter = useMemo(
+    () => (selectedRegionId ? [parseInt(selectedRegionId)] : []),
+    [selectedRegionId]
+  );
+  const feedSystemFilter = useMemo(
+    () => (selectedSystemId ? [selectedSystemId] : []),
+    [selectedSystemId]
+  );
   const [deepDiveId, setDeepDiveId] = useState<number | null>(null);
 
   // Load all pinned items
@@ -374,6 +437,66 @@ export default function IntelFeed() {
           )}
         </div>
       )}
+
+      {/* Live Kill Feed */}
+      <Card className="p-4">
+        {/* Feed filters */}
+        <div className="flex flex-wrap gap-4 mb-4">
+          <div ref={systemSearchRef} className="relative w-48">
+            <Input
+              label="System"
+              value={systemQuery}
+              onChange={(e) => {
+                setSystemQuery(e.target.value);
+                setSystemDropdownOpen(true);
+                if (!e.target.value) {
+                  setSelectedSystemId(null);
+                }
+              }}
+              onFocus={() => systemQuery.length >= 2 && setSystemDropdownOpen(true)}
+              placeholder="Filter by system..."
+              autoComplete="off"
+            />
+            {systemDropdownOpen && systemResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                {systemResults.map((sys) => (
+                  <button
+                    key={sys.name}
+                    type="button"
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-card-hover transition-colors flex items-center justify-between"
+                    onClick={() => {
+                      setSystemQuery(sys.name);
+                      setSelectedSystemId(sys.id);
+                      setSystemDropdownOpen(false);
+                    }}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-text font-medium truncate">{sys.name}</span>
+                      {sys.region_name && (
+                        <span className="text-xs text-text-secondary truncate">{sys.region_name}</span>
+                      )}
+                    </div>
+                    <SecurityBadge security={sys.security} size="sm" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="w-48">
+            <Select
+              label="Region"
+              value={selectedRegionId}
+              onChange={(e) => setSelectedRegionId(e.target.value)}
+              options={regionOptions}
+            />
+          </div>
+        </div>
+        <StreamingKillFeed
+          systemFilter={feedSystemFilter}
+          regionFilter={feedRegionFilter}
+          maxDisplay={20}
+        />
+      </Card>
 
       {/* Filters */}
       <Card>

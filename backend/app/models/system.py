@@ -50,6 +50,7 @@ class Universe(BaseModel):
 
 
 class SystemSummary(BaseModel):
+    id: int
     name: str
     security: float
     category: str

@@ -76,6 +76,7 @@ def list_systems(
 
         all_systems.append(
             SystemSummary(
+                id=sys.id,
                 name=sys.name,
                 security=sys.security,
                 category=sys.category,
@@ -108,6 +109,7 @@ def get_system(system_name: str) -> SystemSummary:
         raise HTTPException(status_code=404, detail=f"System '{system_name}' not found")
     sys = universe.systems[system_name]
     return SystemSummary(
+        id=sys.id,
         name=sys.name,
         security=sys.security,
         category=sys.category,

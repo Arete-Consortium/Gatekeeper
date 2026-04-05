@@ -7,6 +7,10 @@ const PochvenMap = dynamic(
   () => import('@/components/pochven/PochvenMap').then((m) => m.PochvenMap),
   { ssr: false }
 );
+const StreamingKillFeed = dynamic(
+  () => import('@/components/intel/StreamingKillFeed').then((m) => m.StreamingKillFeed),
+  { ssr: false }
+);
 import { Card, Badge } from '@/components/ui';
 import {
   Map,
@@ -17,6 +21,8 @@ import {
   ChevronUp,
   ExternalLink,
 } from 'lucide-react';
+
+const POCHVEN_REGION_ID = 10000070;
 
 // ── Pochven Reference Data ──────────────────────────────────────────────────
 
@@ -121,6 +127,15 @@ export default function PochvenPage() {
       </div>
 
       <PochvenMap />
+
+      {/* Pochven Kill Feed */}
+      <Card className="p-4">
+        <StreamingKillFeed
+          regionFilter={[POCHVEN_REGION_ID]}
+          title="Pochven Kill Feed"
+          maxDisplay={15}
+        />
+      </Card>
 
       {/* Reference panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

@@ -13,6 +13,7 @@ def list_systems() -> list[SystemSummary]:
     universe = load_universe()
     return [
         SystemSummary(
+            id=sys.id,
             name=sys.name,
             security=sys.security,
             category=sys.category,
