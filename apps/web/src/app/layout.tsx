@@ -4,6 +4,7 @@ import { Providers } from '@/components/Providers';
 import { ErrorBoundaryWrapper } from '@/components/ErrorBoundaryWrapper';
 import { Analytics } from '@/components/Analytics';
 import { ConsentGatedVercelAnalytics } from '@/components/ConsentGatedVercelAnalytics';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { CookieConsentBanner } from '@/components/CookieConsentBanner';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 import '@/styles/globals.css';
@@ -68,6 +69,7 @@ export default function RootLayout({
           </ErrorBoundaryWrapper>
           <Analytics />
           <ConsentGatedVercelAnalytics />
+          <SpeedInsights />
           <CookieConsentBanner />
           <ServiceWorkerRegistration />
         </Providers>
