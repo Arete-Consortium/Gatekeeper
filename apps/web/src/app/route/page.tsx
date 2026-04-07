@@ -2,17 +2,19 @@
 
 import { Suspense, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useMultiRoute } from '@/hooks';
 import { Card, Button, Toggle, Skeleton } from '@/components/ui';
 import { Select } from '@/components/ui/Select';
 import { RouteResult, WaypointList, generateWaypointId } from '@/components/route';
 import type { Waypoint } from '@/components/route';
 import { ROUTE_PROFILES } from '@/lib/utils';
-import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse } from '@/lib/types';
+import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse, HotzoneResponse, HotzoneSystemData } from '@/lib/types';
 import { GatekeeperAPI } from '@/lib/api';
-import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2, Share2, Check } from 'lucide-react';
+import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2, Share2, Check, Shield, Crosshair, Skull, Building2, AlertTriangle, Flame, TrendingUp, TrendingDown } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
 import { JumpStrip } from '@/components/route/JumpStrip';
+import { SecurityBadge, RiskBadge } from '@/components/system';
 import dynamic from 'next/dynamic';
 
 const JumpRangeMap = dynamic(
@@ -159,6 +161,203 @@ function formatMinutes(minutes: number): string {
   return `${hrs}h ${mins}m`;
 }
 
+function getJumpRiskColor(score: number): 'green' | 'yellow' | 'orange' | 'red' {
+  if (score < 25) return 'green';
+  if (score < 50) return 'yellow';
+  if (score < 75) return 'orange';
+  return 'red';
+}
+
+function JumpLegRow({ leg, idx, hotzone }: { leg: import('@/lib/types').JumpLegResponse; idx: number; hotzone?: HotzoneSystemData }) {
+  const [expanded, setExpanded] = useState(false);
+  const riskColor = getJumpRiskColor(leg.to_risk_score);
+  const hasBreakdown = leg.to_risk_breakdown != null || hotzone != null;
+
+  return (
+    <div>
+      {/* Desktop row */}
+      <button
+        type="button"
+        onClick={() => hasBreakdown && setExpanded(!expanded)}
+        className={`hidden sm:grid grid-cols-16 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[800px] text-sm w-full text-left ${hasBreakdown ? 'cursor-pointer' : ''}`}
+      >
+        <div className="col-span-1 text-center text-text-secondary font-mono">
+          {idx + 1}
+        </div>
+        <div className="col-span-2 text-text font-medium truncate" title={leg.from_system}>
+          {leg.from_system}
+        </div>
+        <div className="col-span-3 text-text font-medium truncate flex items-center gap-1.5" title={leg.to_system}>
+          <span className="truncate">{leg.to_system}</span>
+          {leg.to_pirate_suppressed && (
+            <span className="text-[10px] font-medium text-red-400 bg-red-500/15 px-1 py-0.5 rounded shrink-0">SUP</span>
+          )}
+          {leg.to_has_npc_station && (
+            <span title="Has NPC station"><Building2 className="h-3 w-3 text-text-secondary/60 shrink-0" /></span>
+          )}
+        </div>
+        <div className="col-span-2 text-text-secondary text-xs truncate" title={leg.to_region_name}>
+          {leg.to_region_name}
+        </div>
+        <div className="col-span-1 text-right text-blue-400 font-mono">
+          {leg.distance_ly.toFixed(1)}
+        </div>
+        <div className="col-span-1 text-right text-yellow-400 font-mono">
+          {leg.fuel_required.toLocaleString()}
+        </div>
+        <div className="col-span-1 text-right text-text-secondary font-mono">
+          {formatMinutes(leg.total_fatigue_minutes)}
+        </div>
+        <div className="col-span-1 text-right font-mono">
+          {leg.wait_time_minutes > 0 ? (
+            <span className="text-risk-orange">{formatMinutes(leg.wait_time_minutes)}</span>
+          ) : (
+            <span className="text-green-400">Ready</span>
+          )}
+        </div>
+        <div className="col-span-1 flex justify-center">
+          <SecurityBadge security={leg.to_security_status} size="sm" />
+        </div>
+        <div className="col-span-1 flex justify-center">
+          <RiskBadge riskColor={riskColor} riskScore={leg.to_risk_score} showIcon={false} size="sm" />
+        </div>
+        <div className="col-span-2 flex items-center justify-center">
+          {hasBreakdown && (
+            <ChevronDown className={`h-4 w-4 text-text-secondary transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </button>
+
+      {/* Desktop expanded breakdown */}
+      {expanded && (leg.to_risk_breakdown || hotzone) && (
+        <div className="hidden sm:block px-3 pb-3 pt-0 border-t border-border/50 bg-card/50">
+          <div className="ml-[calc(6.25%+0.5rem)] mr-4 space-y-2 pt-2">
+            <div className="text-[10px] uppercase tracking-wider text-text-secondary/60 font-semibold">
+              Destination Intel — {leg.to_system}
+            </div>
+            {leg.to_risk_breakdown && (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-3.5 w-3.5 text-cyan-400" />
+                  <span className="text-xs text-text-secondary">Security</span>
+                  <span className="text-xs font-mono text-text ml-auto">{leg.to_risk_breakdown.security_component.toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Crosshair className="h-3.5 w-3.5 text-orange-400" />
+                  <span className="text-xs text-text-secondary">Kills</span>
+                  <span className="text-xs font-mono text-text ml-auto">{leg.to_risk_breakdown.kills_component.toFixed(1)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skull className="h-3.5 w-3.5 text-red-400" />
+                  <span className="text-xs text-text-secondary">Pods</span>
+                  <span className="text-xs font-mono text-text ml-auto">{leg.to_risk_breakdown.pods_component.toFixed(1)}</span>
+                </div>
+              </div>
+            )}
+            {leg.to_zkill_stats && (leg.to_zkill_stats.recent_kills > 0 || leg.to_zkill_stats.recent_pods > 0) && (
+              <div className="flex gap-4 pt-1.5 border-t border-border/30">
+                <div className="flex items-center gap-1.5">
+                  <Crosshair className="h-3 w-3 text-orange-400/70" />
+                  <span className="text-xs text-text-secondary">
+                    <span className="font-mono font-medium text-text">{leg.to_zkill_stats.recent_kills}</span> kills (24h)
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Skull className="h-3 w-3 text-red-400/70" />
+                  <span className="text-xs text-text-secondary">
+                    <span className="font-mono font-medium text-text">{leg.to_zkill_stats.recent_pods}</span> pods (24h)
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* Hotzone intel — gate camp + trend */}
+            {hotzone && (hotzone.kills_current + hotzone.pods_current) > 0 && (
+              <div className="flex flex-wrap gap-3 pt-1.5 border-t border-border/30">
+                {hotzone.gate_camp_likely && (
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3 w-3 text-red-400" />
+                    <span className="text-xs font-medium text-red-400">Gate Camp Likely</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  {hotzone.trend > 1.0 ? (
+                    <TrendingUp className="h-3 w-3 text-orange-400" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3 text-green-400" />
+                  )}
+                  <span className="text-xs text-text-secondary">
+                    {hotzone.trend > 1.0 ? 'Heating up' : 'Cooling down'}
+                    <span className="text-text-secondary/60"> ({hotzone.trend.toFixed(1)}x)</span>
+                  </span>
+                </div>
+                {hotzone.predicted_1hr > 0 && (
+                  <span className="text-xs text-text-secondary">
+                    ~{hotzone.predicted_1hr} kills predicted (1h)
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Gate camp inline warning — visible without expanding */}
+      {!expanded && hotzone?.gate_camp_likely && (
+        <div className="hidden sm:flex items-center gap-1.5 px-3 pb-2 ml-[calc(6.25%+0.5rem)]">
+          <AlertTriangle className="h-3 w-3 text-red-400" />
+          <span className="text-[10px] font-medium text-red-400">Gate camp likely in {leg.to_system}</span>
+        </div>
+      )}
+
+      {/* Mobile card */}
+      <div className="sm:hidden px-3 py-2.5 border-t border-border space-y-1.5">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-text-secondary font-mono">{idx + 1}.</span>
+          <span className="text-text font-medium truncate">{leg.from_system}</span>
+          <span className="text-text-secondary">&rarr;</span>
+          <span className="text-text font-medium truncate">{leg.to_system}</span>
+          <SecurityBadge security={leg.to_security_status} size="sm" />
+        </div>
+        {leg.to_region_name && (
+          <div className="text-xs text-text-secondary ml-6">{leg.to_region_name}</div>
+        )}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Distance</span>
+            <span className="text-blue-400 font-mono">{leg.distance_ly.toFixed(1)} LY</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Fuel</span>
+            <span className="text-yellow-400 font-mono">{leg.fuel_required.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Fatigue</span>
+            <span className="text-text-secondary font-mono">{formatMinutes(leg.total_fatigue_minutes)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Wait</span>
+            {leg.wait_time_minutes > 0 ? (
+              <span className="text-risk-orange font-mono">{formatMinutes(leg.wait_time_minutes)}</span>
+            ) : (
+              <span className="text-green-400 font-mono">Ready</span>
+            )}
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Risk</span>
+            <RiskBadge riskColor={riskColor} riskScore={leg.to_risk_score} showIcon={false} size="sm" />
+          </div>
+          {leg.to_has_npc_station && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">Station</span>
+              <span className="text-green-400 font-mono flex items-center gap-1"><Building2 className="h-3 w-3" /> Yes</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RoutePageContent() {
   const searchParams = useSearchParams();
 
@@ -223,6 +422,33 @@ function RoutePageContent() {
   const [jumpResult, setJumpResult] = useState<JumpRouteResponse | null>(null);
   const [jumpLoading, setJumpLoading] = useState(false);
   const [jumpError, setJumpError] = useState<Error | null>(null);
+
+  // Fetch hotzones for jump destination warnings (same pattern as RouteResult)
+  const { data: jumpHotzoneData } = useQuery<HotzoneResponse>({
+    queryKey: ['hotzones-jump-check'],
+    queryFn: () => GatekeeperAPI.getHotzones(1, 50),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    enabled: capitalMode && jumpResult != null,
+  });
+
+  // Build hotzone lookup by system name for jump destinations
+  const jumpHotzoneBySystem = useMemo(() => {
+    const map = new Map<string, HotzoneSystemData>();
+    for (const hz of jumpHotzoneData?.systems ?? []) {
+      map.set(hz.system_name, hz);
+    }
+    return map;
+  }, [jumpHotzoneData]);
+
+  // Find jump destinations that are active hotzones
+  const jumpHotzoneWarnings = useMemo(() => {
+    if (!jumpResult || !jumpHotzoneData) return [];
+    const destNames = new Set(jumpResult.legs.map((l) => l.to_system));
+    return jumpHotzoneData.systems.filter(
+      (hz) => destNames.has(hz.system_name) && (hz.kills_current + hz.pods_current) >= 3
+    );
+  }, [jumpResult, jumpHotzoneData]);
 
   const hullInfo = HULLS[selectedHull] ?? { category: 'jump_freighter' as CapitalShipType, fuel: 'nitrogen' as FuelType };
   const fuelType = hullInfo.fuel;
@@ -665,6 +891,31 @@ function RoutePageContent() {
             </Card>
           )}
 
+          {/* Hotzone warning for jump destinations */}
+          {jumpHotzoneWarnings.length > 0 && (
+            <div className="flex items-start gap-3 bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3">
+              <Flame className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="text-sm font-medium text-orange-400">
+                  Active Hotzones at Jump Destinations
+                </div>
+                <div className="text-xs text-text-secondary mt-1">
+                  {jumpHotzoneWarnings.length === 1
+                    ? 'A destination system has significant recent kill activity. Light cyno with caution.'
+                    : `${jumpHotzoneWarnings.length} destination systems have significant recent kill activity. Light cynos with caution.`}
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {jumpHotzoneWarnings.map((hz) => (
+                    <span key={hz.system_name} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      {hz.system_name} — {hz.kills_current + hz.pods_current} kills
+                      {hz.gate_camp_likely ? ' (camp)' : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Jump strip — arc visualization */}
           <JumpStrip legs={jumpResult.legs} fuelTypeName={jumpResult.fuel_type_name} />
 
@@ -682,79 +933,23 @@ function RoutePageContent() {
 
           {/* Per-leg table */}
           {jumpResult.legs.length > 0 && (
-            <div className="border border-border rounded-lg overflow-x-auto">
+            <div className="border border-border rounded-lg overflow-hidden">
               {/* Desktop table header */}
-              <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[650px]">
+              <div className="hidden sm:grid grid-cols-16 gap-2 px-3 py-2.5 bg-card text-xs text-text-secondary uppercase font-semibold min-w-[800px]">
                 <div className="col-span-1 text-center">#</div>
-                <div className="col-span-3">From</div>
+                <div className="col-span-2">From</div>
                 <div className="col-span-3">To</div>
+                <div className="col-span-2">Region</div>
                 <div className="col-span-1 text-right">LY</div>
                 <div className="col-span-1 text-right">Fuel</div>
                 <div className="col-span-1 text-right">Fatigue</div>
-                <div className="col-span-2 text-right">Wait</div>
+                <div className="col-span-1 text-right">Wait</div>
+                <div className="col-span-1 text-center">Sec</div>
+                <div className="col-span-1 text-center">Risk</div>
+                <div className="col-span-2 text-center">Info</div>
               </div>
               {jumpResult.legs.map((leg, idx) => (
-                <div key={`${leg.from_system}-${leg.to_system}`}>
-                  {/* Desktop table row */}
-                  <div className="hidden sm:grid grid-cols-12 gap-2 px-3 py-2.5 border-t border-border hover:bg-card-hover transition-colors items-center min-w-[650px] text-sm">
-                    <div className="col-span-1 text-center text-text-secondary font-mono">
-                      {idx + 1}
-                    </div>
-                    <div className="col-span-3 text-text font-medium truncate" title={leg.from_system}>
-                      {leg.from_system}
-                    </div>
-                    <div className="col-span-3 text-text font-medium truncate" title={leg.to_system}>
-                      {leg.to_system}
-                    </div>
-                    <div className="col-span-1 text-right text-blue-400 font-mono">
-                      {leg.distance_ly.toFixed(1)}
-                    </div>
-                    <div className="col-span-1 text-right text-yellow-400 font-mono">
-                      {leg.fuel_required.toLocaleString()}
-                    </div>
-                    <div className="col-span-1 text-right text-text-secondary font-mono">
-                      {formatMinutes(leg.total_fatigue_minutes)}
-                    </div>
-                    <div className="col-span-2 text-right font-mono">
-                      {leg.wait_time_minutes > 0 ? (
-                        <span className="text-risk-orange">{formatMinutes(leg.wait_time_minutes)}</span>
-                      ) : (
-                        <span className="text-green-400">Ready</span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Mobile card */}
-                  <div className="sm:hidden px-3 py-2.5 border-t border-border space-y-1.5">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-text-secondary font-mono">{idx + 1}.</span>
-                      <span className="text-text font-medium truncate">{leg.from_system}</span>
-                      <span className="text-text-secondary">&rarr;</span>
-                      <span className="text-text font-medium truncate">{leg.to_system}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Distance</span>
-                        <span className="text-blue-400 font-mono">{leg.distance_ly.toFixed(1)} LY</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Fuel</span>
-                        <span className="text-yellow-400 font-mono">{leg.fuel_required.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Fatigue</span>
-                        <span className="text-text-secondary font-mono">{formatMinutes(leg.total_fatigue_minutes)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-secondary">Wait</span>
-                        {leg.wait_time_minutes > 0 ? (
-                          <span className="text-risk-orange font-mono">{formatMinutes(leg.wait_time_minutes)}</span>
-                        ) : (
-                          <span className="text-green-400 font-mono">Ready</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <JumpLegRow key={`${leg.from_system}-${leg.to_system}`} leg={leg} idx={idx} hotzone={jumpHotzoneBySystem.get(leg.to_system)} />
               ))}
             </div>
           )}

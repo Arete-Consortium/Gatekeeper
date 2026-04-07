@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from .risk import RiskBreakdown, ZKillStats
+
 
 class ShipType(StrEnum):
     """Capital ship types with jump drives."""
@@ -59,6 +61,22 @@ class JumpLegResponse(BaseModel):
     fatigue_added_minutes: float
     total_fatigue_minutes: float
     wait_time_minutes: float
+    # Destination system intel
+    to_system_id: int = Field(0, description="Destination system EVE ID")
+    to_security_status: float = Field(0.0, description="Destination security status (-1.0 to 1.0)")
+    to_category: str = Field("", description="Destination security class: lowsec, nullsec")
+    to_region_name: str = Field("", description="Destination region name")
+    to_has_npc_station: bool = Field(False, description="Whether destination has NPC stations")
+    to_risk_score: float = Field(0.0, description="Destination risk score (0-100)")
+    to_risk_breakdown: RiskBreakdown | None = Field(
+        None, description="Risk score component breakdown"
+    )
+    to_zkill_stats: ZKillStats | None = Field(
+        None, description="Recent zKillboard activity for destination"
+    )
+    to_pirate_suppressed: bool = Field(
+        False, description="Whether pirate insurgency suppresses destination security"
+    )
 
 
 class JumpRouteResponse(BaseModel):

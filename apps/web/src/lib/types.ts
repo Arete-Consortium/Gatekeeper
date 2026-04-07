@@ -438,6 +438,16 @@ export interface JumpLegResponse {
   fatigue_added_minutes: number;
   total_fatigue_minutes: number;
   wait_time_minutes: number;
+  // Destination system intel
+  to_system_id: number;
+  to_security_status: number;
+  to_category: string;
+  to_region_name: string;
+  to_has_npc_station: boolean;
+  to_risk_score: number;
+  to_risk_breakdown?: RiskBreakdown;
+  to_zkill_stats?: ZKillStats;
+  to_pirate_suppressed?: boolean;
 }
 
 export interface JumpRouteResponse {

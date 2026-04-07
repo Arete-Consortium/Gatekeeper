@@ -23,6 +23,7 @@ from ...services.jump_drive import (
     find_systems_in_range,
     plan_jump_route,
 )
+from ...services.risk_engine import compute_route_risks_async
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,29 @@ def get_systems_in_range(
     )
 
 
+def _build_leg_response(leg, risk_by_system: dict) -> JumpLegResponse:
+    """Build a JumpLegResponse enriched with destination system risk data."""
+    risk_report = risk_by_system.get(leg.to_system)
+    return JumpLegResponse(
+        from_system=leg.from_system,
+        to_system=leg.to_system,
+        distance_ly=leg.distance_ly,
+        fuel_required=leg.fuel_required,
+        fatigue_added_minutes=leg.fatigue_added_minutes,
+        total_fatigue_minutes=leg.total_fatigue_minutes,
+        wait_time_minutes=leg.wait_time_minutes,
+        to_system_id=leg.to_system_id,
+        to_security_status=leg.to_security_status,
+        to_category=leg.to_category,
+        to_region_name=leg.to_region_name,
+        to_has_npc_station=leg.to_has_npc_station,
+        to_risk_score=round(risk_report.score, 1) if risk_report else 0.0,
+        to_risk_breakdown=risk_report.breakdown if risk_report else None,
+        to_zkill_stats=risk_report.zkill_stats if risk_report else None,
+        to_pirate_suppressed=risk_report.pirate_suppressed if risk_report else False,
+    )
+
+
 @router.get(
     "/route",
     response_model=JumpRouteResponse,
@@ -202,9 +226,14 @@ async def get_jump_route(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
 
-    # Fetch Jita fuel price
+    # Fetch Jita fuel price and destination system risk data in parallel
     fuel_unit_cost = 0.0
     total_fuel_cost = 0.0
+
+    # Collect unique destination system names for risk lookup
+    dest_systems = list({leg.to_system for leg in route.legs})
+
+    # Fetch fuel prices
     if route.fuel_type_id and route.total_fuel:
         try:
             prices = await get_jita_prices([route.fuel_type_id])
@@ -218,6 +247,16 @@ async def get_jump_route(
                 route.fuel_type_id,
             )
 
+    # Fetch risk data for destination systems (using capital ship profile)
+    risk_by_system: dict = {}
+    if dest_systems:
+        try:
+            risk_by_system = await compute_route_risks_async(
+                dest_systems, fetch_live=False, ship_profile_name="capital"
+            )
+        except Exception:
+            logger.warning("Failed to compute risk for jump destinations")
+
     return JumpRouteResponse(
         from_system=route.from_system,
         to_system=route.to_system,
@@ -227,18 +266,7 @@ async def get_jump_route(
         total_fuel=route.total_fuel,
         total_fatigue_minutes=route.total_fatigue_minutes,
         total_travel_time_minutes=route.total_travel_time_minutes,
-        legs=[
-            JumpLegResponse(
-                from_system=leg.from_system,
-                to_system=leg.to_system,
-                distance_ly=leg.distance_ly,
-                fuel_required=leg.fuel_required,
-                fatigue_added_minutes=leg.fatigue_added_minutes,
-                total_fatigue_minutes=leg.total_fatigue_minutes,
-                wait_time_minutes=leg.wait_time_minutes,
-            )
-            for leg in route.legs
-        ],
+        legs=[_build_leg_response(leg, risk_by_system) for leg in route.legs],
         fuel_type_id=route.fuel_type_id,
         fuel_type_name=route.fuel_type_name,
         fuel_unit_cost=round(fuel_unit_cost, 2),

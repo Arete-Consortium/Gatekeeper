@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      gridTemplateColumns: {
+        '16': 'repeat(16, minmax(0, 1fr))',
+      },
       colors: {
         // EVE Online dark theme
         background: '#000000',

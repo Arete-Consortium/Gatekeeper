@@ -84,3 +84,4 @@ web-build/
 *.key
 credentials.json
 coverage/
+.claude/

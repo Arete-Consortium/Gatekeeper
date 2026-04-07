@@ -107,6 +107,12 @@ class JumpLeg:
     fatigue_added_minutes: float
     total_fatigue_minutes: float
     wait_time_minutes: float
+    # Destination system intel (populated after route calculation)
+    to_system_id: int = 0
+    to_security_status: float = 0.0
+    to_category: str = ""
+    to_region_name: str = ""
+    to_has_npc_station: bool = False
 
 
 @dataclass
@@ -334,6 +340,7 @@ def plan_jump_route(
         JumpRoute with complete route details.
     """
     jump_range = calculate_jump_range(ship_type, jdc_level, jfc_level)
+    universe = load_universe()
 
     # Resolve fuel type
     resolved_fuel = fuel_type or DEFAULT_FUEL_TYPE.get(ship_type, "helium")
@@ -372,6 +379,8 @@ def plan_jump_route(
             distance, current_fatigue
         )
 
+        # Look up destination system intel
+        dest_sys = universe.systems.get(dest)
         legs.append(
             JumpLeg(
                 from_system=origin,
@@ -381,6 +390,11 @@ def plan_jump_route(
                 fatigue_added_minutes=fatigue_added,
                 total_fatigue_minutes=current_fatigue,
                 wait_time_minutes=wait_time,
+                to_system_id=dest_sys.id if dest_sys else 0,
+                to_security_status=dest_sys.security if dest_sys else 0.0,
+                to_category=dest_sys.category if dest_sys else "",
+                to_region_name=dest_sys.region_name if dest_sys else "",
+                to_has_npc_station=dest_sys.has_npc_station if dest_sys else False,
             )
         )
 
