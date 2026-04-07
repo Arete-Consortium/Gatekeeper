@@ -13,7 +13,7 @@ interface JumpStripProps {
 
 const NODE_RADIUS = 10;
 const NODE_SPACING = 100;
-const STRIP_HEIGHT = 120;
+const STRIP_HEIGHT = 135;
 const BASELINE_Y = 50;
 
 // Fatigue → arc color
@@ -22,6 +22,21 @@ function getFatigueColor(fatigue: number): string {
   if (fatigue < 30) return '#eab308';
   if (fatigue < 60) return '#f97316';
   return '#ef4444';
+}
+
+// Security status → node color (matches SecurityBadge palette)
+function getSecurityNodeColor(sec: number): string {
+  if (sec >= 0.5) return '#00ff00'; // highsec
+  if (sec > 0) return '#ffaa00';    // lowsec
+  return '#ff4444';                  // nullsec
+}
+
+// Risk score → arc glow color
+function getRiskArcColor(score: number): string {
+  if (score < 25) return '#32d74b';
+  if (score < 50) return '#ffd60a';
+  if (score < 75) return '#ff9f0a';
+  return '#ff453a';
 }
 
 /**
@@ -82,7 +97,8 @@ export const JumpStrip = memo(function JumpStrip({
       const midX = (x1 + x2) / 2;
       const isHovered = activeHover === i;
       const arcHeight = 25 + Math.min(leg.distance_ly, 10) * 2;
-      const fatigueColor = getFatigueColor(leg.total_fatigue_minutes);
+      // Color arc by destination risk (more actionable than fatigue)
+      const arcColor = getRiskArcColor(leg.to_risk_score ?? 0);
 
       ctx.save();
 
@@ -90,7 +106,7 @@ export const JumpStrip = memo(function JumpStrip({
       ctx.beginPath();
       ctx.moveTo(x1, BASELINE_Y);
       ctx.quadraticCurveTo(midX, BASELINE_Y - arcHeight, x2, BASELINE_Y);
-      ctx.strokeStyle = isHovered ? '#22d3ee' : fatigueColor;
+      ctx.strokeStyle = isHovered ? '#22d3ee' : arcColor;
       ctx.lineWidth = isHovered ? 3 : 2;
       ctx.setLineDash([6, 4]);
 
@@ -142,11 +158,21 @@ export const JumpStrip = memo(function JumpStrip({
         ctx.stroke();
       }
 
-      // Cyno waypoint ring (intermediate)
+      // Determine node color: endpoints keep green/red, intermediates use security
+      let nodeColor: string;
+      if (isEndpoint) {
+        nodeColor = i === 0 ? '#33cc55' : '#ee4444';
+      } else {
+        // Intermediate node: color by destination security of the leg leading to it
+        const legToNode = legs[i - 1];
+        nodeColor = legToNode ? getSecurityNodeColor(legToNode.to_security_status ?? 0) : '#f59e0b';
+      }
+
+      // Cyno waypoint ring (intermediate) — colored by security
       if (!isEndpoint) {
         ctx.beginPath();
         ctx.arc(x, BASELINE_Y, r + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = '#f59e0b40';
+        ctx.strokeStyle = nodeColor + '40';
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -159,9 +185,7 @@ export const JumpStrip = memo(function JumpStrip({
 
       ctx.beginPath();
       ctx.arc(x, BASELINE_Y, r, 0, Math.PI * 2);
-      ctx.fillStyle = isEndpoint
-        ? i === 0 ? '#33cc55' : '#ee4444'
-        : '#f59e0b';
+      ctx.fillStyle = nodeColor;
       ctx.fill();
 
       // Inner dot
@@ -179,13 +203,18 @@ export const JumpStrip = memo(function JumpStrip({
       ctx.fillStyle = isHoveredNode || isEndpoint ? '#ffffff' : '#94a3b8';
       ctx.fillText(systems[i], x, BASELINE_Y + r + 16);
 
-      // Cumulative fatigue below name
+      // Security + fatigue below name
       if (i > 0) {
-        const totalFatigue = legs[i - 1].total_fatigue_minutes;
-        if (totalFatigue > 0) {
-          ctx.font = '8px system-ui, -apple-system, sans-serif';
-          ctx.fillStyle = getFatigueColor(totalFatigue);
-          ctx.fillText(`${Math.ceil(totalFatigue)}m fatigue`, x, BASELINE_Y + r + 28);
+        const legToNode = legs[i - 1];
+        ctx.font = '8px system-ui, -apple-system, sans-serif';
+        // Security status label
+        const secValue = legToNode.to_security_status ?? 0;
+        ctx.fillStyle = getSecurityNodeColor(secValue);
+        ctx.fillText(secValue.toFixed(1), x, BASELINE_Y + r + 28);
+        // Fatigue below security
+        if (legToNode.total_fatigue_minutes > 0) {
+          ctx.fillStyle = getFatigueColor(legToNode.total_fatigue_minutes);
+          ctx.fillText(`${Math.ceil(legToNode.total_fatigue_minutes)}m`, x, BASELINE_Y + r + 38);
         }
       }
       ctx.restore();

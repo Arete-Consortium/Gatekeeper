@@ -11,8 +11,9 @@ import type { Waypoint } from '@/components/route';
 import { ROUTE_PROFILES } from '@/lib/utils';
 import type { RouteProfile, CapitalShipType, FuelType, JumpRouteResponse, HotzoneResponse, HotzoneSystemData } from '@/lib/types';
 import { GatekeeperAPI } from '@/lib/api';
-import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2, Share2, Check, Shield, Crosshair, Skull, Building2, AlertTriangle, Flame, TrendingUp, TrendingDown } from 'lucide-react';
+import { Route, Loader2, Rocket, Fuel, Clock, ChevronDown, ChevronUp, Settings2, Share2, Check, Shield, Crosshair, Skull, Building2, AlertTriangle, Flame, TrendingUp, TrendingDown, Gauge, Map as MapIcon } from 'lucide-react';
 import { ErrorMessage, getUserFriendlyError } from '@/components/ui';
+import Link from 'next/link';
 import { JumpStrip } from '@/components/route/JumpStrip';
 import { SecurityBadge, RiskBadge } from '@/components/system';
 import dynamic from 'next/dynamic';
@@ -232,8 +233,20 @@ function JumpLegRow({ leg, idx, hotzone }: { leg: import('@/lib/types').JumpLegR
       {expanded && (leg.to_risk_breakdown || hotzone) && (
         <div className="hidden sm:block px-3 pb-3 pt-0 border-t border-border/50 bg-card/50">
           <div className="ml-[calc(6.25%+0.5rem)] mr-4 space-y-2 pt-2">
-            <div className="text-[10px] uppercase tracking-wider text-text-secondary/60 font-semibold">
-              Destination Intel — {leg.to_system}
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] uppercase tracking-wider text-text-secondary/60 font-semibold">
+                Destination Intel — {leg.to_system}
+              </div>
+              <Link
+                href={`/map?system=${encodeURIComponent(leg.to_system)}`}
+                className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded
+                  bg-primary/15 text-primary/80 border border-primary/20
+                  hover:bg-primary/25 hover:text-primary transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MapIcon className="h-3 w-3" />
+                Map
+              </Link>
             </div>
             {leg.to_risk_breakdown && (
               <div className="grid grid-cols-3 gap-4">
@@ -449,6 +462,15 @@ function RoutePageContent() {
       (hz) => destNames.has(hz.system_name) && (hz.kills_current + hz.pods_current) >= 3
     );
   }, [jumpResult, jumpHotzoneData]);
+
+  // Max and avg risk across jump destinations
+  const jumpRiskStats = useMemo(() => {
+    if (!jumpResult || jumpResult.legs.length === 0) return { max: 0, avg: 0 };
+    const scores = jumpResult.legs.map((l) => l.to_risk_score ?? 0);
+    const max = Math.max(...scores);
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    return { max: Math.round(max * 10) / 10, avg: Math.round(avg * 10) / 10 };
+  }, [jumpResult]);
 
   const hullInfo = HULLS[selectedHull] ?? { category: 'jump_freighter' as CapitalShipType, fuel: 'nitrogen' as FuelType };
   const fuelType = hullInfo.fuel;
@@ -839,8 +861,22 @@ function RoutePageContent() {
       {/* Capital jump results */}
       {capitalMode && jumpResult && (
         <div className="space-y-4">
+          {/* Top actions */}
+          <div className="flex justify-end">
+            <Link
+              href={`/map?from=${encodeURIComponent(jumpResult.from_system)}&to=${encodeURIComponent(jumpResult.to_system)}`}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg
+                bg-primary/20 text-primary border border-primary/30
+                hover:bg-primary/30 hover:border-primary/50
+                transition-colors"
+            >
+              <MapIcon className="h-4 w-4" />
+              View on Map
+            </Link>
+          </div>
+
           {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card className="text-center">
               <div className="text-xs text-text-secondary uppercase mb-1">Jumps</div>
               <div className="text-xl font-bold text-text">{jumpResult.total_jumps}</div>
@@ -870,6 +906,24 @@ function RoutePageContent() {
               </div>
               <div className="text-xl font-bold text-text">
                 {formatMinutes(jumpResult.total_travel_time_minutes)}
+              </div>
+            </Card>
+            <Card className="text-center">
+              <div className="text-xs text-text-secondary uppercase mb-1">
+                <Gauge className="h-3 w-3 inline mr-1" />
+                Max Risk
+              </div>
+              <div className="flex justify-center">
+                <RiskBadge riskColor={getJumpRiskColor(jumpRiskStats.max)} riskScore={jumpRiskStats.max} showIcon={false} size="lg" />
+              </div>
+            </Card>
+            <Card className="text-center">
+              <div className="text-xs text-text-secondary uppercase mb-1">
+                <Gauge className="h-3 w-3 inline mr-1" />
+                Avg Risk
+              </div>
+              <div className="flex justify-center">
+                <RiskBadge riskColor={getJumpRiskColor(jumpRiskStats.avg)} riskScore={jumpRiskStats.avg} showIcon={false} size="lg" />
               </div>
             </Card>
           </div>
