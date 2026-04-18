@@ -26,6 +26,9 @@ defaults:
   run:
     working-directory: apps/web
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
