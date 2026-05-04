@@ -4,7 +4,7 @@ Tracks API endpoint hits and unique client IPs for DAU estimation.
 Also detects feature usage from URL patterns.
 """
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -22,7 +22,9 @@ _FEATURE_PATTERNS: list[tuple[str, str]] = [
 class UsageTrackingMiddleware(BaseHTTPMiddleware):
     """Track endpoint usage and DAU for admin analytics."""
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         path = request.url.path
 
         # Skip health/status/docs endpoints from tracking
