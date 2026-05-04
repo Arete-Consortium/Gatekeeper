@@ -107,7 +107,7 @@ async def _resolve_type_name(type_id: int) -> str:
             resp.raise_for_status()
             data = resp.json()
             if data:
-                name = data[0].get("name", f"Type {type_id}")
+                name = str(data[0].get("name", f"Type {type_id}"))
                 _name_cache[type_id] = name
                 return name
     except httpx.HTTPError as exc:
