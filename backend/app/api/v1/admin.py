@@ -241,7 +241,9 @@ async def get_admin_analytics(
 
     # Popular endpoints from in-memory tracker
     top_endpoints = get_top_endpoints(10)
-    popular = [EndpointHit(endpoint=str(e["endpoint"]), count=int(e["count"])) for e in top_endpoints]
+    popular = [
+        EndpointHit(endpoint=str(e["endpoint"]), count=int(e["count"])) for e in top_endpoints
+    ]
 
     # Feature usage from in-memory counters
     usage = get_feature_usage()

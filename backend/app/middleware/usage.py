@@ -22,9 +22,7 @@ _FEATURE_PATTERNS: list[tuple[str, str]] = [
 class UsageTrackingMiddleware(BaseHTTPMiddleware):
     """Track endpoint usage and DAU for admin analytics."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
 
         # Skip health/status/docs endpoints from tracking
