@@ -135,10 +135,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Notify Discord
-        if: always() && secrets.DISCORD_WEBHOOK_CICD != ''
+        if: always()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
         run: |
+          [ -z "$DISCORD_WEBHOOK" ] && exit 0
           STATUS="${{ job.status }}"
           COLOR=$([ "$STATUS" = "success" ] && echo 3066993 || echo 15158332)
           ICON=$([ "$STATUS" = "success" ] && echo "✅" || echo "❌")
