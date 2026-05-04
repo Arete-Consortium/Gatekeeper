@@ -37,7 +37,7 @@ slowapi>=0.1.9
 brotli>=1.2.0
 
 # Environment
-python-dotenv>=1.0.0
+python-dotenv>=1.2.2
 
 # Logging
 structlog>=24.1.0
