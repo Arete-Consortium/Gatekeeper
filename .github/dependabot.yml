@@ -28,3 +28,19 @@ updates:
     commit-message:
       prefix: "ci"
 
+  # npm ecosystem blocks below exist only to host `ignore` rules for
+  # security updates GitHub auto-runs regardless of dependabot.yml.
+  # open-pull-requests-limit: 0 keeps regular version bumps OFF so
+  # this isn't a flood; security updates still flow for everything
+  # except the listed packages.
+  - package-ecosystem: "npm"
+    directory: "/apps/mobile"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    # uuid <14 security advisory: locked to v7 by RN/Expo transitive
+    # peer-deps; no patched version reachable without breaking the RN
+    # ecosystem. Re-enable when upstream RN/Expo bumps past 14.0.0.
+    ignore:
+      - dependency-name: "uuid"
+
