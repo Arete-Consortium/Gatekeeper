@@ -28,7 +28,7 @@ redis>=5.0.0
 cachetools>=5.3.0
 
 # Payments
-stripe>=8.0.0
+stripe>=15.1.0
 
 # Rate Limiting
 slowapi>=0.1.9
