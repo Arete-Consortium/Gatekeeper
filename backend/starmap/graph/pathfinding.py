@@ -366,7 +366,7 @@ async def find_route_avoid(
             placeholders = ",".join("?" * len(avoid_regions))
             # nosemgrep: sqlalchemy-execute-raw-query — placeholders are ? params, not user input
             cursor = await db.execute(
-                f"SELECT system_id FROM solar_systems WHERE region_id IN ({placeholders})",
+                f"SELECT system_id FROM solar_systems WHERE region_id IN ({placeholders})",  # nosec B608
                 avoid_regions,
             )
             async for row in cursor:

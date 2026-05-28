@@ -73,11 +73,20 @@ jobs:
         if: always()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CICD }}
+          JOB_STATUS: ${{ job.status }}
+          REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           [ -z "$DISCORD_WEBHOOK" ] && exit 0
-          STATUS="${{ job.status }}"
-          COLOR=$([ "$STATUS" = "success" ] && echo 3066993 || echo 15158332)
-          ICON=$([ "$STATUS" = "success" ] && echo "✅" || echo "❌")
+          COLOR=$([ "$JOB_STATUS" = "success" ] && echo 3066993 || echo 15158332)
+          ICON=$([ "$JOB_STATUS" = "success" ] && echo "✅" || echo "❌")
+          payload=$(jq -nc \
+            --arg icon "$ICON" \
+            --arg repo "$REPO" \
+            --arg ref "$REF_NAME" \
+            --arg status "$JOB_STATUS" \
+            --argjson color "$COLOR" \
+            '{embeds: [{title: ($icon + " " + $repo), description: ("Branch: " + $ref + " | Status: " + $status), color: $color}]}')
           curl -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$ICON ${{ github.repository }}\",\"description\":\"Branch: ${{ github.ref_name }} | Status: $STATUS\",\"color\":$COLOR}]}"
+            -d "$payload"

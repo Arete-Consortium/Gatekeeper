@@ -246,8 +246,11 @@ const ZKILLBOARD_WS_URL = 'wss://zkillboard.com/websocket/';
  */
 function getBackendWsUrl(): string {
   const baseUrl = GatekeeperAPI.getBaseUrl().trim();
+  // Scheme transform: https→wss (production), http→ws (local dev only).
+  // Production baseUrl is always https://, so the http→ws branch is dev-time only.
   const wsUrl = baseUrl
     .replace(/^https:\/\//, 'wss://')
+    // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
     .replace(/^http:\/\//, 'ws://');
   // Strip trailing slash, append /api/v1/ws/killfeed
   return `${wsUrl.replace(/\/$/, '')}/api/v1/ws/killfeed`;
